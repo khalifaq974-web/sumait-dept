@@ -656,29 +656,28 @@ function buildReport(D, rows, week, now, counts, deptFilter) {
   const cell = (t, o = {}) => h.cell(t, { size: o.size || 18, bold: o.bold, color: o.color, align: o.align, fill: o.fill, m: { top: 50, bottom: 50, left: 80, right: 80 } });
   const colors = { ok: "2F7D4F", late: "B4382B", ahead: "6B4FB5", none: "7D8892" };
   const F = h.FILL;
-  const header = ["م", "المعلم", "الفصل", "القسم", "آخر ما تم إنجازه", "المقرر حسب الخطة", "الحالة", "ملاحظات"].map(t => cell(t, { bold: true, fill: F, align: C }));
+  const header = ["م", "المعلم", "الفصل", "القسم", "آخر ما تم إنجازه", "المقرر حسب الخطة", "الحالة", "ملاحظات"].map(t => h.th(t));
   const body = rows.map((r, i) => [cell(ar(i + 1), { align: C }), cell(r.teacher), cell(r.label, { align: C }), cell(SUBJECTS[r.dept]),
     cell(r.doneLabel, { size: 17 }), cell(r.planned, { size: 17 }), cell(r.st.text, { bold: true, color: colors[r.st.kind] }), cell(r.note || "", { size: 17 })]);
   const widths = [500, 2200, 800, 1300, 3300, 3300, 1300, 1700];
   const table = new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: widths, width: { size: widths.reduce((a, b) => a + b, 0), type: D.WidthType.DXA },
-    borders: h.gridBorders, rows: [new D.TableRow({ tableHeader: true, children: header }), ...body.map(r => new D.TableRow({ children: r, cantSplit: true }))] });
+    borders: h.softBorders("C9D6E3"), rows: [new D.TableRow({ tableHeader: true, children: header }), ...body.map(r => new D.TableRow({ children: r, cantSplit: true }))] });
   const dateStr = `${ar(now.getDate())}/${ar(now.getMonth() + 1)}/${ar(now.getFullYear())}`;
   const wLabel = week >= 1 && week <= WEEKS ? `الأسبوع ${WEEK_NAMES[week]} (${weekRange(week)})` : week > WEEKS ? "بعد نهاية أسابيع الخطة" : "قبل بداية الفصل";
   const sw = [2880, 2880, 2880, 2880, 2880];
   const sumTable = h.table([
-    ["مطابق للخطة", "متأخر", "متقدم", "لم يُحدَّث", "إجمالي الفصول"].map(t => cell(t, { bold: true, fill: F, align: C })),
+    ["مطابق للخطة", "متأخر", "متقدم", "لم يُحدَّث", "إجمالي الفصول"].map(t => h.th(t)),
     [counts.ok, counts.late, counts.ahead, counts.none, rows.length].map(n => cell(ar(n), { align: C, bold: true, size: 22 }))
-  ], sw);
+  ], sw, h.softBorders("C9D6E3"));
   const scope = deptFilter ? "قسم " + SUBJECTS[deptFilter] : "قسما الحديث الشريف والقرآن الكريم";
   return h.doc([
-    h.letterhead(14400), h.para("", { after: 80 }),
-    h.para("تقرير متابعة تنفيذ خطة المنهج", { size: 32, bold: true, align: C, after: 40 }),
+    ...h.formHeader("تقرير متابعة تنفيذ خطة المنهج", 14400),
     h.para(`${scope} · الفصل الدراسي الأول ١٤٤٨هـ / ٢٠٢٦–٢٠٢٧م`, { size: 21, align: C, after: 40 }),
     h.para(`تاريخ التقرير: ${dateStr} · ${wLabel}`, { size: 21, align: C, after: 160 }),
     h.heading("أولًا: ملخص الحالة"), sumTable, h.para("", { after: 80 }),
     h.heading("ثانيًا: تفاصيل ما قُطع من المنهج لكل فصل"), table, h.para("", { after: 80 }),
     h.para("ملاحظة: تُحسب الحالة بمقارنة عدد الحصص المنجزة بما يقرره توزيع الخطة المعتمد من التوجيه الفني حتى نهاية الأسبوع الحالي.", { size: 17, color: h.MUTED, after: 240 }),
-    h.signRow([["رئيس القسم", "أ. " + HEAD_SHORT], ["مدير المعهد", PRINCIPAL]], 14400)
+    h.signRow([["رئيس القسم", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400)
   ], { landscape: true });
 }
 /*ENDCORE*/
@@ -1440,14 +1439,7 @@ function buildVisitDoc(D, v, headSig, teacherSig) {
   const h = H(D), C = h.C, NAVY = h.NAVY;
   const M = { top: 20, bottom: 20, left: 70, right: 70 };
   const lc = (t, o = {}) => h.cell(t, { size: o.size || 18, bold: o.bold, align: o.align, fill: o.fill, w: o.w, color: o.color, m: M });
-  // الترويسة: شعار الوزارة يمينًا، التوجيه الفني وعنوان النموذج في الوسط، شعار المعهد يسارًا
-  const header = h.table([[
-    h.cell([new D.Paragraph({ alignment: C, children: [h.img(b64ToBytes(MOE_B64), 78, 78, "png")] })], { w: 2600 }),
-    h.cell([new D.Paragraph({ alignment: C, spacing: { after: 20 }, children: [h.img(b64ToBytes(GUID_B64), 30, 43, "png")] }),
-      h.para("التوجيه الفني للعلوم الشرعية", { size: 22, bold: true, color: NAVY, align: C, after: 40 }),
-      h.titleBox("تقرير زيارة رئيس القسم", 4200)], { w: 4800 }),
-    h.cell([new D.Paragraph({ alignment: C, children: [h.img(b64ToBytes(LOGO_B64), 80, 83, "png")] })], { w: 2600 })
-  ]], [2600, 4800, 2600], h.noBorders);
+  const header = h.formHeader("تقرير زيارة رئيس القسم");
   const F = "EEF3F8", lab = t => lc(t, { bold: true, color: NAVY });
   const info = h.table([
     [lab("اليوم:"), lc(dayName(v.date)), lab("الصف:"), lc(classFull(v.classId)), lab("التاريخ والحصة:"), lc(fmtDate(v.date) + (v.period ? " · الحصة " + ar(v.period) : ""))],
@@ -1483,7 +1475,7 @@ function buildVisitDoc(D, v, headSig, teacherSig) {
       ...(v.teacherSignedAt ? [h.para("اطّلع ووقّع: " + fmtStamp(v.teacherSignedAt), { size: 14, color: h.MUTED, align: C, after: 0 })] : [])], { w: 5000 }),
     h.cell([h.para("مدير المعهد", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), h.para(PRINCIPAL, { size: 19, bold: true, align: C, after: 0 }), h.para("", { after: 0, line: 300 })], { w: 5000 })
   ]], [5000, 5000], h.noBorders);
-  const children = [header, h.para("", { after: 40, line: 120, rule: true }), info, h.para("", { after: 60, line: 120 }), body, h.para("", { after: 60, line: 160 }), signs];
+  const children = [...header, info, h.para("", { after: 60, line: 120 }), body, h.para("", { after: 60, line: 160 }), signs];
   return new D.Document({ styles: { default: { document: { run: { font: "Arial", rightToLeft: true } } } },
     sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 560, bottom: 400, left: 850, right: 850, header: 300, footer: 200 }, borders: h.pageFrame } }, children }] });
 }
@@ -1509,9 +1501,25 @@ function H(D) {
   const table = (rows, widths, borders) => new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: widths,
     width: { size: widths.reduce((a, b) => a + b, 0), type: D.WidthType.DXA }, borders: borders || gridBorders, rows: rows.map(r => new D.TableRow({ children: r })) });
   const img = (data, w, h, type) => new D.ImageRun({ type: type || "jpg", data, transformation: { width: Math.round(w), height: Math.round(h) } });
-  const heading = t => para(t, { size: 26, bold: true, color: NAVY, before: 200, after: 100, keepNext: true });
+  const heading = t => para(t, { size: 24, bold: true, color: NAVY, before: 160, after: 80, keepNext: true, shade: "EEF3F8" });
   const titleBox = (t, w) => new D.Table({ alignment: C, visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: [w], width: { size: w, type: D.WidthType.DXA },
     borders: noBorders, rows: [new D.TableRow({ children: [cell([para(t, { size: 28, bold: true, color: "FFFFFF", align: C, after: 0, line: 300 })], { fill: NAVY, m: { top: 50, bottom: 50, left: 100, right: 100 } })] })] });
+  // الترويسة المعتمدة (تصميم نموذج تقرير الزيارة) لكل التقارير:
+  // شعار الوزارة يمينًا · شعار التوجيه الفني و«التوجيه الفني للعلوم الشرعية» وصندوق العنوان في الوسط · شعار المعهد يسارًا، ثم خط مزدوج
+  // total = عرض المنطقة المكتوبة (≈10000 عمودي، 14400 أفقي)
+  const formHeader = (title, total = 10000) => {
+    const side = Math.round(total * 0.26), mid = total - 2 * side;
+    return [table([[
+      cell([new D.Paragraph({ alignment: C, children: [img(b64ToBytes(MOE_B64), 78, 78, "png")] })], { w: side }),
+      cell([new D.Paragraph({ alignment: C, spacing: { after: 20 }, children: [img(b64ToBytes(GUID_B64), 30, 43, "png")] }),
+        para("التوجيه الفني للعلوم الشرعية", { size: 22, bold: true, color: NAVY, align: C, after: 40 }),
+        titleBox(title, Math.min(mid - 400, Math.max(3600, title.length * 230)))], { w: mid }),
+      cell([new D.Paragraph({ alignment: C, children: [img(b64ToBytes(LOGO_B64), 80, 83, "png")] })], { w: side })
+    ]], [side, mid, side], noBorders), para("", { after: 60, line: 120, rule: true })];
+  };
+  const SOFT = "EEF3F8";
+  const th = (t, o = {}) => cell(t, { size: o.size || 18, bold: true, color: "FFFFFF", fill: NAVY, align: C, w: o.w, m: { top: 40, bottom: 40, left: 70, right: 70 } });
+  const lab = (t, o = {}) => cell(t, { size: o.size || 19, bold: true, color: NAVY, fill: SOFT, w: o.w, align: o.align });
   // total = عرض المنطقة المكتوبة (9700 عمودي، 14400 أفقي)
   const letterhead = (total = 9700) => {
     const side = Math.round(total * 0.27), mid = total - 2 * side;
@@ -1522,17 +1530,18 @@ function H(D) {
       cell([new D.Paragraph({ alignment: C, children: [img(b64ToBytes(LOGO_B64), 72, 75, "png")] })], { w: side })
     ]], [side, mid, side], noBorders);
   };
+  // التواقيع بتصميم نموذج الزيارة: الصفة كحلية، الاسم عريض، ومساحة للتوقيع
   const signRow = (names, total = 9600) => new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: names.map(() => Math.floor(total / names.length)),
     width: { size: total, type: D.WidthType.DXA }, borders: noBorders,
-    rows: [new D.TableRow({ cantSplit: true, children: names.map(([role, n]) => cell([para(role, { align: C, bold: true, size: 21, color: NAVY, after: 60 }), para(n, { align: C, size: 20, bold: true, after: 200 }), para("التوقيع: ..................", { align: C, size: 20, color: MUTED, after: 0 })])) })] });
+    rows: [new D.TableRow({ cantSplit: true, children: names.map(([role, n]) => cell([para(role, { align: C, bold: true, size: 20, color: NAVY, after: 0 }), para(n, { align: C, size: 19, bold: true, after: 0 }), para("", { after: 0, line: 560 })])) })] });
   const frameLine = { style: D.BorderStyle.DOUBLE, size: 6, color: NAVY, space: 18 };
   const pageFrame = { pageBorderTop: frameLine, pageBorderBottom: frameLine, pageBorderLeft: frameLine, pageBorderRight: frameLine, pageBorders: { display: "allPages", offsetFrom: "page" } };
   const footer = () => new D.Footer({ children: [para(`${SCHOOL} · ${DEPT_TITLE} · رئيس القسم: أ. ${HEAD_SHORT} · مدير المعهد: ${PRINCIPAL}`, { size: 15, color: MUTED, align: C, after: 0 })] });
   const doc = (children, o = {}) => new D.Document({ styles: { default: { document: { run: { font, rightToLeft: true } } } },
     sections: [{ properties: { page: { size: o.landscape ? { width: 11906, height: 16838, orientation: D.PageOrientation.LANDSCAPE } : { width: 11906, height: 16838 },
-        margin: { top: 800, bottom: 800, left: 1100, right: 1100 }, borders: pageFrame } },
+        margin: { top: 560, bottom: 700, left: o.landscape ? 1100 : 950, right: o.landscape ? 1100 : 950, header: 300, footer: 250 }, borders: pageFrame } },
       footers: { default: footer() }, children }] });
-  return { run, para, cell, table, img, heading, titleBox, letterhead, signRow, doc, C, R, NAVY, ACCENT, MUTED, FILL, noBorders, gridBorders, softBorders, pageFrame };
+  return { run, para, cell, table, img, heading, titleBox, formHeader, th, lab, SOFT, letterhead, signRow, doc, C, R, NAVY, ACCENT, MUTED, FILL, noBorders, gridBorders, softBorders, pageFrame };
 }
 
 // يحوّل نص التقرير (## عنوان، - نقطة، فقرة) إلى فقرات وورد
@@ -1554,12 +1563,11 @@ function buildAchievementDoc(D, a, imgs) {
   const h = H(D);
   const titleLine = (String(a.report || "").match(/^\s*العنوان\s*:\s*(.+)$/m) || [])[1] || a.title;
   const info = h.table([
-    [h.cell("المعلم", { bold: true, fill: h.FILL, w: 1600 }), h.cell("أ. " + a.teacher, { w: 3250 }), h.cell("التاريخ", { bold: true, fill: h.FILL, w: 1600 }), h.cell(fmtDate(a.date, true), { w: 3250 })],
-    [h.cell("نوع النشاط", { bold: true, fill: h.FILL }), h.cell(a.type), h.cell("الفئة المستهدفة", { bold: true, fill: h.FILL }), h.cell(a.target || "طلاب المعهد")]
-  ], [1600, 3250, 1600, 3250]);
-  const children = [h.letterhead(), h.para("", { after: 60, line: 120, rule: true }), h.para("", { after: 60 }),
-    h.titleBox("تقرير نشاط", 3000), h.para("", { after: 60 }),
-    h.para(titleLine, { size: 34, bold: true, align: h.C, after: 180 }), info, h.para("", { after: 140 }),
+    [h.lab("المعلم:", { w: 1600 }), h.cell("أ. " + a.teacher, { w: 3400, size: 19 }), h.lab("التاريخ:", { w: 1600 }), h.cell(fmtDate(a.date, true), { w: 3400, size: 19 })],
+    [h.lab("نوع النشاط:"), h.cell(a.type, { size: 19 }), h.lab("الفئة المستهدفة:"), h.cell(a.target || "طلاب المعهد", { size: 19 })]
+  ], [1600, 3400, 1600, 3400], h.softBorders("C9D6E3"));
+  const children = [...h.formHeader("تقرير نشاط"),
+    h.para(titleLine, { size: 30, bold: true, color: h.NAVY, align: h.C, after: 140 }), info, h.para("", { after: 100 }),
     ...reportBody(h, a.report)];
   if (imgs.length) {
     children.push(h.heading("صور من النشاط"));
@@ -1571,32 +1579,31 @@ function buildAchievementDoc(D, a, imgs) {
     }
     children.push(h.table(rows, [4850, 4850], h.noBorders));
   }
-  children.push(h.para("", { after: 200, keepNext: true }), h.signRow([["المعلم", "أ. " + a.teacher], ["رئيس القسم", "أ. " + HEAD_SHORT], ["مدير المعهد", PRINCIPAL]], 9700));
+  children.push(h.para("", { after: 160, keepNext: true }), h.signRow([["المعلم", "أ. " + a.teacher], ["رئيس القسم", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
   return h.doc(children);
 }
 
 function buildMinuteDoc(D, m, sigs) {
   const h = H(D);
   const info = h.table([
-    [h.cell("التاريخ", { bold: true, fill: h.FILL, w: 1600 }), h.cell(fmtDate(m.date, true), { w: 3250 }), h.cell("الوقت", { bold: true, fill: h.FILL, w: 1600 }), h.cell(ar(m.time || "—"), { w: 3250 })],
-    [h.cell("المكان", { bold: true, fill: h.FILL }), h.cell(m.place || "—"), h.cell("رئيس الاجتماع", { bold: true, fill: h.FILL }), h.cell("أ. " + HEAD_SHORT)]
-  ], [1600, 3250, 1600, 3250]);
-  const children = [h.letterhead(), h.para("", { after: 60, line: 120, rule: true }), h.para("", { after: 60 }),
-    h.titleBox("محضر اجتماع", 3000), h.para("", { after: 60 }),
-    h.para(m.title, { size: 32, bold: true, align: h.C, after: 180 }), info, h.para("", { after: 120 })];
+    [h.lab("التاريخ:", { w: 1600 }), h.cell(fmtDate(m.date, true), { w: 3400, size: 19 }), h.lab("الوقت:", { w: 1600 }), h.cell(ar(m.time || "—"), { w: 3400, size: 19 })],
+    [h.lab("المكان:"), h.cell(m.place || "—", { size: 19 }), h.lab("رئيس الاجتماع:"), h.cell(HEAD_SIGN, { size: 19 })]
+  ], [1600, 3400, 1600, 3400], h.softBorders("C9D6E3"));
+  const children = [...h.formHeader("محضر اجتماع"),
+    h.para(m.title, { size: 30, bold: true, color: h.NAVY, align: h.C, after: 140 }), info, h.para("", { after: 100 })];
   const ag = lines(m.agenda), dec = lines(m.decisions);
   if (ag.length) { children.push(h.heading("أولًا: جدول الأعمال")); ag.forEach((x, i) => children.push(h.para(`${ar(i + 1)}. ${x}`, { indent: 200, after: 60 }))); }
   if (m.discussion) { children.push(h.heading("ثانيًا: ما دار في الاجتماع")); String(m.discussion).split(/\n+/).filter(s => s.trim()).forEach(p => children.push(h.para(p.trim(), { justify: true, after: 100 }))); }
   if (dec.length) { children.push(h.heading("ثالثًا: التوصيات والقرارات")); dec.forEach((x, i) => children.push(h.para(`${ar(i + 1)}. ${x}`, { indent: 200, after: 60 }))); }
   children.push(h.heading("رابعًا: الحضور والتوقيعات"));
-  const rows = [[h.cell("م", { bold: true, fill: h.FILL, align: h.C }), h.cell("الاسم", { bold: true, fill: h.FILL }), h.cell("التوقيع", { bold: true, fill: h.FILL, align: h.C }), h.cell("وقت التوقيع", { bold: true, fill: h.FILL, align: h.C })]];
+  const rows = [[h.th("م"), h.th("الاسم"), h.th("التوقيع"), h.th("وقت التوقيع")]];
   m.attendees.forEach((n, i) => {
     const s = sigs[n];
     const sigCell = s ? h.cell([new D.Paragraph({ alignment: h.C, children: [h.img(s.data, Math.min(110, 36 * s.w / s.h), Math.min(36, 110 * s.h / s.w), "png")] })]) : h.cell("", {});
     rows.push([h.cell(ar(i + 1), { align: h.C }), h.cell(n), sigCell, h.cell(s ? fmtStamp(s.signedAt) : "—", { align: h.C, size: 18, color: h.MUTED })]);
   });
-  children.push(h.table(rows, [600, 4300, 2800, 2000]));
-  children.push(h.para("", { after: 240 }), h.signRow([["رئيس القسم", "أ. " + HEAD_SHORT], ["مدير المعهد", PRINCIPAL]], 9700));
+  children.push(h.table(rows, [600, 4500, 2900, 2000], h.softBorders("C9D6E3")));
+  children.push(h.para("", { after: 200 }), h.signRow([["رئيس القسم", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
   return h.doc(children);
 }
 
