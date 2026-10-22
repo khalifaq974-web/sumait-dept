@@ -12,6 +12,7 @@ const SHEET_MIN = "المحاضر";
 const SHEET_SIG = "التواقيع";
 const SHEET_MYSIG = "توقيعات المعلمين";
 const SHEET_VIS = "الزيارات";
+const SHEET_MAIL = "سجل التنبيهات";
 
 const ST_PENDING = "بانتظار الصياغة";
 const ST_READY = "جاهز";
@@ -95,6 +96,7 @@ function setup() {
   sheet_(SHEET_MYSIG, ["المعلم", "التوقيع", "آخر تحديث"], true);
   sheet_(SHEET_VIS, ["المعرف", "المعلم", "الفصل", "القسم", "التاريخ", "الحصة", "نوع الزيارة", "الموضوع", "رقم الزيارة", "التقديرات",
     "الإيجابيات", "الملاحظات والتوصيات", "توقيع رئيس القسم", "تاريخ الإنشاء", "توقيع المعلم", "وقت توقيع المعلم"], true);
+  sheet_(SHEET_MAIL, ["الوقت", "إلى", "الموضوع", "النتيجة"], true);
   ensureDemoMinute_();
   folder_();
   const first = ss.getSheets()[0];
@@ -257,7 +259,7 @@ function submitAchievement(code, a) {
   const row = [id, me.name, String(a.date || "").slice(0, 10), String(a.type || "").slice(0, 60), title,
     String(a.target || "").slice(0, 150), desc, ids.join(","), ST_PENDING, "", nowText_(), ""];
   withLock_(() => appendText_(sh_(SHEET_ACH), row));
-  notify_(me, `إنجاز جديد: ${title} — أ. ${me.name}`, `
+  notify_(me, `رفع أ. ${me.name} إنجازًا جديدًا: ${title}`, `
     <p>رفع <b>أ. ${esc_(me.name)}</b> إنجازًا جديدًا في موقع القسم، وهو بانتظار الصياغة.</p>
     <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
       <tr><td style="background:#e8f1f8"><b>العنوان</b></td><td>${esc_(title)}</td></tr>
@@ -488,13 +490,16 @@ function demoAction(code, name, action) {
 
 function esc_(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-/** يرسل تنبيهًا لرئيس القسم. الحسابات التجريبية تصل بعلامة [تجريبي]. لا يوقف العملية إن فشل الإرسال */
+/** يرسل تنبيهًا لرئيس القسم. الحسابات التجريبية تصل بعلامة [تجريبي].
+ * لا يوقف العملية إن فشل الإرسال، لكن يسجّل كل محاولة ونتيجتها في ورقة «سجل التنبيهات» */
 function notify_(me, subject, html, attachments) {
+  const demo = me && me.isDemo;
+  subject = (demo ? "[تجريبي] " : "") + subject;
+  let result = "أُرسل";
   try {
-    const demo = me && me.isDemo;
     MailApp.sendEmail({
       to: HEAD_EMAIL,
-      subject: (demo ? "[تجريبي] " : "") + subject,
+      subject: subject,
       name: SITE_NAME,
       htmlBody: `<div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;font-size:14px;line-height:1.8;color:#2b2b2b">
         ${demo ? '<p style="background:#fff4d6;padding:6px 10px;border-radius:6px">هذا تنبيه من <b>حساب تجريبي</b>، ولا يظهر في التقارير الرسمية.</p>' : ""}
@@ -502,11 +507,13 @@ function notify_(me, subject, html, attachments) {
         <p><a href="${SITE_URL}" style="color:#1f6fa8">فتح موقع القسم</a></p></div>`,
       attachments: attachments || []
     });
-  } catch (e) { console.error("notify failed: " + e); }
+  } catch (e) { result = "فشل: " + (e && e.message || e); console.error("notify failed: " + e); }
+  try { const sh = sh_(SHEET_MAIL) || sheet_(SHEET_MAIL, ["الوقت", "إلى", "الموضوع", "النتيجة"], true); appendText_(sh, [nowText_(), HEAD_EMAIL, subject, result]); } catch (e) {}
+  return result;
 }
 
 /** لتجربة الإيميل من المحرر */
-function testEmail() { notify_(null, "تجربة تنبيهات موقع القسم", "<p>وصلتك هذه الرسالة، يعني التنبيهات تعمل.</p>"); }
+function testEmail() { Logger.log(notify_(null, "تجربة تنبيهات موقع القسم", "<p>وصلتك هذه الرسالة، يعني التنبيهات تعمل.</p>") + " — المتبقي اليوم: " + MailApp.getRemainingDailyQuota()); }
 
 // ======================= الزيارات الصفية =======================
 // نموذج «تقرير زيارة رئيس القسم» — التوجيه الفني للعلوم الشرعية (١٧ بندًا، نفس النموذج للقسمين)
