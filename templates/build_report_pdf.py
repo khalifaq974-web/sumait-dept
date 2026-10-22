@@ -79,7 +79,6 @@ p{{margin:0 0 1mm}} ul{{margin:0;padding-right:5mm}} li::marker{{color:#1E3A5F}}
 {f'<table class="info">{rows}</table>' if rows else ""}
 <div class="body">{f'<div class="photos">{photos}</div>' if photos else ""}{spec.get("html") or body_html(spec.get("text"))}</div>
 <div class="sign">{signs}</div>
-<div class="foot">معهد عبدالرحمن السميط الديني · قسم المواد الشرعية · رئيس القسم: أ. خليفة حمد القصار · مدير المعهد: د. حامد غازي العتيبي</div>
 </div></div></body></html>'''
     tmp = os.path.abspath(out_pdf) + ".html"
     open(tmp, "w", encoding="utf-8").write(doc)
