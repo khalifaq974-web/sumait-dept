@@ -9,6 +9,7 @@ report.json:
     "info": [["المعلم", "أ. ..."], ["التاريخ", "..."], ["نوع النشاط", "..."], ["الفئة المستهدفة", "..."]],
     "text": "## مقدمة\nفقرة...\n- نقطة",       # نفس صيغة عمود «التقرير» في الشيت (يُتجاهل سطر «العنوان:»)
     "photos": ["photo1.jpg"],                  # اختياري
+    "html": "<table class=\"grid\">...</table>",  # اختياري بدل text (جداول: class=grid، صف القسم: tr.dept، الحالات: late/ok/ahead/none)
     "signs": [["رئيس القسم", "أ. خليفة القصار"], ["مدير المعهد", "د. حامد غازي العتيبي"]],
     "landscape": false
   }
@@ -62,6 +63,10 @@ table.info{{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:2mm
 table.info td{{border:1px solid #C9D6E3;padding:1.1mm 2.5mm}} table.info td.k{{background:#EEF3F8;color:#1E3A5F;font-weight:700;white-space:nowrap;width:1%}}
 .body{{flex:1;font-size:10.2pt;line-height:1.62;text-align:justify}}
 h3{{font-family:Kufi;color:#1E3A5F;font-size:10.5pt;margin:1.8mm 0 .7mm;font-weight:700;background:#EEF3F8;padding:.4mm 2mm;border-radius:1mm}}
+table.grid{{width:100%;border-collapse:collapse;font-size:9pt;margin:1mm 0 2mm}}
+table.grid th{{background:#1E3A5F;color:#fff;font-family:Kufi;font-weight:700;padding:1mm 1.5mm;border:1px solid #1E3A5F}}
+table.grid td{{border:1px solid #C9D6E3;padding:.8mm 1.5mm;vertical-align:top}} table.grid tr.dept td{{background:#EEF3F8;color:#1E3A5F;font-weight:700}}
+.late{{color:#B4382B;font-weight:700}} .ok{{color:#2F7D4F;font-weight:700}} .ahead{{color:#6B4FB5;font-weight:700}} .none{{color:#7D8892}}
 p{{margin:0 0 1mm}} ul{{margin:0;padding-right:5mm}} li::marker{{color:#1E3A5F}}
 .photos{{float:left;width:44mm;margin:1.5mm 4mm 1mm 0;display:grid;gap:2mm}} .photos img{{width:44mm;border-radius:1.5mm;border:1px solid #C9D6E3}}
 .sign{{display:grid;grid-template-columns:repeat({max(1, len(spec.get("signs", [])))},1fr);text-align:center;font-size:10.5pt;margin-top:2mm}}
