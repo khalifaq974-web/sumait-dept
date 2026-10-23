@@ -227,6 +227,10 @@ table.grades tr.low td.nm { color: var(--late); font-weight: 700; }
 table.grades tr.low td.form { color: var(--late); background: var(--late-soft); }
 table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(--bg); }
 .cls-hint { margin: 10px 0; line-height: 1.7; }
+.srep-head { margin-top: 26px; } .srep-head select { width: auto; }
+.srep-li { font: inherit; color: var(--ink); text-align: right; cursor: pointer; width: 100%; }
+.srep-li:hover { border-color: var(--accent); }
+#cls-rep .attlist { margin-top: 2px; }
 @media (max-width: 640px) { .cls-stats { grid-template-columns: 1fr 1fr; } table.grades td.nm, table.grades th.nm { min-width: 140px; white-space: normal; } }
 .res-items { display: grid; gap: 10px; margin-top: 14px; }
 .res-row { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
@@ -323,7 +327,11 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         </div>
         <div class="saved" id="cls-lmsg"></div>
         <div id="cls-list"></div>
+        <div class="vis-head-row srep-head"><h3 id="srep-title">تقارير المتعلمين</h3><select id="srep-filter" aria-label="نوع التقرير"><option value="">كل التقارير</option><option value="excel">المتعلم الفائق</option><option value="weak">المتعلم المتعثر</option></select></div>
+        <div class="saved" id="srep-msg"></div>
+        <div class="list" id="srep-list"></div>
       </div>
+      <div id="cls-rep" hidden></div>
       <div id="cls-sheet" hidden>
         <div class="vis-head-row"><button class="btn ghost sm" id="cls-back" type="button">→ الرجوع إلى الصفوف</button><span class="saved" id="cls-upd"></span></div>
         <div class="card cls-card-sheet">
@@ -335,6 +343,11 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <div class="sub cls-hint">توزيع الدرجات حسب خطة التوجيه الفني: السلوك والمشاركة والواجبات ٣ لكل قسم، والمشروع ٣٫٥ لكل قسم، والاختبار القصير ١٥، فيكون التقييم البنائي ٤٠، وامتحان نهاية الفصل ٦٠. يُحسب البنائي والمجموع تلقائيًا، واترك الخانة فارغة إن لم تُرصد بعد. اضغط Enter للانتقال إلى المتعلم التالي.</div>
           <div class="row-actions"><button class="btn" id="cls-save" type="button">حفظ الدرجات</button><button class="btn ghost" id="cls-word" type="button">تنزيل الكشف وورد</button></div>
           <div class="saved" id="cls-msg"></div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div class="vis-head-row" style="margin-top:0"><h3>تقارير المتعلمين في هذا الصف</h3><div class="row-actions"><button class="btn ghost sm" type="button" id="srep-new-excel">+ تقرير متعلم فائق</button><button class="btn ghost sm" type="button" id="srep-new-weak">+ تقرير متعلم متعثر</button></div></div>
+          <div class="sub">يصل التقرير إلى رئيس الشعبة فور إرساله، ويمكنك تعديله أو تنزيله وورد لاحقًا.</div>
+          <div class="list" id="srep-class-list"></div>
         </div>
       </div>
     </section>
@@ -883,7 +896,7 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; $("cls-sheet").hidden = true; $("cls-home").hidden = false;
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
@@ -896,7 +909,7 @@ function go(sec) {
   try { localStorage.setItem("section", sec); } catch (e) {}
   if (sec === "curr") setTab(ME.isHead && !$("view-head").hidden ? "head" : "teacher");
   if (sec === "ach") achTab(ME.isHead && achSub === "all" ? "all" : "mine");
-  if (sec === "cls") { if (CUR_CLS) { $("cls-home").hidden = true; $("cls-sheet").hidden = false; } else clsHome(); }
+  if (sec === "cls") { if (!CUR_CLS && $("cls-rep").hidden) clsHome(); }
   if (sec === "min") loadMinutes();
   if (sec === "vis") visTab(ME.isHead ? (visSub === "mine" ? "new" : visSub) : "mine");
   if (sec === "res") resTab(resSub);
@@ -1038,7 +1051,7 @@ function rowTotals(v) {
   return { form, total: form !== "" && v[9] !== "" ? Math.round((form + Number(v[9])) * 100) / 100 : "" };
 }
 
-function clsHome() { $("cls-sheet").hidden = true; $("cls-home").hidden = false; CUR_CLS = null; clsDirty = false; loadClasses(); }
+function clsHome() { clsView("cls-home"); CUR_CLS = null; clsDirty = false; loadClasses(); loadSreps(); }
 async function loadClasses(force) {
   $("cls-term").value = String(clsTerm);
   if (CLS && !force) return renderClsList();
@@ -1077,17 +1090,17 @@ function renderClsList() {
   $("cls-list").innerHTML = html || `<div class="empty">لا توجد صفوف.</div>`;
   $("cls-list").querySelectorAll("[data-cls]").forEach(b => b.onclick = () => openClass(b.dataset.cls));
 }
-$("cls-teacher").onchange = () => { clsTeacherFilter = $("cls-teacher").value; renderClsList(); };
+$("cls-teacher").onchange = () => { clsTeacherFilter = $("cls-teacher").value; renderClsList(); renderSreps(); };
 $("cls-term").onchange = () => { clsTerm = Number($("cls-term").value); renderClsList(); };
 $("cls-reload").onclick = () => loadClasses(true);
 
 async function openClass(cls, keepScroll) {
-  $("cls-home").hidden = true; $("cls-sheet").hidden = false; clsLeaveArmed = false;
+  clsView("cls-sheet"); clsLeaveArmed = false;
   $("cls-title").textContent = "كشف متابعة المتعلمين"; $("cls-subtitle").textContent = classFull(cls);
   $("cls-table").innerHTML = ""; $("cls-stats").innerHTML = ""; $("cls-msg").textContent = "جارٍ تحميل الكشف…"; $("cls-upd").textContent = "";
   ["cls-t1", "cls-t2"].forEach((id, i) => $(id).setAttribute("aria-selected", clsTerm === i + 1));
   if (!keepScroll) window.scrollTo({ top: $("sec-cls").offsetTop - 10 });
-  try { CUR_CLS = await run("classSheet", CODE, cls, clsTerm); clsDirty = false; $("cls-msg").textContent = ""; renderSheet(); }
+  try { CUR_CLS = await run("classSheet", CODE, cls, clsTerm); clsDirty = false; $("cls-msg").textContent = ""; renderSheet(); loadSreps(); }
   catch (e) { $("cls-msg").textContent = cleanErr(e); }
 }
 function renderSheet() {
@@ -1201,6 +1214,168 @@ function buildClassSheetDoc(D, r) {
   return h.doc([...h.formHeader("كشف متابعة المتعلمين", 14400), info, h.para("", { after: 40 }), grid,
     h.para(stats, { size: 17, bold: true, color: NAVY, before: 60, after: 0 }),
     h.signRow([["معلم المادة", "أ. " + r.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400)], { landscape: true });
+}
+
+// ---------- تقارير المتعلمين: الفائق والمتعثر ----------
+const SREP = {
+  excel: { label: "متعلم فائق", title: "تقرير متعلم فائق", pill: "ok", desc: "وصف موجز لتفوق المتعلم",
+    a: ["مظاهر التفوق", d => ["إتقان الحفظ والاستظهار بدقة", d === "qr" ? "إتقان التلاوة وأحكام التجويد" : d === "hd" ? "فهم معاني الأحاديث واستنباط الفوائد منها" : "إتقان التلاوة والتجويد (القرآن) / فهم معاني الأحاديث (الحديث)",
+      "سرعة الفهم والاستيعاب", "المشاركة الفاعلة والمبادرة في الحصة", "التميز في الواجبات والمشروع", "حسن الخلق والانضباط والقدوة لزملائه", "التفوق في المسابقات والأنشطة"]],
+    b: ["أساليب الرعاية والإثراء المقترحة", () => ["تكليفه بدور المعلم الصغير ومساعدة زملائه", "ترشيحه لمسابقات الحفظ والتلاوة والحديث", "تكليفه بأنشطة إثرائية وبحوث قصيرة", "إشراكه في الإذاعة المدرسية", "تكريمه وإدراج اسمه في لوحة الشرف", "التواصل مع ولي الأمر للإشادة به"]] },
+  weak: { label: "متعلم متعثر", title: "تقرير متعلم متعثر", pill: "late", desc: "وصف موجز لحالة المتعلم",
+    a: ["مظاهر التعثر", d => ["ضعف الحفظ والتسميع", d === "qr" ? "ضعف التلاوة والأخطاء في أحكام التجويد" : d === "hd" ? "ضعف فهم معاني الأحاديث" : "ضعف التلاوة والتجويد (القرآن) / ضعف فهم معاني الأحاديث (الحديث)",
+      "إهمال الواجبات أو المشروع", "قلة المشاركة داخل الحصة", "تدني درجات التقييم البنائي أو الاختبار القصير", "كثرة الغياب أو التأخر", "ضعف القراءة والكتابة", "ضعف الانتباه والتركيز"]],
+    b: ["الأسباب المحتملة", () => ["ضعف التأسيس في المراحل السابقة", "الغياب المتكرر", "صعوبة اللغة العربية (غير الناطقين بها)", "ضعف الدافعية نحو التعلم", "قلة المتابعة الأسرية", "ظروف صحية أو اجتماعية"]],
+    c: ["الإجراءات العلاجية المتخذة", () => ["إعداد خطة علاجية فردية", "تجزئة المقرر وتبسيط المحتوى", "تكليف زميل متفوق بمساعدته", "تسميع إضافي ومتابعة أسبوعية", "التواصل مع ولي الأمر", "التنسيق مع الأخصائي الاجتماعي"]] }
+};
+const SREP_KEY = { "متعلم فائق": "excel", "متعلم متعثر": "weak" };
+let SREPS = null, CUR_SREP = null, srepBack = "home", srepFilter = "", srepDelArmed = false;
+
+function clsView(which) { ["cls-home", "cls-sheet", "cls-rep"].forEach(id => $(id).hidden = id !== which); }
+async function loadSreps(force) {
+  if (!SREPS || force) { try { SREPS = await run("listStudentReports", CODE); } catch (e) { $("srep-msg").textContent = cleanErr(e); return; } }
+  renderSreps();
+}
+function srepRow(r) {
+  const k = SREP_KEY[r.type] || "weak";
+  return `<button type="button" class="li srep-li" data-srep="${esc(r.id)}"><span><b>${esc(r.student)}</b> <span class="pill ${SREP[k].pill}">${esc(r.type)}</span>${ME.isHead && !ME.isDemo && !r.seenAt ? ' <span class="pill ahead">جديد</span>' : ""}<br>
+    <span class="sub">${esc(classFull(r.cls))} · الفصل ${TERM_NAMES[r.term]}${ME.isHead ? " · أ. " + esc(r.teacher) : ""} · ${fmtStamp(r.createdAt)}</span></span><span class="sub">عرض ←</span></button>`;
+}
+function renderSreps() {
+  const all = (SREPS || []).filter(r => !srepFilter || SREP_KEY[r.type] === srepFilter);
+  const home = all.filter(r => !clsTeacherFilter || r.teacher === clsTeacherFilter || teacherOfCls(r.cls) === clsTeacherFilter);
+  $("srep-title").textContent = ME.isHead && !ME.isDemo ? "تقارير المتعلمين الواردة" : "تقاريري عن المتعلمين";
+  $("srep-list").innerHTML = home.map(srepRow).join("") || `<div class="empty">لا توجد تقارير${srepFilter ? " من هذا النوع" : ""} بعد.${ME.isHead ? "" : " افتح أحد صفوفك لإرسال تقرير متعلم فائق أو متعثر."}</div>`;
+  if (CUR_CLS) {
+    const mine = (SREPS || []).filter(r => r.cls === CUR_CLS.cls);
+    $("srep-class-list").innerHTML = mine.map(srepRow).join("") || `<div class="sub">لا توجد تقارير لهذا الصف بعد.</div>`;
+  }
+  document.querySelectorAll("[data-srep]").forEach(b => b.onclick = () => openSrep(b.dataset.srep, !$("cls-sheet").hidden ? "sheet" : "home"));
+}
+function teacherOfCls(cls) { const t = TEACHERS.find(([, ids]) => ids.indexOf(cls) !== -1); return t ? t[0] : ""; }
+$("srep-filter").onchange = () => { srepFilter = $("srep-filter").value; renderSreps(); };
+
+function checkGroup(id, title, opts, chosen) {
+  const extra = (chosen || []).filter(x => opts.indexOf(x) === -1);
+  return `<label class="f">${title}</label><div class="attlist" id="${id}">${opts.concat(extra).map(o => `<label class="check"><input type="checkbox" value="${esc(o)}"${(chosen || []).indexOf(o) !== -1 ? " checked" : ""}> ${esc(o)}</label>`).join("")}</div>`;
+}
+function studentScore(name) {
+  const v = CUR_CLS && CUR_CLS.grades[name];
+  if (!v) return "";
+  const t = rowTotals(Array.from({ length: 10 }, (_, i) => v[i] || ""));
+  return t.form === "" ? "" : `${String(t.form)} من 40`;
+}
+function srepForm(type, rep) {
+  const F = SREP[type], dept = CUR_CLS.cls.split(":")[0], d = (rep && rep.data) || {};
+  CUR_SREP = rep || null; srepBack = "sheet"; clsView("cls-rep");
+  $("cls-rep").innerHTML = `<div class="vis-head-row"><button class="btn ghost sm" type="button" id="srep-cancel">→ رجوع إلى الكشف</button></div>
+  <form class="card" id="srep-form" style="margin-top:10px">
+    <h2>${F.title}</h2><div class="sub">${esc(classFull(CUR_CLS.cls))} · الفصل الدراسي ${TERM_NAMES[CUR_CLS.term]} · المعلم: أ. ${esc(rep ? rep.teacher : ME.name)}</div>
+    <label class="f" for="sr-student">اسم المتعلم</label>
+    <select id="sr-student" required><option value="">اختر المتعلم…</option>${CUR_CLS.students.map(s => `<option value="${esc(s.name)}"${rep && rep.student === s.name ? " selected" : ""}>${ar(s.n)}. ${esc(s.name)}</option>`).join("")}</select>
+    <div class="sub" id="sr-score"></div>
+    ${checkGroup("sr-a", F.a[0], F.a[1](dept), d.a)}
+    ${checkGroup("sr-b", F.b[0], F.b[1](dept), d.b)}
+    ${F.c ? checkGroup("sr-c", F.c[0], F.c[1](dept), d.c) : ""}
+    <label class="f" for="sr-desc">${F.desc}</label><textarea id="sr-desc" rows="4" maxlength="2000" placeholder="مثال: ${type === "excel" ? "يحفظ المقرر قبل موعده، ويتقن الأداء، ويساعد زملاءه في التسميع." : "يتعثر في تسميع المقرر، ودرجاته في البنائي دون المتوسط، ويحتاج إلى متابعة أسبوعية."}">${esc(d.desc || "")}</textarea>
+    ${type === "weak" ? `<label class="f" for="sr-need">الدعم المطلوب من رئيس الشعبة أو الإدارة (اختياري)</label><textarea id="sr-need" rows="2" maxlength="1000">${esc(d.need || "")}</textarea>` : ""}
+    <label class="f" for="sr-rec">توصية المعلم (اختياري)</label><textarea id="sr-rec" rows="2" maxlength="1500">${esc(d.rec || "")}</textarea>
+    <label class="f" for="sr-other">ملاحظات أخرى (اختياري)</label><input type="text" id="sr-other" maxlength="1000" value="${esc(d.other || "")}">
+    <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="sr-save">${rep ? "حفظ التعديل وإرساله" : "إرسال التقرير إلى رئيس الشعبة"}</button></div>
+    <div class="saved" id="sr-msg"></div>
+  </form>`;
+  const upd = () => { const s = studentScore($("sr-student").value); $("sr-score").textContent = $("sr-student").value ? (s ? "درجة التقييم البنائي الحالية: " + fmtN(s.split(" ")[0]) + " من ٤٠" : "لم يكتمل رصد التقييم البنائي لهذا المتعلم بعد.") : ""; };
+  $("sr-student").onchange = upd; upd();
+  $("srep-cancel").onclick = () => { clsView("cls-sheet"); renderSreps(); };
+  $("srep-form").onsubmit = async e => {
+    e.preventDefault();
+    const pick = id => $(id) ? [...$(id).querySelectorAll("input:checked")].map(x => x.value) : [];
+    const name = $("sr-student").value, m = $("sr-msg");
+    const body = { id: rep ? rep.id : "", type, cls: CUR_CLS.cls, term: CUR_CLS.term, student: name, score: studentScore(name),
+      data: { a: pick("sr-a"), b: pick("sr-b"), c: pick("sr-c"), desc: $("sr-desc").value, need: $("sr-need") ? $("sr-need").value : "", rec: $("sr-rec").value, other: $("sr-other").value } };
+    $("sr-save").disabled = true; m.textContent = "جارٍ الإرسال…";
+    try { const r = await run("saveStudentReport", CODE, body); SREPS = null; await loadSreps(true); openSrep(r.id, "sheet", "تم إرسال التقرير إلى رئيس الشعبة ✓"); }
+    catch (err) { m.textContent = cleanErr(err); $("sr-save").disabled = false; }
+  };
+  window.scrollTo({ top: $("sec-cls").offsetTop - 10 });
+}
+$("srep-new-excel").onclick = () => CUR_CLS && CUR_CLS.students.length && srepForm("excel");
+$("srep-new-weak").onclick = () => CUR_CLS && CUR_CLS.students.length && srepForm("weak");
+
+function openSrep(id, back, note) {
+  const r = (SREPS || []).find(x => x.id === id); if (!r) return;
+  CUR_SREP = r; srepBack = back || srepBack; srepDelArmed = false; clsView("cls-rep");
+  const k = SREP_KEY[r.type] || "weak", F = SREP[k], d = r.data || {}, mine = r.teacher === ME.name || (ME.isHead && !ME.isDemo);
+  const ul = a => a && a.length ? `<ul>${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="sub">—</div>`;
+  const ci = classInfo(r.cls);
+  $("cls-rep").innerHTML = `<div class="vis-head-row"><button class="btn ghost sm" type="button" id="srep-back">→ رجوع</button><span class="saved">${note || ""}</span></div>
+  <div class="card minute" style="margin-top:10px">
+    <h2>${F.title}: ${esc(r.student)}</h2>
+    <dl class="meta-grid" style="margin-top:10px"><div><dt>الصف</dt><dd>${esc(ci.label)} · ${SUBJECTS[ci.dept]}</dd></div><div><dt>الفصل الدراسي</dt><dd>${TERM_NAMES[r.term]}</dd></div>
+      <div><dt>المعلم</dt><dd>أ. ${esc(r.teacher)}</dd></div><div><dt>درجة التقييم البنائي</dt><dd>${r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : "—"}</dd></div>
+      <div><dt>تاريخ الإرسال</dt><dd>${fmtStamp(r.createdAt)}</dd></div>${r.updatedAt ? `<div><dt>آخر تعديل</dt><dd>${fmtStamp(r.updatedAt)}</dd></div>` : ""}</dl>
+    <h3>${F.a[0]}</h3>${ul(d.a)}<h3>${F.b[0]}</h3>${ul(d.b)}${F.c ? `<h3>${F.c[0]}</h3>${ul(d.c)}` : ""}
+    <h3>${F.desc}</h3><p>${esc(d.desc || "—").replace(/\n/g, "<br>")}</p>
+    ${d.need ? `<h3>الدعم المطلوب من رئيس الشعبة أو الإدارة</h3><p>${esc(d.need).replace(/\n/g, "<br>")}</p>` : ""}
+    ${d.rec ? `<h3>توصية المعلم</h3><p>${esc(d.rec).replace(/\n/g, "<br>")}</p>` : ""}
+    ${d.other ? `<h3>ملاحظات أخرى</h3><p>${esc(d.other)}</p>` : ""}
+    <div class="row-actions" style="margin-top:14px"><button class="btn" type="button" id="srep-word">تنزيل التقرير وورد</button>
+      ${mine ? `<button class="btn ghost" type="button" id="srep-edit">تعديل</button><button class="btn ghost" type="button" id="srep-del">حذف</button>` : ""}</div>
+    <div class="saved" id="srep-vmsg"></div>
+  </div>`;
+  $("srep-back").onclick = () => { if (srepBack === "sheet" && CUR_CLS) clsView("cls-sheet"); else { clsView("cls-home"); CUR_CLS = null; } renderSreps(); };
+  $("srep-word").onclick = async () => {
+    const m = $("srep-vmsg");
+    if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
+    try { await deliver(await window.docx.Packer.toBlob(buildStudentReportDoc(window.docx, r)), `${F.title} - ${r.student} - ${ci.label}.docx`, m); }
+    catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
+  };
+  if (mine) {
+    $("srep-edit").onclick = async () => {
+      if (!CUR_CLS || CUR_CLS.cls !== r.cls || CUR_CLS.term !== r.term) {
+        $("srep-vmsg").textContent = "جارٍ التحميل…";
+        try { CUR_CLS = await run("classSheet", CODE, r.cls, r.term); clsTerm = r.term; } catch (e) { $("srep-vmsg").textContent = cleanErr(e); return; }
+        renderSheet();
+      }
+      srepForm(k, r);
+    };
+    $("srep-del").onclick = async () => {
+      if (!srepDelArmed) { srepDelArmed = true; $("srep-vmsg").textContent = "اضغط «حذف» مرة أخرى لتأكيد حذف التقرير."; return; }
+      try { await run("deleteStudentReport", CODE, r.id); SREPS = (SREPS || []).filter(x => x.id !== r.id); $("srep-back").click(); }
+      catch (e) { $("srep-vmsg").textContent = cleanErr(e); }
+    };
+  }
+  if (ME.isHead && !ME.isDemo && !r.seenAt) { r.seenAt = "now"; run("seenStudentReport", CODE, r.id).catch(() => {}); }
+  window.scrollTo({ top: $("sec-cls").offsetTop - 10 });
+}
+
+// تقرير متعلم فائق/متعثر (وورد) بالديباجة المعتمدة. بدون بيانات = نموذج فارغ للطباعة
+function buildStudentReportDoc(D, r) {
+  const h = H(D), C = h.C, k = SREP_KEY[r.type] || r.type, F = SREP[k], d = r.data || {}, dept = r.cls ? r.cls.split(":")[0] : "";
+  const ci = r.cls ? classInfo(r.cls) : null, blank = !r.student;
+  const hd = t => h.para(t, { size: 22, bold: true, color: h.NAVY, before: 100, after: 40, keepNext: true, shade: "EEF3F8" });
+  const L = t => h.lab(t, { w: 1700 }), V = (t, w) => h.cell(t, { w, size: 20 });
+  const info = h.table([
+    [L("اسم المتعلم:"), V(r.student || "", 3600), L("الصف:"), V(ci ? ci.label : "", 3000)],
+    [L("المادة:"), V(ci ? SUBJECTS[ci.dept] : "□ الحديث الشريف     □ القرآن الكريم", 3600), L("الفصل الدراسي:"), V(r.term ? `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧` : "", 3000)],
+    [L("المعلم:"), V(r.teacher ? "أ. " + r.teacher : "", 3600), L("درجة البنائي:"), V(r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : blank ? "      من ٤٠" : "—", 3000)],
+    [L("تاريخ التقرير:"), V(r.createdAt ? fmtDate(r.createdAt) : "    /    /   ٢٠٢م", 3600), L(""), V("", 3000)]
+  ], [1700, 3600, 1700, 3000], h.softBorders("C9D6E3"));
+  const checks = (title, opts, chosen) => {
+    chosen = chosen || []; const all = opts.concat(chosen.filter(x => opts.indexOf(x) === -1));
+    const rows = [];
+    for (let i = 0; i < all.length; i += 2) rows.push([0, 1].map(j => { const o = all[i + j]; return h.cell(o ? `${chosen.indexOf(o) !== -1 ? "■" : "□"}  ${o}` : "", { size: 19, w: 5000, color: o && chosen.indexOf(o) !== -1 ? h.NAVY : undefined, m: { top: 20, bottom: 20, left: 80, right: 80 } }); }));
+    return [hd(title), h.table(rows, [5000, 5000], h.noBorders)];
+  };
+  const box = (title, text, lines) => [hd(title), h.table([[h.cell(text ? String(text).split("\n").map(t => h.para(t, { size: 20, after: 40, justify: true })) : Array.from({ length: lines }, () => h.para("", { after: 0, line: 340 })), { w: 10000 })]], [10000], h.softBorders("C9D6E3"))];
+  const kids = [...h.formHeader(F.title), info,
+    ...checks(F.a[0], F.a[1](dept), d.a), ...checks(F.b[0], F.b[1](dept), d.b), ...(F.c ? checks(F.c[0], F.c[1](dept), d.c) : []),
+    ...box(F.desc, d.desc, 3)];
+  if (k === "weak" && (blank || d.need)) kids.push(...box("الدعم المطلوب من رئيس الشعبة أو الإدارة", d.need, 2));
+  if (blank || d.rec) kids.push(...box("توصية المعلم", d.rec, 2));
+  if (d.other) kids.push(...box("ملاحظات أخرى", d.other, 1));
+  kids.push(h.para("", { after: 80 }), h.signRow([["المعلم", r.teacher ? "أ. " + r.teacher : ""], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
+  return h.doc(kids);
 }
 
 // ================= ركن الإنجازات =================

@@ -56,7 +56,8 @@ function doGet() {
 // الصفحة المستضافة خارج جوجل ترسل الطلبات هنا، فلا يتأثر المعلم بتعدد حسابات جوجل في متصفحه.
 const API = { login, saveEntry, headData, submitAchievement, myAchievements, deleteAchievement, allAchievements, saveReport,
   getPhoto, listMinutes, getMinute, saveMinute, deleteMinute, signMinute, mySignature, saveFileToDrive, demoAccounts, demoAction,
-  saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, classesOverview, classSheet, saveGrades };
+  saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, classesOverview, classSheet, saveGrades,
+  listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport };
 
 function doPost(e) {
   let out;
@@ -103,6 +104,7 @@ function setup() {
   sheet_(SHEET_COV, ["المعرف", "معرف الغياب", "التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل", "الحالة", "تاريخ التسجيل"], true);
   sheet_(SHEET_STU, ["الصف", "م", "اسم الطالب", "ملاحظة"], true);
   gradesSheet_();
+  srepSheet_();
   ensureDemoMinute_();
   folder_();
   const first = ss.getSheets()[0];
@@ -482,6 +484,8 @@ function demoAction(code, name, action) {
         ach.deleteRow(i + 1);
       }
       const grd = sh_(SHEET_GRD);
+      const srp = sh_(SHEET_SREP);
+      if (srp) { const sv = srp.getDataRange().getDisplayValues(); for (let i = sv.length - 1; i >= 1; i--) if (sv[i][2] === name) srp.deleteRow(i + 1); }
       if (grd) { const gv = grd.getDataRange().getDisplayValues(); for (let i = gv.length - 1; i >= 1; i--) if (gv[i][0].indexOf("DEMO|" + name + "|") === 0) grd.deleteRow(i + 1); }
       const vis = sh_(SHEET_VIS), vv = vis.getDataRange().getDisplayValues();
       for (let i = vv.length - 1; i >= 1; i--) if (vv[i][1] === name) vis.deleteRow(i + 1);
@@ -817,3 +821,91 @@ function saveGrades(code, cls, term, data) {
   });
 }
 function GRD_COLS_() { return GRD_HEAD.length; }
+
+// ======================= تقارير المتعلمين (الفائق والمتعثر) =======================
+// يرسلها المعلم لمتعلم من صفوفه، فتصل رئيس الشعبة بالإيميل وتظهر عنده في ركن الصفوف
+const SHEET_SREP = "تقارير المتعلمين";
+const SREP_TYPES = { excel: "متعلم فائق", weak: "متعلم متعثر" };
+const SREP_HEAD = ["المعرف", "النوع", "المعلم", "الصف", "القسم", "الفصل الدراسي", "اسم المتعلم", "درجة البنائي", "البيانات", "تاريخ الإرسال", "اطّلع رئيس الشعبة", "آخر تعديل"];
+function srepSheet_() { return sheet_(SHEET_SREP, SREP_HEAD, true); }
+function srepObj_(r) {
+  let data = {}; try { data = JSON.parse(r[8] || "{}"); } catch (e) {}
+  return { id: r[0], type: r[1], teacher: r[2], cls: r[3], term: Number(r[5]) || 1, student: r[6], score: r[7], data, createdAt: r[9], seenAt: r[10], updatedAt: r[11] };
+}
+function cleanList_(a) { return (Array.isArray(a) ? a : []).slice(0, 20).map(x => String(x).trim().slice(0, 200)).filter(Boolean); }
+
+function listStudentReports(code) {
+  const me = who_(code);
+  const sh = sh_(SHEET_SREP);
+  if (!sh) return [];
+  return sh.getDataRange().getDisplayValues().slice(1).filter(r => r[0])
+    .filter(r => me.isHead && !me.isDemo ? !isDemo_(r[2]) : r[2] === me.name)
+    .map(srepObj_).reverse();
+}
+
+function saveStudentReport(code, rep) {
+  const me = who_(code);
+  const cls = String(rep.cls || "");
+  if (!canSeeClass_(me, cls)) throw new Error("هذا الصف ليس من صفوفك.");
+  if (!SREP_TYPES[rep.type]) throw new Error("نوع التقرير غير معروف.");
+  const student = String(rep.student || "").trim();
+  if (!studentsOf_(me, cls).some(s => s.name === student)) throw new Error("اختر المتعلم من قائمة الصف.");
+  const d = rep.data || {};
+  const data = { a: cleanList_(d.a), b: cleanList_(d.b), c: cleanList_(d.c),
+    desc: String(d.desc || "").trim().slice(0, 2000), need: String(d.need || "").trim().slice(0, 1000),
+    rec: String(d.rec || "").trim().slice(0, 1500), other: String(d.other || "").trim().slice(0, 1000) };
+  if (!data.a.length) throw new Error(rep.type === "excel" ? "اختر مظهرًا واحدًا على الأقل من مظاهر التفوق." : "اختر مظهرًا واحدًا على الأقل من مظاهر التعثر.");
+  if (data.desc.length < 10) throw new Error("اكتب وصفًا موجزًا لحالة المتعلم ولو بسطر.");
+  const term = Number(rep.term) === 2 ? 2 : 1, now = nowText_();
+  const teacher = me.name;
+  const p = cls.split(":");
+  const sh = srepSheet_();
+  let id = String(rep.id || ""), created = now, row = -1;
+  if (id) {
+    row = findRow_(sh, 1, id);
+    if (row < 0) throw new Error("التقرير غير موجود.");
+    const old = sh.getRange(row, 1, 1, SREP_HEAD.length).getDisplayValues()[0];
+    if (old[2] !== me.name && !(me.isHead && !me.isDemo)) throw new Error("لا يمكنك تعديل تقرير غيرك.");
+    created = old[9];
+  } else id = newId_();
+  const vals = [id, SREP_TYPES[rep.type], teacher, cls, SUBJ[p[0]], String(term), student, String(rep.score || "").slice(0, 40), JSON.stringify(data), created, "", row > 0 ? now : ""];
+  withLock_(() => { if (row > 0) writeRow_(sh, row, vals); else appendText_(sh, vals); });
+  const li = a => a.length ? "<ul>" + a.map(x => "<li>" + esc_(x) + "</li>").join("") + "</ul>" : "—";
+  const t = rep.type === "excel";
+  notify_(me, `${row > 0 ? "عدّل" : "أرسل"} أ. ${me.name} تقرير ${SREP_TYPES[rep.type]}: ${student}`, `
+    <p>${row > 0 ? "عدّل" : "أرسل"} <b>أ. ${esc_(me.name)}</b> تقرير <b>${SREP_TYPES[rep.type]}</b> عن المتعلم <b>${esc_(student)}</b>.</p>
+    <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
+      <tr><td style="background:#e8f1f8"><b>الصف</b></td><td>${esc_(p[1].replace("-", "/"))} · ${esc_(SUBJ[p[0]])}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>الفصل الدراسي</b></td><td>${term === 1 ? "الأول" : "الثاني"}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>درجة التقييم البنائي</b></td><td>${esc_(vals[7] || "لم تكتمل بعد")}</td></tr>
+    </table>
+    <p><b>${t ? "مظاهر التفوق" : "مظاهر التعثر"}:</b></p>${li(data.a)}
+    ${t ? "" : `<p><b>الأسباب المحتملة:</b></p>${li(data.b)}`}
+    <p><b>${t ? "أساليب الرعاية والإثراء" : "الإجراءات العلاجية المتخذة"}:</b></p>${li(t ? data.b : data.c)}
+    <p><b>الوصف:</b><br>${esc_(data.desc).replace(/\n/g, "<br>")}</p>
+    ${data.need ? `<p><b>الدعم المطلوب من رئيس الشعبة أو الإدارة:</b><br>${esc_(data.need).replace(/\n/g, "<br>")}</p>` : ""}
+    ${data.rec ? `<p><b>توصية المعلم:</b><br>${esc_(data.rec).replace(/\n/g, "<br>")}</p>` : ""}`);
+  return { id };
+}
+
+function seenStudentReport(code, id) {
+  const me = head_(code);
+  if (me.isDemo) return true;
+  return withLock_(() => {
+    const sh = sh_(SHEET_SREP), row = sh ? findRow_(sh, 1, String(id)) : -1;
+    if (row > 0 && !sh.getRange(row, 11).getDisplayValue()) sh.getRange(row, 11).setNumberFormat("@").setValue(nowText_());
+    return true;
+  });
+}
+
+function deleteStudentReport(code, id) {
+  const me = who_(code);
+  return withLock_(() => {
+    const sh = sh_(SHEET_SREP), row = sh ? findRow_(sh, 1, String(id)) : -1;
+    if (row < 0) throw new Error("التقرير غير موجود.");
+    const owner = sh.getRange(row, 3).getDisplayValue();
+    if (owner !== me.name && !(me.isHead && !me.isDemo)) throw new Error("لا يمكنك حذف تقرير غيرك.");
+    sh.deleteRow(row);
+    return true;
+  });
+}
