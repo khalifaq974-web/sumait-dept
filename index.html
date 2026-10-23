@@ -314,7 +314,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
             <option value="">القسمان</option><option value="hd">قسم الحديث الشريف</option><option value="qr">قسم القرآن الكريم</option>
           </select>
           <button class="btn ghost" id="refresh-btn">تحديث البيانات</button>
-          <button class="btn" id="export-btn">تصدير تقرير وورد</button>
+          <button class="btn" id="export-btn">تصدير تقرير وورد</button><button class="btn ghost" id="export-pdf" type="button">تصدير PDF</button>
         </div>
         <div class="saved" id="export-msg"></div>
         <div class="tablebox">
@@ -350,7 +350,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <div class="cls-stats" id="cls-stats"></div>
           <div class="tablebox"><table class="grades" id="cls-table"></table></div>
           <div class="sub cls-hint">توزيع الدرجات حسب خطة التوجيه الفني: السلوك والمشاركة والواجبات ٣ لكل قسم، والمشروع ٣٫٥ لكل قسم، والاختبار القصير ١٥، والمجموع من ٤٠ يُحسب تلقائيًا، واترك الخانة فارغة إن لم تُرصد بعد. اضغط Enter للانتقال إلى المتعلم التالي.</div>
-          <div class="row-actions"><button class="btn" id="cls-save" type="button">حفظ الدرجات</button><button class="btn ghost" id="cls-word" type="button">تنزيل الكشف وورد</button></div>
+          <div class="row-actions"><button class="btn" id="cls-save" type="button">حفظ الدرجات</button><button class="btn ghost" id="cls-word" type="button">تنزيل الكشف وورد</button><button class="btn ghost" id="cls-pdf" type="button">تنزيل الكشف PDF</button></div>
           <div class="saved" id="cls-msg"></div>
         </div>
         <div class="card" style="margin-top:12px">
@@ -450,7 +450,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <div class="row-actions" style="margin-top:14px"><button class="btn" id="rf-save" type="submit">حفظ الغياب والاحتياط</button><button class="btn ghost" type="button" id="rf-delete" hidden>حذف الغياب</button></div>
           <div class="saved" id="rf-msg"></div>
         </form>
-        <div class="vis-head-row"><h3 id="res-day-title"></h3><button class="btn ghost sm" type="button" id="res-daily-word">تنزيل كشف الاحتياط اليومي وورد</button></div>
+        <div class="vis-head-row"><h3 id="res-day-title"></h3><span class="row-actions"><button class="btn ghost sm" type="button" id="res-daily-word">كشف الاحتياط اليومي وورد</button><button class="btn ghost sm" type="button" id="res-daily-pdf">PDF</button></span></div>
         <div class="saved" id="res-dmsg"></div>
         <div class="list" id="res-day"></div>
       </section>
@@ -458,7 +458,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="toolbar">
           <select id="res-range" aria-label="الفترة"><option value="week">هذا الأسبوع</option><option value="month">هذا الشهر</option><option value="all" selected>الفصل كله</option></select>
           <button class="btn ghost" id="res-reload" type="button">تحديث</button>
-          <button class="btn" id="res-word" type="button">تنزيل سجل الغياب والاحتياط وورد</button>
+          <button class="btn" id="res-word" type="button">تنزيل سجل الغياب والاحتياط وورد</button><button class="btn ghost" id="res-pdf" type="button">PDF</button>
         </div>
         <div class="saved" id="res-lmsg"></div>
         <div id="res-log-body"></div>
@@ -493,7 +493,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <div class="grid3">
             <div><label class="f" for="pf-date">بالاستئذان يوم <span class="sub" id="pf-day"></span></label><input type="date" id="pf-date"></div>
             <div><label class="f" for="pf-from">اعتبارًا من</label><input type="time" id="pf-from"></div>
-            <div><label class="f" for="pf-to">حتى</label><input type="time" id="pf-to"></div>
+            <div><label class="f" for="pf-to">حتى</label><input type="time" id="pf-to"><label class="check"><input type="checkbox" id="pf-toend"> حتى نهاية الدوام</label></div>
           </div>
           <label class="f">الحصص وقت الاستئذان</label>
           <div class="chips"><label class="chip"><input type="radio" name="pf-mode" value="متفرغ" checked><span>المعلم متفرغ</span></label><label class="chip"><input type="radio" name="pf-mode" value="بديل"><span>بديل المعلم</span></label></div>
@@ -510,7 +510,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="toolbar">
           <select id="prm-range" aria-label="الفترة"><option value="week">هذا الأسبوع</option><option value="month" selected>هذا الشهر</option><option value="all">العام الدراسي</option></select>
           <button class="btn ghost" id="prm-reload" type="button">تحديث</button>
-          <button class="btn" id="prm-logword" type="button">تنزيل سجل الاستئذان وورد</button>
+          <button class="btn" id="prm-logword" type="button">تنزيل سجل الاستئذان وورد</button><button class="btn ghost" id="prm-logpdf" type="button">PDF</button>
         </div>
         <div class="saved" id="prm-lmsg"></div>
         <div id="prm-log-body"></div>
@@ -1084,6 +1084,10 @@ $("refresh-btn").onclick = async () => {
   catch (e) { $("export-msg").textContent = cleanErr(e); }
   finally { b.disabled = false; }
 };
+$("export-pdf").onclick = () => {
+  const rows = headRows().filter(r => !filterStatus || r.st.kind === filterStatus), dept = $("filter-subject").value;
+  deliverPdf(() => pdfCurr(rows, WEEK, NOW, countsOf(rows), dept), `تقرير متابعة المنهج${dept ? " - " + SUBJECTS[dept] : ""} - الأسبوع ${WEEK >= 1 && WEEK <= WEEKS ? WEEK : "النهائي"}.pdf`, $("export-msg"));
+};
 $("export-btn").onclick = async () => {
   const msg = $("export-msg");
   if (!window.docx) { msg.textContent = "تعذّر تحميل أداة إنشاء ملفات وورد. أعد فتح الصفحة."; return; }
@@ -1240,6 +1244,10 @@ function guardLeave() {
 }
 $("cls-back").onclick = () => { if (guardLeave()) clsHome(); };
 [1, 2].forEach(t => $("cls-t" + t).onclick = () => { if (!CUR_CLS || CUR_CLS.term === t || !guardLeave()) return; clsTerm = t; openClass(CUR_CLS.cls, true); });
+$("cls-pdf").onclick = () => {
+  const m = $("cls-msg"); if (!CUR_CLS || !CUR_CLS.students.length) return; if (clsDirty) { m.textContent = "احفظ الدرجات أولًا، ثم نزّل الكشف."; return; }
+  const ci = classInfo(CUR_CLS.cls); deliverPdf(() => pdfClassSheet(CUR_CLS), `كشف متابعة المتعلمين - ${SUBJECTS[ci.dept]} ${ci.label} - الفصل ${TERM_NAMES[CUR_CLS.term]}.pdf`, m);
+};
 $("cls-word").onclick = async () => {
   const m = $("cls-msg");
   if (!CUR_CLS || !CUR_CLS.students.length) return;
@@ -1392,11 +1400,12 @@ function openSrep(id, back, note) {
     ${d.need ? `<h3>الدعم المطلوب من رئيس الشعبة أو الإدارة</h3><p>${esc(d.need).replace(/\n/g, "<br>")}</p>` : ""}
     ${d.rec ? `<h3>توصية المعلم</h3><p>${esc(d.rec).replace(/\n/g, "<br>")}</p>` : ""}
     ${d.other ? `<h3>ملاحظات أخرى</h3><p>${esc(d.other)}</p>` : ""}
-    <div class="row-actions" style="margin-top:14px"><button class="btn" type="button" id="srep-word">تنزيل التقرير وورد</button>
+    <div class="row-actions" style="margin-top:14px"><button class="btn" type="button" id="srep-word">تنزيل التقرير وورد</button><button class="btn ghost" type="button" id="srep-pdf">PDF</button>
       ${mine ? `<button class="btn ghost" type="button" id="srep-edit">تعديل</button><button class="btn ghost" type="button" id="srep-del">حذف</button>` : ""}</div>
     <div class="saved" id="srep-vmsg"></div>
   </div>`;
   $("srep-back").onclick = () => { if (srepBack === "sheet" && CUR_CLS) clsView("cls-sheet"); else { clsView("cls-home"); CUR_CLS = null; } renderSreps(); };
+  $("srep-pdf").onclick = () => deliverPdf(() => pdfStudentReport(r), `${F.title} - ${SUBJECTS[ci.dept]} - ${r.student} - ${ci.label}.pdf`, $("srep-vmsg"));
   $("srep-word").onclick = async () => {
     const m = $("srep-vmsg");
     if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
@@ -1462,7 +1471,10 @@ function defaultDept() {
 }
 function minutesOf(t) { const m = String(t || "").match(/^(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : 0; }
 function hm(t) { const m = String(t || "").match(/^(\d{1,2}):(\d{2})/); if (!m) return ["", ""]; let h = +m[1] % 12; if (h === 0) h = 12; return [ar(h), ar(m[2])]; }
-function fmtClock(t) { const [h, mi] = hm(t); return h ? `${h}:${mi}` : "—"; }
+const END_DAY = "نهاية الدوام";
+function fmtClock(t) { if (t === END_DAY) return END_DAY; const [h, mi] = hm(t); return h ? `${h}:${mi}` : "—"; }
+function permMin(p) { return p.to === END_DAY ? null : Math.max(0, minutesOf(p.to) - minutesOf(p.from)); }
+function permDur(p) { const m = permMin(p); return m === null ? "حتى نهاية الدوام" : fmtDur(m); }
 function fmtDur(min) { const h = Math.floor(min / 60), m = min % 60; return h && m ? `${ar(h)} س ${ar(m)} د` : h ? `${ar(h)} ساعة` : `${ar(m)} دقيقة`; }
 
 function prmTab(which) {
@@ -1510,6 +1522,7 @@ async function prmForm() {
   $("pf-prof").open = !p.civil;
   $("pf-prof-sum").textContent = p.civil ? "(محفوظة)" : "(أكملها مرة واحدة)";
 }
+$("pf-toend").onchange = () => { $("pf-to").disabled = $("pf-toend").checked; if ($("pf-toend").checked) $("pf-to").value = ""; };
 $("pf-date").oninput = () => { const d = isoDay($("pf-date").value); $("pf-day").textContent = d >= 0 ? "(" + DAYS[d] + ")" : ""; };
 document.querySelectorAll('input[name="pf-mode"]').forEach(r => r.onchange = () => { $("pf-subbox").hidden = document.querySelector('input[name="pf-mode"]:checked').value !== "بديل"; });
 $("prm-form").addEventListener("submit", async e => {
@@ -1517,15 +1530,15 @@ $("prm-form").addEventListener("submit", async e => {
   const m = $("pf-msg"), sig = padImage("pf-sig");
   const body = { job: $("pf-job").value, civil: normNum($("pf-civil").value), dept: $("pf-dept").value,
     type: (document.querySelector('input[name="pf-type"]:checked') || {}).value, reason: $("pf-reason").value, date: $("pf-date").value,
-    from: $("pf-from").value, to: $("pf-to").value, mode: document.querySelector('input[name="pf-mode"]:checked').value, substitute: $("pf-sub").value, sig };
+    from: $("pf-from").value, to: $("pf-toend").checked ? END_DAY : $("pf-to").value, mode: document.querySelector('input[name="pf-mode"]:checked').value, substitute: $("pf-sub").value, sig };
   if (!/^\d{12}$/.test(body.civil)) { $("pf-prof").open = true; m.textContent = "الرقم المدني يتكون من ١٢ رقمًا."; $("pf-civil").focus(); return; }
-  if (!body.from || !body.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)."; return; }
+  if (!body.from || !body.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)، أو اختر «حتى نهاية الدوام»."; return; }
   if (!sig) { m.textContent = "وقّع على الطلب قبل الإرسال."; return; }
   $("pf-send").disabled = true; m.textContent = "جارٍ الإرسال…";
   try {
     const r = await run("submitPermission", CODE, body);
     PRM_PROF = { job: body.job.trim(), civil: body.civil, dept: body.dept.trim() };
-    $("pf-reason").value = ""; $("pf-from").value = ""; $("pf-to").value = ""; $("pf-sub").value = ""; document.querySelector('input[name="pf-mode"][value="متفرغ"]').checked = true; $("pf-subbox").hidden = true;
+    $("pf-reason").value = ""; $("pf-from").value = ""; $("pf-to").value = ""; $("pf-toend").checked = false; $("pf-to").disabled = false; $("pf-sub").value = ""; document.querySelector('input[name="pf-mode"][value="متفرغ"]').checked = true; $("pf-subbox").hidden = true;
     PRM = null; await loadPerms(true); m.textContent = "";
     openPerm(r.id, `تم إرسال الطلب (المسلسل ${ar(r.serial)}) إلى رئيس الشعبة ✓`);
   } catch (err) { m.textContent = cleanErr(err); }
@@ -1548,7 +1561,7 @@ async function openPerm(id, note) {
     <dl class="meta-grid" style="margin-top:10px">
       <div><dt>الاسم</dt><dd>أ. ${esc(p.teacher)}</dd></div><div><dt>القسم</dt><dd>${esc(p.dept)}</dd></div>
       <div><dt>الوظيفة</dt><dd>${esc(p.job)}</dd></div><div><dt>الرقم المدني</dt><dd>${ar(p.civil)}</dd></div>
-      <div><dt>اليوم والتاريخ</dt><dd>${fmtDate(p.date, true)}</dd></div><div><dt>المدة</dt><dd>من ${fh}:${fm} حتى ${th}:${tm} (${fmtDur(minutesOf(p.to) - minutesOf(p.from))})</dd></div>
+      <div><dt>اليوم والتاريخ</dt><dd>${fmtDate(p.date, true)}</dd></div><div><dt>المدة</dt><dd>من ${fh}:${fm} ${p.to === END_DAY ? "حتى نهاية الدوام" : `حتى ${th}:${tm} (${permDur(p)})`}</dd></div>
       <div class="wide"><dt>سبب التصريح</dt><dd>${esc(p.reason)}</dd></div>
       <div class="wide"><dt>الحصص</dt><dd>${p.mode === "بديل" ? "بديل المعلم: أ. " + esc(p.substitute) : "المعلم متفرغ"}</dd></div>
     </dl>
@@ -1558,12 +1571,13 @@ async function openPerm(id, note) {
     ${canDecide ? `<div class="signbox"><h3>اعتماد الاستئذان</h3><div id="pd-sig"></div>
       <label class="f" for="pd-note">ملاحظة (اختياري)</label><input type="text" id="pd-note" maxlength="300">
       <div class="row-actions" style="margin-top:10px"><button class="btn" type="button" id="pd-ok">اعتماد وتوقيع</button><button class="btn ghost" type="button" id="pd-no">رفض</button></div></div>` : ""}
-    <div class="row-actions" style="margin-top:14px"><button class="btn${canDecide ? " ghost" : ""}" type="button" id="pd-word">تنزيل النموذج وورد للطباعة</button>
+    <div class="row-actions" style="margin-top:14px"><button class="btn${canDecide ? " ghost" : ""}" type="button" id="pd-word">تنزيل النموذج وورد</button><button class="btn ghost" type="button" id="pd-pdf">PDF</button>
       ${head || (mine && pending) ? `<button class="btn ghost" type="button" id="pd-del">حذف</button>` : ""}</div>
     <div class="sub">توقيع المدير المساعد ومدير المعهد وجزء التأخير يُعبّأ على الورقة المطبوعة.</div>
     <div class="saved" id="pd-msg"></div>
   </div>`;
   $("pd-back").onclick = () => prmTab(prmSub === "new" && !mine ? "req" : prmSub === "new" ? "mine" : prmSub);
+  $("pd-pdf").onclick = () => deliverPdf(() => pdfPermission(p), `إذن خروج ${p.serial.replace("/", "-")} - ${p.teacher}.pdf`, $("pd-msg"));
   $("pd-word").onclick = async () => {
     const m = $("pd-msg"); if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
     try { await deliver(await window.docx.Packer.toBlob(buildPermissionDoc(window.docx, p)), `إذن خروج ${p.serial.replace("/", "-")} - ${p.teacher}.docx`, m); }
@@ -1597,21 +1611,23 @@ function permRange() {
 function permStats(r) {
   const list = (PRM || []).filter(p => p.status === "معتمد" && p.date >= r.from && p.date <= r.to).sort((a, b) => a.date.localeCompare(b.date) || a.from.localeCompare(b.from));
   const by = {};
-  list.forEach(p => { const s = by[p.teacher] || (by[p.teacher] = { t: p.teacher, n: 0, min: 0 }); s.n++; s.min += Math.max(0, minutesOf(p.to) - minutesOf(p.from)); });
+  list.forEach(p => { const s = by[p.teacher] || (by[p.teacher] = { t: p.teacher, n: 0, min: 0, end: 0 }); s.n++; const m = permMin(p); if (m === null) s.end++; else s.min += m; });
   const order = TEACHERS.map(([t]) => t);
   return { list, sum: Object.values(by).sort((a, b) => order.indexOf(a.t) - order.indexOf(b.t)) };
 }
+function sumDur(s) { return (s.min || !s.end ? fmtDur(s.min) : "") + (s.end ? `${s.min ? " + " : ""}${ar(s.end)} حتى نهاية الدوام` : ""); }
 function renderPermLog() {
   const r = permRange(), st = permStats(r);
   $("prm-log-body").innerHTML = `<h3 class="list-title">${r.label}</h3>
     <div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>مرات الاستئذان المعتمدة</th><th>مجموع المدة</th></tr></thead><tbody>
-    ${st.sum.map(s => `<tr><td class="t">أ. ${esc(s.t)}</td><td>${ar(s.n)}</td><td>${fmtDur(s.min)}</td></tr>`).join("") || `<tr><td colspan="3" class="sub">لا يوجد استئذان معتمد في هذه الفترة.</td></tr>`}</tbody></table></div>
+    ${st.sum.map(s => `<tr><td class="t">أ. ${esc(s.t)}</td><td>${ar(s.n)}</td><td>${sumDur(s)}</td></tr>`).join("") || `<tr><td colspan="3" class="sub">لا يوجد استئذان معتمد في هذه الفترة.</td></tr>`}</tbody></table></div>
     ${st.list.length ? `<div class="tablebox"><table><thead><tr><th>المسلسل</th><th>التاريخ</th><th>المعلم</th><th>النوع</th><th>من</th><th>إلى</th><th>المدة</th><th>السبب</th><th>الحصص</th></tr></thead><tbody>
-    ${st.list.map(p => `<tr data-prm-row="${esc(p.id)}"><td>${ar(p.serial)}</td><td>${fmtDate(p.date, true)}</td><td class="t">أ. ${esc(p.teacher)}</td><td>${esc(p.type)}</td><td>${fmtClock(p.from)}</td><td>${fmtClock(p.to)}</td><td>${fmtDur(minutesOf(p.to) - minutesOf(p.from))}</td><td>${esc(p.reason)}</td><td>${p.mode === "بديل" ? "بديل: " + esc(p.substitute) : "متفرغ"}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
+    ${st.list.map(p => `<tr data-prm-row="${esc(p.id)}"><td>${ar(p.serial)}</td><td>${fmtDate(p.date, true)}</td><td class="t">أ. ${esc(p.teacher)}</td><td>${esc(p.type)}</td><td>${fmtClock(p.from)}</td><td>${fmtClock(p.to)}</td><td>${permDur(p)}</td><td>${esc(p.reason)}</td><td>${p.mode === "بديل" ? "بديل: " + esc(p.substitute) : "متفرغ"}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
   $("prm-log-body").querySelectorAll("[data-prm-row]").forEach(tr => { tr.style.cursor = "pointer"; tr.onclick = () => openPerm(tr.dataset.prmRow); });
 }
 $("prm-range").onchange = renderPermLog;
 $("prm-reload").onclick = async () => { PRM = null; await loadPerms(true); renderPerms(); };
+$("prm-logpdf").onclick = () => deliverPdf(() => pdfPermLog(permRange()), `سجل الاستئذان - ${permRange().label}.pdf`, $("prm-lmsg"));
 $("prm-logword").onclick = async () => {
   const m = $("prm-lmsg"); if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
   try { await deliver(await window.docx.Packer.toBlob(buildPermLogDoc(window.docx, permRange())), `سجل الاستئذان - ${permRange().label}.docx`, m); }
@@ -1638,8 +1654,9 @@ function buildPermissionDoc(D, p) {
     ], [2100, 3300, 1500, 3100], h.softBorders("C9D6E3")),
     h.para("", { after: 80 }),
     h.table([[h.cell([h.para("اعتبارًا من:", { size: 22, bold: true, color: NAVY, after: 0 })], { w: 1700 }), h.cell([timeTable(fh, fm)], { w: 2300 }),
-      h.cell([h.para("حتى:", { size: 22, bold: true, color: NAVY, align: C, after: 0 })], { w: 1000 }), h.cell([timeTable(th, tm)], { w: 2300 }),
-      h.cell([h.para(`(${fmtDur(minutesOf(p.to) - minutesOf(p.from))})`, { size: 20, align: C, after: 0 })], { w: 2700 })]], [1700, 2300, 1000, 2300, 2700], h.noBorders),
+      h.cell([h.para("حتى:", { size: 22, bold: true, color: NAVY, align: C, after: 0 })], { w: 1000 }),
+      h.cell([p.to === END_DAY ? h.para("■ نهاية الدوام", { size: 22, bold: true, align: C, after: 0 }) : timeTable(th, tm)], { w: 2300 }),
+      h.cell([h.para(p.to === END_DAY ? "" : `(${permDur(p)})`, { size: 20, align: C, after: 0 })], { w: 2700 })]], [1700, 2300, 1000, 2300, 2700], h.noBorders),
     h.para([h.run(`${box(p.mode !== "بديل")}  المعلم متفرغ`, { size: 22, bold: true }), h.run(`          ${box(p.mode === "بديل")}  بديل المعلم: ${p.mode === "بديل" ? "أ. " + p.substitute : "........................................"}`, { size: 22, bold: true })], { before: 120, after: 160 }),
     h.table([[h.cell([h.para("توقيع المعلم", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.teacherSig), h.para("أ. " + p.teacher, { size: 18, align: C, after: 0 })], { w: 3300 }),
       h.cell([h.para("توقيع رئيس الشعبة", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.headSig), h.para(HEAD_SIGN, { size: 18, align: C, after: 0 })], { w: 3400 }),
@@ -1658,15 +1675,251 @@ function buildPermLogDoc(D, r) {
   const kids = [...h.formHeader("سجل الاستئذان", 14400), h.para(r.label, { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
     h.heading("أولًا: عدد مرات الاستئذان ومجموع مدته لكل معلم"),
     h.table([["المعلم", "مرات الاستئذان المعتمدة", "مجموع المدة"].map(t => h.th(t)),
-      ...(st.sum.length ? st.sum.map(s => [h.cell("أ. " + s.t, { size: 19 }), h.cell(ar(s.n), { align: C, size: 20, bold: true }), h.cell(fmtDur(s.min), { align: C, size: 20 })]) : [[h.cell("لا يوجد استئذان معتمد في هذه الفترة.", { size: 19 }), h.cell("", {}), h.cell("", {})]])],
+      ...(st.sum.length ? st.sum.map(s => [h.cell("أ. " + s.t, { size: 19 }), h.cell(ar(s.n), { align: C, size: 20, bold: true }), h.cell(sumDur(s), { align: C, size: 19 })]) : [[h.cell("لا يوجد استئذان معتمد في هذه الفترة.", { size: 19 }), h.cell("", {}), h.cell("", {})]])],
       [6400, 4000, 4000], h.softBorders("C9D6E3")),
     h.heading("ثانيًا: تفاصيل الاستئذان")];
   if (st.list.length) kids.push(h.table([["المسلسل", "اليوم والتاريخ", "المعلم", "النوع", "من", "إلى", "المدة", "سبب التصريح", "الحصص"].map(t => h.th(t, { size: 16 })),
-    ...st.list.map(p => [ar(p.serial), fmtDate(p.date, true), "أ. " + p.teacher, p.type, fmtClock(p.from), fmtClock(p.to), fmtDur(minutesOf(p.to) - minutesOf(p.from)), p.reason, p.mode === "بديل" ? "بديل: " + p.substitute : "متفرغ"].map((t, i) => h.cell(t, { size: 16, align: [0, 4, 5, 6].indexOf(i) !== -1 ? C : undefined })))],
+    ...st.list.map(p => [ar(p.serial), fmtDate(p.date, true), "أ. " + p.teacher, p.type, fmtClock(p.from), fmtClock(p.to), permDur(p), p.reason, p.mode === "بديل" ? "بديل: " + p.substitute : "متفرغ"].map((t, i) => h.cell(t, { size: 16, align: [0, 4, 5, 6].indexOf(i) !== -1 ? C : undefined })))],
     [900, 1900, 2600, 1300, 800, 800, 1200, 3100, 1800], h.softBorders("C9D6E3")));
   else kids.push(h.para("لا يوجد استئذان معتمد في هذه الفترة.", { size: 20 }));
   kids.push(h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400));
   return h.doc(kids, { landscape: true });
+}
+
+// ================= ملفات PDF (بالديباجة المعتمدة نفسها) =================
+// كل تقرير يُبنى صفحاتٍ HTML بتصميم نموذج «تقرير زيارة رئيس الشعبة» ثم يُصوَّر ويُجمع في ملف PDF داخل المتصفح.
+const PDF_LIB_URLS = ["https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js", "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"];
+let PDF_READY = null;
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("تعذّر تحميل أداة PDF. تأكد من الإنترنت.")); document.head.appendChild(s); }); }
+function pdfLibs() { if (!PDF_READY) PDF_READY = Promise.all(PDF_LIB_URLS.map(loadScript)).catch(e => { PDF_READY = null; throw e; }); return PDF_READY; }
+
+const PDF_CSS = `
+.pp{width:794px;height:1123px;padding:30px;background:#fff;box-sizing:border-box;font-family:Arial,Tahoma,"Segoe UI",sans-serif;color:#1f2a33;direction:rtl}
+.pp.land{width:1123px;height:794px}
+.pp *{box-sizing:border-box}
+.pp .fr{border:4px double #1E3A5F;height:100%;padding:16px 26px 12px;display:flex;flex-direction:column}
+.pp .hd{display:grid;grid-template-columns:130px 1fr 130px;align-items:center}
+.pp .hd .moe{width:100px;justify-self:center}.pp .hd .ins{width:104px;justify-self:center}
+.pp .mid{text-align:center}.pp .mid .g{width:36px}.pp .mid .t{color:#1E3A5F;font-weight:700;font-size:16px;margin:4px 0 6px}
+.pp .box{display:inline-block;background:#1E3A5F;color:#fff;font-weight:700;font-size:18px;padding:5px 44px;border-radius:9px}
+.pp .rule{border-bottom:4px double #1E3A5F;margin:10px 0 10px}
+.pp .bd{flex:1;overflow:hidden;font-size:13.5px;line-height:1.65}
+.pp h1{color:#1E3A5F;text-align:center;font-size:19px;margin:0 0 8px;font-weight:800}
+.pp h3{color:#1E3A5F;font-size:14px;margin:8px 0 4px;font-weight:700;background:#EEF3F8;padding:2px 8px;border-radius:4px}
+.pp p{margin:0 0 4px;text-align:justify}.pp .c{text-align:center}.pp .mut{color:#6B7782;font-size:11.5px}
+.pp ul{margin:0 0 4px;padding-right:20px}.pp li::marker{color:#1E3A5F}
+.pp table{width:100%;border-collapse:collapse;margin:2px 0 8px}
+.pp table.info td{border:1px solid #C9D6E3;padding:4px 9px;font-size:13px}.pp table.info td.k{background:#EEF3F8;color:#1E3A5F;font-weight:700;white-space:nowrap;width:1%}
+.pp table.grid th{background:#1E3A5F;color:#fff;font-weight:700;padding:4px 5px;border:1px solid #1E3A5F;font-size:12px;text-align:center}
+.pp table.grid th.sub{background:#EEF3F8;color:#1E3A5F;border-color:#C9D6E3;font-size:11px}
+.pp table.grid td{border:1px solid #C9D6E3;padding:3px 6px;vertical-align:middle;font-size:12px}
+.pp table.grid td.c{text-align:center}.pp table.grid td.b{font-weight:700}.pp table.grid td.f{background:#EEF3F8;font-weight:700;text-align:center}
+.pp table.grid tr:nth-child(even) td{background-color:#FAFCFD}
+.pp table.grid td.f{background:#EEF3F8}
+.pp table.dense td{padding:1px 5px;font-size:11.5px}
+.pp table.plain td{border:none;padding:2px 4px}
+.pp .late{color:#B4382B;font-weight:700}.pp .ok{color:#2F7D4F;font-weight:700}.pp .ahead{color:#6B4FB5;font-weight:700}.pp .none{color:#7D8892}
+.pp .sg{display:grid;text-align:center;font-size:13.5px;margin-top:8px}
+.pp .sg b{display:block;color:#1E3A5F}.pp .sg .n{font-weight:700}.pp .sg .sp{height:38px}.pp .sg img{height:42px;max-width:150px;object-fit:contain;display:block;margin:2px auto}
+.pp .ph{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pp .ph img{width:100%;height:190px;object-fit:cover;border:1px solid #C9D6E3;border-radius:6px}
+.pp .tbx{display:inline-block;min-width:64px;border:1px solid #C9D6E3;text-align:center;font-weight:700;margin-left:4px;vertical-align:middle}.pp .tbx i{display:block;font-style:normal;background:#1E3A5F;color:#fff;font-size:11px;padding:1px 0}
+.pp table.plain{table-layout:auto}.pp table.plain td{vertical-align:middle}
+.pp.land .hd{grid-template-columns:100px 1fr 100px}.pp.land .hd .moe{width:62px}.pp.land .hd .ins{width:64px}.pp.land .mid .g{width:26px}.pp.land .mid .t{font-size:14px;margin:2px 0 4px}.pp.land .box{font-size:16px;padding:3px 36px}.pp.land .sg{margin-top:4px;font-size:12.5px}.pp.land .sg .sp{height:26px}.pp.land .bd p{margin:0 0 2px}.pp.land .fr{padding:12px 22px 10px}.pp.land .rule{margin:6px 0 8px}
+.pp table.xs td{padding:0 4px;font-size:10.5px;line-height:1.22}.pp.land table.info td{padding:2px 8px;font-size:12px}.pp.land table{margin:1px 0 4px}.pp table.xs th{padding:2px 3px;font-size:10.5px}
+.pp img.sig{height:38px;max-width:130px;object-fit:contain}
+`;
+const PE = s => esc(s == null ? "" : s);
+const P = {
+  info: (pairs, cols = 2) => { let h = ""; for (let i = 0; i < pairs.length; i += cols) h += "<tr>" + pairs.slice(i, i + cols).map(([k, v]) => `<td class="k">${PE(k)}:</td><td>${v && v.html ? v.html : PE(v)}</td>`).join("") + "</tr>"; return `<table class="info">${h}</table>`; },
+  grid: (head, rows, cls = "") => `<table class="grid ${cls}"><thead>${head}</thead><tbody>${rows.join("")}</tbody></table>`,
+  th: list => "<tr>" + list.map(t => `<th>${PE(t)}</th>`).join("") + "</tr>",
+  tr: cells => "<tr>" + cells.map(c => typeof c === "object" && c ? `<td class="${c.c || ""}"${c.span ? ` rowspan="${c.span}"` : ""}>${c.html != null ? c.html : PE(c.t)}</td>` : `<td>${PE(c)}</td>`).join("") + "</tr>",
+  h: t => `<h3>${PE(t)}</h3>`, p: (t, cls = "") => `<p class="${cls}">${PE(t)}</p>`, title: t => `<h1>${PE(t)}</h1>`,
+  ul: list => list.length ? `<ul>${list.map(x => `<li>${PE(x)}</li>`).join("")}</ul>` : `<p class="mut">—</p>`,
+  text: t => { let out = "", items = []; const flush = () => { if (items.length) { out += `<ul>${items.map(x => `<li>${x}</li>`).join("")}</ul>`; items = []; } };
+    const bold = s => PE(s).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+    String(t || "").split("\n").forEach(raw => { const l = raw.trim(); if (!l || /^العنوان\s*:/.test(l)) return;
+      if (l.startsWith("#")) { flush(); out += `<h3>${PE(l.replace(/^#+\s*/, ""))}</h3>`; } else if (/^[-•*]\s+/.test(l)) items.push(bold(l.replace(/^[-•*]\s+/, ""))); else { flush(); out += `<p>${bold(l)}</p>`; } });
+    flush(); return out; },
+  img: (src, cls = "sig") => src ? `<img class="${cls}" src="${src}">` : ""
+};
+function pdfHeader(box) {
+  return `<div class="hd"><img class="moe" src="data:image/png;base64,${MOE_B64}"><div class="mid"><img class="g" src="data:image/png;base64,${GUID_B64}"><div class="t">التوجيه الفني للعلوم الشرعية</div><span class="box">${PE(box)}</span></div><img class="ins" src="data:image/png;base64,${LOGO_B64}"></div><div class="rule"></div>`;
+}
+function pdfSigns(signs) {
+  if (!signs || !signs.length) return "";
+  return `<div class="sg" style="grid-template-columns:repeat(${signs.length},1fr)">${signs.map(([r, n, img]) => `<div><b>${PE(r)}</b><div class="n">${PE(n)}</div>${img ? `<img src="${img}">` : `<div class="sp"></div>`}</div>`).join("")}</div>`;
+}
+// spec: { box, landscape, blocks: [html], signs: [[الصفة، الاسم، صورة التوقيع]] }
+async function buildPdf(spec) {
+  await pdfLibs();
+  const host = document.createElement("div");
+  host.style.cssText = "position:fixed;left:-30000px;top:0;z-index:-1;";
+  host.innerHTML = `<style>${PDF_CSS}</style>`;
+  document.body.appendChild(host);
+  const pages = [];
+  const newPage = first => {
+    const pg = document.createElement("div"); pg.className = "pp" + (spec.landscape ? " land" : "");
+    pg.innerHTML = `<div class="fr">${first ? pdfHeader(spec.box) : ""}<div class="bd"></div></div>`;
+    host.appendChild(pg); pages.push(pg); return pg.querySelector(".bd");
+  };
+  const over = b => b.scrollHeight > b.clientHeight + 1;
+  let body = newPage(true);
+  const blocks = [...spec.blocks, pdfSigns(spec.signs)];
+  for (const html of blocks) {
+    if (!html) continue;
+    const tmp = document.createElement("div"); tmp.innerHTML = html;
+    for (const el of [...tmp.children]) {
+      body.appendChild(el);
+      if (!over(body)) continue;
+      body.removeChild(el);
+      const rows = el.tagName === "TABLE" && el.tBodies[0] ? [...el.tBodies[0].rows] : null;
+      if (rows && rows.length > 1 && !rows.some(r => [...r.cells].some(c => c.rowSpan > 1))) {
+        const shell = () => { const t = el.cloneNode(true); t.tBodies[0].innerHTML = ""; return t; };
+        let t = shell(); body.appendChild(t);
+        for (const r of rows) {
+          t.tBodies[0].appendChild(r);
+          if (over(body)) {
+            t.tBodies[0].removeChild(r);
+            if (!t.tBodies[0].rows.length) body.removeChild(t);
+            body = newPage(false); t = shell(); body.appendChild(t); t.tBodies[0].appendChild(r);
+          }
+        }
+      } else { body = newPage(false); body.appendChild(el); }
+    }
+  }
+  try {
+    const { PDFDocument } = window.PDFLib, pdf = await PDFDocument.create();
+    const W = spec.landscape ? 841.89 : 595.28, Hh = spec.landscape ? 595.28 : 841.89;
+    for (const pg of pages) {
+      const url = await window.htmlToImage.toJpeg(pg, { pixelRatio: 2, quality: 0.9, skipFonts: true, backgroundColor: "#ffffff" });
+      const img = await pdf.embedJpg(url);
+      const page = pdf.addPage([W, Hh]); page.drawImage(img, { x: 0, y: 0, width: W, height: Hh });
+    }
+    pdf.setTitle(spec.box || "تقرير");
+    return new Blob([await pdf.save()], { type: "application/pdf" });
+  } finally { host.remove(); }
+}
+async function deliverPdf(specFn, filename, msgEl) {
+  msgEl.textContent = "جارٍ إنشاء ملف PDF…";
+  try { const spec = await specFn(); await deliver(await buildPdf(spec), filename.replace(/\.docx$/, "") + ".pdf", msgEl); }
+  catch (e) { msgEl.textContent = "لم يتم إنشاء ملف PDF: " + cleanErr(e); }
+}
+
+// ---------- مواصفات PDF لكل تقرير (المحتوى نفسه الذي في الوورد) ----------
+function pdfCurr(rows, week, now, counts, deptFilter) {
+  const cls = { ok: "ok", late: "late", ahead: "ahead", none: "none" };
+  const scope = deptFilter ? "قسم " + SUBJECTS[deptFilter] : "قسما الحديث الشريف والقرآن الكريم";
+  const wLabel = week >= 1 && week <= WEEKS ? `الأسبوع ${WEEK_NAMES[week]} (${weekRange(week)})` : week > WEEKS ? "بعد نهاية أسابيع الخطة" : "قبل بداية الفصل";
+  const dateStr = `${ar(now.getDate())}/${ar(now.getMonth() + 1)}/${ar(now.getFullYear())}`;
+  return { box: "تقرير متابعة تنفيذ خطة المنهج", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
+    P.p(`${scope} · الفصل الدراسي الأول ١٤٤٨هـ / ٢٠٢٦–٢٠٢٧م`, "c"), P.p(`تاريخ التقرير: ${dateStr} · ${wLabel}`, "c"),
+    P.h("أولًا: ملخص الحالة"),
+    P.grid(P.th(["مطابق للخطة", "متأخر", "متقدم", "لم يُحدَّث", "إجمالي الفصول"]), [P.tr([counts.ok, counts.late, counts.ahead, counts.none, rows.length].map(n => ({ t: ar(n), c: "c b" })))]),
+    P.h("ثانيًا: تفاصيل ما قُطع من المنهج لكل فصل"),
+    P.grid(P.th(["م", "المعلم", "الفصل", "القسم", "آخر ما تم إنجازه", "المقرر حسب الخطة", "الحالة", "ملاحظات"]),
+      rows.map((r, i) => P.tr([{ t: ar(i + 1), c: "c" }, r.teacher, { t: r.label, c: "c" }, SUBJECTS[r.dept], r.doneLabel, r.planned, { t: r.st.text, c: cls[r.st.kind] }, r.note || ""])), "dense"),
+    P.p("ملاحظة: تُحسب الحالة بمقارنة عدد الحصص المنجزة بما يقرره توزيع الخطة المعتمد من التوجيه الفني حتى نهاية الأسبوع الحالي.", "mut")] };
+}
+function pdfAchievement(a, photos) {
+  const title = (String(a.report || "").match(/^\s*العنوان\s*:\s*(.+)$/m) || [])[1] || a.title;
+  const blocks = [P.title(title), P.info([["المعلم", "أ. " + a.teacher], ["التاريخ", fmtDate(a.date, true)], ["نوع النشاط", a.type], ["الفئة المستهدفة", a.target || "طلاب المعهد"]]), P.text(a.report)];
+  if (photos.length) blocks.push(P.h("صور من النشاط"), `<div class="ph">${photos.map(src => `<img src="${src}">`).join("")}</div>`);
+  return { box: "تقرير نشاط", blocks, signs: [["المعلم", "أ. " + a.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] };
+}
+function pdfMinute(m) {
+  const sig = {}; (m.signatures || []).forEach(s => sig[s.teacher] = s);
+  const ag = lines(m.agenda), dec = lines(m.decisions), blocks = [P.title(m.title),
+    P.info([["التاريخ", fmtDate(m.date, true)], ["الوقت", ar(m.time || "—")], ["المكان", m.place || "—"], ["رئيس الاجتماع", HEAD_SIGN]])];
+  if (ag.length) blocks.push(P.h("أولًا: جدول الأعمال"), ag.map((x, i) => P.p(`${ar(i + 1)}. ${x}`)).join(""));
+  if (m.discussion) blocks.push(P.h("ثانيًا: ما دار في الاجتماع"), String(m.discussion).split(/\n+/).filter(s => s.trim()).map(s => P.p(s.trim())).join(""));
+  if (dec.length) blocks.push(P.h("ثالثًا: التوصيات والقرارات"), dec.map((x, i) => P.p(`${ar(i + 1)}. ${x}`)).join(""));
+  blocks.push(P.h("رابعًا: الحضور والتوقيعات"), P.grid(P.th(["م", "الاسم", "التوقيع", "وقت التوقيع"]),
+    m.attendees.map((n, i) => { const s = sig[n]; return P.tr([{ t: ar(i + 1), c: "c" }, n, { html: s && s.image ? P.img(s.image) : "", c: "c" }, { t: s ? fmtStamp(s.signedAt) : "—", c: "c" }]); })));
+  return { box: "محضر اجتماع", blocks, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] };
+}
+function pdfVisit(v) {
+  const pos = lines(v.positives), rec = lines(v.recommendations);
+  const report = `<div style="font-size:11.5px"><div class="ok" style="background:#E4F2E9;padding:1px 6px">إيجابيات</div>${P.ul(pos)}<div style="background:#FBEEE0;color:#A0601A;font-weight:700;padding:1px 6px;margin-top:6px">ملاحظات وتوصيات</div>${P.ul(rec)}</div>`;
+  const rows = VIS_ITEMS.map((t, i) => { const r = v.ratings[i] || ["", ""], mk = lv => ({ t: r[0] === lv ? "✓" : "", c: "c b" });
+    const cells = [{ t: ar(i + 1), c: "f" }, { t, c: "b" }, mk("ممتاز"), mk("جيد جدًا"), mk("جيد"), mk("ضعيف"), r[1] || ""];
+    if (i === 0) cells.push({ html: report, span: VIS_ITEMS.length }); return P.tr(cells); });
+  return { box: "تقرير زيارة رئيس الشعبة", signs: [["رئيس الشعبة", HEAD_SIGN, v.headSig], ["المعلم", "أ. " + v.teacher, v.teacherSig], ["مدير المعهد", PRINCIPAL]], blocks: [
+    P.info([["اليوم", dayName(v.date)], ["الصف", classFull(v.classId)], ["التاريخ والحصة", fmtDate(v.date) + (v.period ? " · الحصة " + ar(v.period) : "")], ["نوع الزيارة", v.visitType || ""], ["الموضوع", v.topic || ""], ["المعلم", "أ. " + v.teacher]], 3),
+    `<table class="grid dense" style="table-layout:fixed"><colgroup><col style="width:4%"><col style="width:25%"><col style="width:6.5%"><col style="width:7%"><col style="width:6%"><col style="width:6.5%"><col style="width:17%"><col style="width:28%"></colgroup><thead>${P.th(["م", "البنود", "ممتاز", "جيد جدًا", "جيد", "ضعيف", "ملاحظات", "تقرير رئيس الشعبة"])}</thead><tbody>${rows.join("")}</tbody></table>`,
+    v.teacherSignedAt ? P.p("اطّلع المعلم ووقّع: " + fmtStamp(v.teacherSignedAt), "mut c") : ""] };
+}
+function pdfDailyReserve(date) {
+  const abs = RES.absences.filter(a => a.date === date), covs = RES.covers.filter(c => c.date === date && c.status !== COV_PRESENT).sort((a, b) => a.period - b.period || a.absent.localeCompare(b.absent, "ar"));
+  return { box: "كشف الاحتياط اليومي", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
+    P.info([["اليوم", DAYS[isoDay(date)] || ""], ["التاريخ", fmtDate(date)], ["الغائبون", abs.map(a => "أ. " + a.teacher).join("، ") || "—"]], 2),
+    P.grid(P.th(["م", "الحصة", "الفصل", "المادة", "المعلم الغائب", "المعلم البديل", "توقيع البديل"]),
+      covs.map((c, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: PERIOD_NAMES[c.period], c: "c" }, { t: classLabel(c.classId), c: "c" }, subjOf(c.classId), "أ. " + c.absent,
+        c.status === COV_DONE ? { t: "أ. " + c.substitute, c: "b" } : { t: "لم تُغطَّ", c: "late" }, ""])))] };
+}
+function pdfReserveReport(r) {
+  const st = resStats(r), det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
+  return { box: "سجل الغياب والاحتياط", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label, "c b"),
+    P.h("أولًا: عدّاد الغياب والاحتياط لكل معلم"),
+    P.grid(P.th(["المعلم", "أيام الغياب", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"]),
+      st.map(s => P.tr(["أ. " + s.t, ...[s.days, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => ({ t: ar(n), c: i === 3 && n > 0 ? "c late" : "c" })), Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—"]))),
+    P.h("ثانيًا: تفاصيل حصص الاحتياط"),
+    det.length ? P.grid(P.th(["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"]), det.map(c => P.tr([fmtDate(c.date, true), { t: PERIOD_NAMES[c.period], c: "c" }, { t: classLabel(c.classId), c: "c" }, "أ. " + c.absent,
+      c.status === COV_DONE ? "أ. " + c.substitute : { t: "لم تُغطَّ", c: "late" }])), "dense") : P.p("لا توجد حصص احتياط في هذه الفترة.")] };
+}
+function pdfClassSheet(r) {
+  const ci = classInfo(r.cls);
+  let full = 0, low = 0, sum = 0;
+  const head = `<tr><th rowspan="2">م</th><th rowspan="2">اسم المتعلم</th>${GRD_PARTS.map((p, i) => `<th colspan="2">${PE(partName(i, ci.dept))} (${ar(p[1])})</th>`).join("")}<th rowspan="2">الاختبار القصير (١٥)</th><th rowspan="2">المجموع (٤٠)</th><th rowspan="2">ملاحظات</th></tr>
+    <tr>${Array.from({ length: 8 }, (_, i) => `<th class="sub">ق${i % 2 ? "٢" : "١"} (${fmtN(GRD_MAX[i])})</th>`).join("")}</tr>`;
+  const rows = r.students.map(s => {
+    const v = (r.grades[s.name] || []).map(x => x ?? ""), t = rowTotals(Array.from({ length: 9 }, (_, i) => v[i] || "")), isLow = t.form !== "" && t.form < 20;
+    if (t.form !== "") { full++; sum += t.form; if (isLow) low++; }
+    return P.tr([{ t: ar(s.n), c: "c" }, s.name, ...Array.from({ length: 9 }, (_, i) => ({ t: fmtN(v[i] || ""), c: "c" })), { t: fmtN(t.form), c: "f" + (isLow ? " late" : "") }, s.note || ""]);
+  });
+  return { box: "كشف متابعة المتعلمين", landscape: true, signs: [["معلم المادة", "أ. " + r.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
+    P.info([["المادة", SUBJECTS[ci.dept]], ["الصف", ci.label], ["المعلم", "أ. " + r.teacher], ["الفصل الدراسي", `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧`]], 4),
+    P.grid(head, rows, "xs"),
+    P.p(`عدد المتعلمين ${ar(r.students.length)}، واكتمل الرصد لـ ${ar(full)}، ومتوسط المجموع ${full ? fmtN(sum / full) : "—"} من ٤٠، ودون ٥٠٪ (أقل من ٢٠) ${ar(low)}.`, "b")] };
+}
+function pdfStudentReport(r) {
+  const k = SREP_KEY[r.type] || r.type, F = SREP[k], d = r.data || {}, dept = r.cls ? r.cls.split(":")[0] : (r.dept || "hd"), ci = r.cls ? classInfo(r.cls) : null;
+  const checks = (title, opts, chosen) => { chosen = chosen || []; const all = opts.concat(chosen.filter(x => opts.indexOf(x) === -1)), cells = [];
+    for (let i = 0; i < all.length; i += 2) cells.push(`<tr>${[all[i], all[i + 1]].map(o => `<td style="width:50%">${o ? `${chosen.indexOf(o) !== -1 ? "■" : "□"} ${PE(o)}` : ""}</td>`).join("")}</tr>`);
+    return P.h(title) + `<table class="plain">${cells.join("")}</table>`; };
+  const box = (title, text) => P.h(title) + `<div style="border:1px solid #C9D6E3;padding:6px 10px;min-height:40px">${PE(text || "").replace(/\n/g, "<br>")}</div>`;
+  const blocks = [P.info([["اسم المتعلم", r.student || ""], ["الصف", ci ? ci.label : ""], ["المادة", SUBJECTS[dept]], ["الفصل الدراسي", r.term ? `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧` : ""],
+    ["المعلم", r.teacher ? "أ. " + r.teacher : ""], ["المجموع في الكشف", r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : "—"], ["تاريخ التقرير", r.createdAt ? fmtDate(r.createdAt) : ""]]),
+    checks(F.a[0], F.a[1](dept), d.a), checks(F.b[0], F.b[1](dept), d.b), F.c ? checks(F.c[0], F.c[1](dept), d.c) : "", box(F.desc, d.desc)];
+  if (k === "weak" && d.need) blocks.push(box("الدعم المطلوب من رئيس الشعبة أو الإدارة", d.need));
+  if (d.rec) blocks.push(box("توصية المعلم", d.rec));
+  if (d.other) blocks.push(box("ملاحظات أخرى", d.other));
+  return { box: `${F.title} · ${SUBJECTS[dept]}`, blocks, signs: [["المعلم", r.teacher ? "أ. " + r.teacher : ""], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] };
+}
+function pdfPermission(p) {
+  const [fh, fm] = hm(p.from), [th, tm] = hm(p.to), bx = c => c ? "■" : "□";
+  const tt = (h, m) => `<span class="tbx"><i>ساعة</i>${h || "&nbsp;"}</span><span class="tbx"><i>دقيقة</i>${m || "&nbsp;"}</span>`;
+  const sig = (r, n, img) => `<div><b>${r}</b>${img ? `<img src="${img}">` : `<div class="sp"></div>`}<div class="n" style="font-size:12px">${PE(n)}</div></div>`;
+  return { box: "إذن خروج", signs: [["مدير المعهد", PRINCIPAL]], blocks: [
+    `<table class="plain"><tr><td class="b" style="color:#1E3A5F">المسلسل: ${ar(p.serial)}</td><td class="c b" style="color:#1E3A5F">إخطار بمدة الاستئذان المصرح بها</td><td class="b" style="color:#1E3A5F;text-align:left">نموذج رقم (٥م)</td></tr></table>`,
+    P.p(PERM_TYPES.map(t => `${bx(p.type === t)} ${t}`).join("        "), "c b"),
+    `<p><b>السيد المحترم / مدير معهد عبدالرحمن السميط الديني الثانوي بنين</b>      بعد التحية،</p>`,
+    P.info([["لقد تم التصريح للسيد", "أ. " + p.teacher], ["القسم", p.dept], ["سبب التصريح", p.reason], ["الوظيفة", p.job], ["الرقم المدني", ar(p.civil)], ["بالاستئذان يوم", (DAYS[isoDay(p.date)] || "") + " · الموافق " + fmtDate(p.date)]]),
+    `<table class="plain" style="margin:6px 0"><tr><td class="b" style="color:#1E3A5F;width:12%">اعتبارًا من:</td><td style="width:22%">${tt(fh, fm)}</td><td class="b c" style="color:#1E3A5F;width:8%">حتى:</td><td style="width:22%">${p.to === END_DAY ? "<b>■ نهاية الدوام</b>" : tt(th, tm)}</td><td class="c">${p.to === END_DAY ? "" : "(" + permDur(p) + ")"}</td></tr></table>`,
+    `<p class="b">${bx(p.mode !== "بديل")}  المعلم متفرغ          ${bx(p.mode === "بديل")}  بديل المعلم: ${p.mode === "بديل" ? "أ. " + PE(p.substitute) : "........................"}</p>`,
+    `<div class="sg" style="grid-template-columns:1fr 1fr 1fr">${sig("توقيع المعلم", "أ. " + p.teacher, p.teacherSig)}${sig("توقيع رئيس الشعبة", HEAD_SIGN, p.headSig)}${sig("توقيع المدير المساعد", "", "")}</div>`,
+    `<div class="rule"></div><p class="b">□  تأخر عن الموعد لمدة: ........ ساعة</p><p class="b">□  لم يعد حتى نهاية الدوام.</p>`,
+    `<table class="plain"><tr><td class="b" style="width:22%">تضاف مدة التأخير</td><td class="b" style="width:10%">وقدرها</td><td style="width:24%">${tt("", "")}</td><td class="b">إلى مدد التأخير الشهرية.</td></tr></table>`] };
+}
+function pdfPermLog(r) {
+  const st = permStats(r);
+  return { box: "سجل الاستئذان", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label, "c b"),
+    P.h("أولًا: عدد مرات الاستئذان ومجموع مدته لكل معلم"),
+    P.grid(P.th(["المعلم", "مرات الاستئذان المعتمدة", "مجموع المدة"]), st.sum.length ? st.sum.map(s => P.tr(["أ. " + s.t, { t: ar(s.n), c: "c b" }, { t: sumDur(s), c: "c" }])) : [P.tr([{ t: "لا يوجد استئذان معتمد في هذه الفترة." }, "", ""])]),
+    P.h("ثانيًا: تفاصيل الاستئذان"),
+    st.list.length ? P.grid(P.th(["المسلسل", "اليوم والتاريخ", "المعلم", "النوع", "من", "إلى", "المدة", "سبب التصريح", "الحصص"]),
+      st.list.map(p => P.tr([{ t: ar(p.serial), c: "c" }, fmtDate(p.date, true), "أ. " + p.teacher, p.type, { t: fmtClock(p.from), c: "c" }, { t: fmtClock(p.to), c: "c" }, { t: permDur(p), c: "c" }, p.reason, p.mode === "بديل" ? "بديل: " + p.substitute : "متفرغ"])), "dense")
+      : P.p("لا يوجد استئذان معتمد في هذه الفترة.")] };
 }
 
 // ================= ركن الإنجازات =================
@@ -1783,7 +2036,7 @@ async function openAch(id) {
     <textarea id="ach-report" rows="14" placeholder="## مقدمة&#10;نص الفقرة…&#10;## تفاصيل النشاط&#10;- نقطة&#10;- نقطة">${esc(a.report || "")}</textarea>
     <div class="row-actions" style="margin-top:10px">
       <button class="btn" id="ach-save">حفظ التقرير</button>
-      <button class="btn" id="ach-word" ${a.report ? "" : "disabled"}>تنزيل وورد</button>
+      <button class="btn" id="ach-word" ${a.report ? "" : "disabled"}>تنزيل وورد</button><button class="btn ghost" id="ach-pdf" type="button" ${a.report ? "" : "disabled"}>PDF</button>
       <button class="btn ghost" id="ach-delete">حذف الإنجاز</button>
     </div>
     <div class="saved" id="ach-dmsg"></div>`;
@@ -1795,9 +2048,10 @@ async function openAch(id) {
   $("ach-save").onclick = async () => {
     const m = $("ach-dmsg"), t = $("ach-report").value;
     $("ach-save").disabled = true; m.textContent = "جارٍ الحفظ…";
-    try { const r = await run("saveReport", CODE, a.id, t); a.report = t; a.status = r.status; a.reportedAt = r.reportedAt; $("ach-word").disabled = !t.trim(); m.textContent = "تم الحفظ."; }
+    try { const r = await run("saveReport", CODE, a.id, t); a.report = t; a.status = r.status; a.reportedAt = r.reportedAt; $("ach-word").disabled = $("ach-pdf").disabled = !t.trim(); m.textContent = "تم الحفظ."; }
     catch (e) { m.textContent = cleanErr(e); } finally { $("ach-save").disabled = false; }
   };
+  $("ach-pdf").onclick = () => deliverPdf(async () => { const ph = []; for (const x of a.photos) ph.push(await photo(x)); return pdfAchievement({ ...a, report: $("ach-report").value }, ph); }, `تقرير ${a.title} - ${a.teacher}.pdf`, $("ach-dmsg"));
   $("ach-word").onclick = async () => {
     const m = $("ach-dmsg"); m.textContent = "جارٍ إنشاء الملف…";
     try {
@@ -1858,7 +2112,7 @@ async function openMinute(id) {
   if (ME.isHead) {
     html += `<div class="card"><h3>حالة التوقيع (${ar(m.signatures.length)} من ${ar(m.attendees.length)})</h3>
       ${m.attendees.map(n => `<div class="acct"><span>${esc(n)}</span>${signed[n] ? `<span class="pill ok">وقّع ${fmtStamp(signed[n].signedAt)}</span>` : `<span class="pill late">لم يوقّع</span>`}</div>`).join("")}
-      <div class="row-actions" style="margin-top:12px"><button class="btn" id="min-word">تنزيل المحضر وورد</button><button class="btn ghost" id="min-edit">تعديل</button><button class="btn ghost" id="min-del">حذف</button></div>
+      <div class="row-actions" style="margin-top:12px"><button class="btn" id="min-word">تنزيل المحضر وورد</button><button class="btn ghost" id="min-pdf" type="button">PDF</button><button class="btn ghost" id="min-edit">تعديل</button><button class="btn ghost" id="min-del">حذف</button></div>
       <div class="saved" id="min-dmsg"></div></div>`;
   }
   d.innerHTML = html;
@@ -1869,6 +2123,7 @@ async function openMinute(id) {
     $("min-del").onclick = () => confirmInline($("min-del"), "اضغط مرة ثانية لحذف المحضر وتواقيعه", async () => {
       try { await run("deleteMinute", CODE, m.id); loadMinutes(true); } catch (e) { $("min-dmsg").textContent = cleanErr(e); }
     });
+    $("min-pdf").onclick = () => deliverPdf(() => pdfMinute(CUR_MIN), `محضر ${CUR_MIN.title} - ${CUR_MIN.date}.pdf`, $("min-dmsg"));
     $("min-word").onclick = async () => {
       const msg = $("min-dmsg"); msg.textContent = "جارٍ إنشاء الملف…";
       try {
@@ -2157,7 +2412,7 @@ async function openVisit(id) {
   if (mine && !v.teacherSignedAt) html += `<div class="card signbox"><h3>توقيعك على الزيارة</h3><div id="vs-pad"></div>
     <label class="check"><input type="checkbox" id="vs-ack"> اطّلعت على تقرير الزيارة وما ورد فيه من ملاحظات وتوصيات</label>
     <div class="row-actions" style="margin-top:10px"><button class="btn" id="vs-submit">توقيع</button><span class="saved" id="vs-msg"></span></div></div>`;
-  if (ME.isHead) html += `<div class="row-actions" style="margin-top:12px"><button class="btn" id="vis-word">تنزيل التقرير وورد</button>
+  if (ME.isHead) html += `<div class="row-actions" style="margin-top:12px"><button class="btn" id="vis-word">تنزيل التقرير وورد</button><button class="btn ghost" id="vis-pdf" type="button">PDF</button>
     ${v.teacherSignedAt ? "" : '<button class="btn ghost" id="vis-edit">تعديل</button>'}<button class="btn ghost" id="vis-del">حذف</button></div><div class="saved" id="vis-dmsg"></div>`;
   d.innerHTML = html;
   $("vis-back").onclick = () => { d.hidden = true; visTab(ME.isHead ? (visSub === "new" ? "log" : visSub) : "mine"); };
@@ -2176,6 +2431,7 @@ async function openVisit(id) {
     $("vis-del").onclick = () => confirmInline($("vis-del"), "اضغط مرة ثانية لحذف الزيارة", async () => {
       try { await run("deleteVisit", CODE, v.id); VIS = null; d.hidden = true; visTab("log"); } catch (e) { $("vis-dmsg").textContent = cleanErr(e); }
     });
+    $("vis-pdf").onclick = () => deliverPdf(() => pdfVisit(v), `تقرير زيارة ${v.teacher} - الزيارة ${v.number}.pdf`, $("vis-dmsg"));
     $("vis-word").onclick = async () => {
       const m = $("vis-dmsg"); m.textContent = "جارٍ إنشاء الملف…";
       try {
@@ -2372,6 +2628,7 @@ $("res-form").addEventListener("submit", async e => {
 $("rf-delete").onclick = () => confirmInline($("rf-delete"), "اضغط مرة ثانية لحذف الغياب", async () => {
   try { await run("deleteAbsence", CODE, resEditId); await loadRes(true); renderResItems(); renderResDay(); $("rf-msg").textContent = "حُذف الغياب."; } catch (e) { $("rf-msg").textContent = cleanErr(e); }
 });
+$("res-daily-pdf").onclick = () => { const date = $("rf-date").value; deliverPdf(() => pdfDailyReserve(date), `كشف الاحتياط ${date}.pdf`, $("res-dmsg")); };
 $("res-daily-word").onclick = async () => {
   const m = $("res-dmsg"), date = $("rf-date").value; m.textContent = "جارٍ إنشاء الملف…";
   try { await deliver(await window.docx.Packer.toBlob(buildDailyReserveDoc(window.docx, date)), `كشف الاحتياط ${date}.docx`, m); }
@@ -2419,6 +2676,7 @@ function renderResTeacher(r) {
 }
 $("res-range").onchange = renderResLog;
 $("res-reload").onclick = async () => { await loadRes(true); renderResLog(); };
+$("res-pdf").onclick = () => deliverPdf(() => pdfReserveReport(resRange()), `سجل الغياب والاحتياط - ${resRange().label}.pdf`, $("res-lmsg"));
 $("res-word").onclick = async () => {
   const m = $("res-lmsg"); m.textContent = "جارٍ إنشاء الملف…";
   try { await deliver(await window.docx.Packer.toBlob(buildReserveReport(window.docx, resRange())), `سجل الغياب والاحتياط - ${resRange().label}.docx`, m); }

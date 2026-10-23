@@ -967,7 +967,9 @@ function submitPermission(code, p) {
   const reason = String(p.reason || "").trim().slice(0, 300); if (reason.length < 3) throw new Error("اكتب سبب الاستئذان.");
   const date = String(p.date || ""); const day = dayOf_(date); if (day > 4) throw new Error("التاريخ ليس يوم دوام.");
   const tm = t => { const m = String(t || "").match(/^(\d{2}):(\d{2})$/); if (!m) throw new Error("اكتب وقت الاستئذان (من وإلى)."); return +m[1] * 60 + +m[2]; };
-  if (tm(p.to) <= tm(p.from)) throw new Error("وقت النهاية لازم يكون بعد وقت البداية.");
+  const toEnd = p.to === "نهاية الدوام";
+  tm(p.from);
+  if (!toEnd && tm(p.to) <= tm(p.from)) throw new Error("وقت النهاية لازم يكون بعد وقت البداية.");
   const mode = p.mode === "بديل" ? "بديل" : "متفرغ";
   const sub = mode === "بديل" ? String(p.substitute || "").trim().slice(0, 80) : "";
   if (mode === "بديل" && !sub) throw new Error("اكتب اسم المعلم البديل.");
@@ -988,7 +990,7 @@ function submitPermission(code, p) {
       <tr><td style="background:#e8f1f8"><b>المسلسل</b></td><td>${esc_(serial)}</td></tr>
       <tr><td style="background:#e8f1f8"><b>النوع</b></td><td>${esc_(type)}</td></tr>
       <tr><td style="background:#e8f1f8"><b>التاريخ</b></td><td>${esc_(date)}</td></tr>
-      <tr><td style="background:#e8f1f8"><b>الوقت</b></td><td>من ${esc_(p.from)} إلى ${esc_(p.to)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>الوقت</b></td><td>من ${esc_(p.from)} ${toEnd ? "حتى نهاية الدوام" : "إلى " + esc_(p.to)}</td></tr>
       <tr><td style="background:#e8f1f8"><b>السبب</b></td><td>${esc_(reason)}</td></tr>
       <tr><td style="background:#e8f1f8"><b>الحصص</b></td><td>${mode === "بديل" ? "بديل المعلم: " + esc_(sub) : "المعلم متفرغ"}</td></tr>
     </table>`);
