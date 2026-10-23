@@ -227,6 +227,8 @@ table.grades tr.low td.nm { color: var(--late); font-weight: 700; }
 table.grades tr.low td.form { color: var(--late); background: var(--late-soft); }
 table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(--bg); }
 .cls-hint { margin: 10px 0; line-height: 1.7; }
+.dept-head { font-family: var(--f-display); font-size: 17px; margin: 22px 0 4px; padding: 6px 12px; border-radius: 10px; }
+.dept-head.hd { background: var(--accent-soft); color: var(--accent); } .dept-head.qr { background: var(--ok-soft); color: var(--ok); }
 .srep-head { margin-top: 26px; } .srep-head select { width: auto; }
 .srep-li { font: inherit; color: var(--ink); text-align: right; cursor: pointer; width: 100%; }
 .srep-li:hover { border-color: var(--accent); }
@@ -281,7 +283,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
 
     <nav class="sections" aria-label="أركان الموقع">
       <button id="nav-curr" aria-selected="true"><b>ما قطع من المنهج</b><span>متابعة الخطة</span></button>
-      <button id="nav-cls" aria-selected="false"><b id="nav-cls-t">صفوفي</b><span>كشوف المتعلمين</span></button>
+      <button id="nav-cls" aria-selected="false"><b>كشف متابعة المتعلمين</b><span>الدرجات وتقارير المتعلمين</span></button>
       <button id="nav-ach" aria-selected="false"><b>الإنجازات</b><span>الأنشطة والفعاليات</span></button>
       <button id="nav-min" aria-selected="false"><b>محاضر الاجتماعات</b><span>الاطلاع والتوقيع</span></button>
       <button id="nav-vis" aria-selected="false"><b>الزيارات الصفية</b><span>بطاقات الزيارة</span></button>
@@ -882,7 +884,6 @@ async function doLogin(code, silent) {
     document.querySelectorAll(".teacher-only").forEach(el => el.hidden = r.isHead);
     document.querySelector("nav.sections").classList.toggle("five", !r.isHead);
     document.querySelector("nav.sections").classList.toggle("six", !!r.isHead);
-    $("nav-cls-t").textContent = r.isHead ? "الصفوف" : "صفوفي";
     $("demo-note").hidden = !r.isDemo;
     if (r.isHead) $("demo-admin").ontoggle = () => { if ($("demo-admin").open) loadDemos(); };
     let last = "curr"; try { last = localStorage.getItem("section") || "curr"; } catch (e) {}
@@ -1076,17 +1077,22 @@ function renderClsList() {
     return `<button type="button" class="cls-card" data-cls="${esc(c.cls)}"><span class="cls-top"><b>الصف ${esc(ci.label)}</b><span class="dept-tag ${ci.dept}">${SUBJECTS[ci.dept]}</span></span>
       <span class="sub">${ar(c.students)} متعلمًا</span><span class="cls-prog">${clsProgress(c)}</span></button>`; };
   const sortFn = (a, b) => { const x = classInfo(a.cls), y = classInfo(b.cls); return (x.dept === y.dept ? 0 : x.dept === "hd" ? -1 : 1) || x.grade - y.grade || x.num - y.num; };
+  const stats = list => {
+    const t = c => c["t" + clsTerm];
+    const done = list.filter(c => c.students && t(c) && t(c).form >= c.students).length, none = list.filter(c => !t(c) || !t(c).any).length;
+    const low = list.reduce((a, c) => a + ((t(c) || {}).low || 0), 0);
+    return `<div class="cls-stats"><div><b>${ar(list.length)}</b><span>صفًا</span></div><div class="ok"><b>${ar(done)}</b><span>اكتمل رصد البنائي</span></div><div class="none"><b>${ar(none)}</b><span>لم يبدأ الرصد</span></div><div class="late"><b>${ar(low)}</b><span>متعلمًا دون ٥٠٪ في البنائي</span></div></div>`;
+  };
   let html = "";
-  if (ME.isHead && !ME.isDemo) {
-    const done = items.filter(c => c.students && c["t" + clsTerm] && c["t" + clsTerm].form >= c.students).length;
-    const none = items.filter(c => !c["t" + clsTerm] || !c["t" + clsTerm].any).length;
-    const low = items.reduce((a, c) => a + ((c["t" + clsTerm] || {}).low || 0), 0);
-    html += `<div class="cls-stats"><div><b>${ar(items.length)}</b><span>صفًا</span></div><div class="ok"><b>${ar(done)}</b><span>اكتمل رصد البنائي</span></div><div class="none"><b>${ar(none)}</b><span>لم يبدأ الرصد</span></div><div class="late"><b>${ar(low)}</b><span>متعلمًا دون ٥٠٪ في البنائي</span></div></div>`;
-    for (const [t] of TEACHERS) {
-      const mine = items.filter(c => c.teacher === t).sort(sortFn);
-      if (mine.length) html += `<div class="vis-group">أ. ${esc(t)}</div><div class="cls-grid">${mine.map(card).join("")}</div>`;
-    }
-  } else html = `<div class="cls-grid">${items.slice().sort(sortFn).map(card).join("")}</div>`;
+  const depts = ["hd", "qr"].filter(d => items.some(c => c.cls.indexOf(d + ":") === 0));
+  for (const d of depts) {
+    const list = items.filter(c => c.cls.indexOf(d + ":") === 0).sort(sortFn);
+    if (depts.length > 1 || ME.isHead) html += `<h3 class="dept-head ${d}">قسم ${SUBJECTS[d]}</h3>`;
+    if (ME.isHead && !ME.isDemo) {
+      html += stats(list);
+      for (const [t] of TEACHERS) { const mine = list.filter(c => c.teacher === t); if (mine.length) html += `<div class="vis-group">أ. ${esc(t)}</div><div class="cls-grid">${mine.map(card).join("")}</div>`; }
+    } else html += `<div class="cls-grid">${list.map(card).join("")}</div>`;
+  }
   $("cls-list").innerHTML = html || `<div class="empty">لا توجد صفوف.</div>`;
   $("cls-list").querySelectorAll("[data-cls]").forEach(b => b.onclick = () => openClass(b.dataset.cls));
 }
@@ -1219,14 +1225,20 @@ function buildClassSheetDoc(D, r) {
 // ---------- تقارير المتعلمين: الفائق والمتعثر ----------
 const SREP = {
   excel: { label: "متعلم فائق", title: "تقرير متعلم فائق", pill: "ok", desc: "وصف موجز لتفوق المتعلم",
-    a: ["مظاهر التفوق", d => ["إتقان الحفظ والاستظهار بدقة", d === "qr" ? "إتقان التلاوة وأحكام التجويد" : d === "hd" ? "فهم معاني الأحاديث واستنباط الفوائد منها" : "إتقان التلاوة والتجويد (القرآن) / فهم معاني الأحاديث (الحديث)",
-      "سرعة الفهم والاستيعاب", "المشاركة الفاعلة والمبادرة في الحصة", "التميز في الواجبات والمشروع", "حسن الخلق والانضباط والقدوة لزملائه", "التفوق في المسابقات والأنشطة"]],
-    b: ["أساليب الرعاية والإثراء المقترحة", () => ["تكليفه بدور المعلم الصغير ومساعدة زملائه", "ترشيحه لمسابقات الحفظ والتلاوة والحديث", "تكليفه بأنشطة إثرائية وبحوث قصيرة", "إشراكه في الإذاعة المدرسية", "تكريمه وإدراج اسمه في لوحة الشرف", "التواصل مع ولي الأمر للإشادة به"]] },
+    a: ["مظاهر التفوق", d => d === "qr"
+      ? ["إتقان حفظ الآيات المقررة واستظهارها بدقة", "إتقان التلاوة وتطبيق أحكام التجويد", "حسن الأداء ووضوح مخارج الحروف", "المشاركة الفاعلة في التسميع والتلاوة", "التميز في الواجبات والمشروع", "حسن الخلق والانضباط والقدوة لزملائه", "التفوق في مسابقات القرآن الكريم"]
+      : ["إتقان حفظ الأحاديث المقررة واستظهارها بدقة", "فهم معاني الأحاديث ومفرداتها", "معرفة رواة الأحاديث وتراجمهم", "استنباط الفوائد والقيم من الأحاديث", "المشاركة الفاعلة والمبادرة في الحصة", "التميز في الواجبات والمشروع", "حسن الخلق والتمثل بالقيم النبوية", "التفوق في مسابقات الحديث والسيرة"]],
+    b: ["أساليب الرعاية والإثراء المقترحة", d => d === "qr"
+      ? ["تكليفه بدور القارئ الصغير ومساعدة زملائه في التسميع", "ترشيحه لمسابقات حفظ القرآن الكريم وتلاوته", "إشراكه في تلاوة القرآن الكريم بالإذاعة المدرسية", "توجيهه إلى حلقات التحفيظ في المساجد", "تكريمه وإدراج اسمه في لوحة الشرف", "التواصل مع ولي الأمر للإشادة به"]
+      : ["تكليفه بدور المعلم الصغير ومساعدة زملائه", "ترشيحه لمسابقات حفظ الحديث والسيرة", "تكليفه ببحوث قصيرة عن الرواة والقيم النبوية", "إشراكه في قراءة الأحاديث بالإذاعة المدرسية", "تكريمه وإدراج اسمه في لوحة الشرف", "التواصل مع ولي الأمر للإشادة به"]] },
   weak: { label: "متعلم متعثر", title: "تقرير متعلم متعثر", pill: "late", desc: "وصف موجز لحالة المتعلم",
-    a: ["مظاهر التعثر", d => ["ضعف الحفظ والتسميع", d === "qr" ? "ضعف التلاوة والأخطاء في أحكام التجويد" : d === "hd" ? "ضعف فهم معاني الأحاديث" : "ضعف التلاوة والتجويد (القرآن) / ضعف فهم معاني الأحاديث (الحديث)",
-      "إهمال الواجبات أو المشروع", "قلة المشاركة داخل الحصة", "تدني درجات التقييم البنائي أو الاختبار القصير", "كثرة الغياب أو التأخر", "ضعف القراءة والكتابة", "ضعف الانتباه والتركيز"]],
-    b: ["الأسباب المحتملة", () => ["ضعف التأسيس في المراحل السابقة", "الغياب المتكرر", "صعوبة اللغة العربية (غير الناطقين بها)", "ضعف الدافعية نحو التعلم", "قلة المتابعة الأسرية", "ظروف صحية أو اجتماعية"]],
-    c: ["الإجراءات العلاجية المتخذة", () => ["إعداد خطة علاجية فردية", "تجزئة المقرر وتبسيط المحتوى", "تكليف زميل متفوق بمساعدته", "تسميع إضافي ومتابعة أسبوعية", "التواصل مع ولي الأمر", "التنسيق مع الأخصائي الاجتماعي"]] }
+    a: ["مظاهر التعثر", d => d === "qr"
+      ? ["ضعف حفظ الآيات المقررة وتسميعها", "أخطاء في التلاوة (اللحن الجلي)", "ضعف تطبيق أحكام التجويد", "ضعف مخارج الحروف وحسن الأداء", "إهمال الواجبات أو المشروع", "قلة المشاركة في التسميع", "تدني درجات التقييم البنائي أو الاختبار القصير", "كثرة الغياب أو التأخر"]
+      : ["ضعف حفظ الأحاديث المقررة وتسميعها", "ضعف فهم معاني الأحاديث ومفرداتها", "ضعف معرفة رواة الأحاديث", "صعوبة استنباط الفوائد والقيم", "إهمال الواجبات أو المشروع", "قلة المشاركة داخل الحصة", "تدني درجات التقييم البنائي أو الاختبار القصير", "كثرة الغياب أو التأخر"]],
+    b: ["الأسباب المحتملة", d => ["ضعف التأسيس في المراحل السابقة", d === "qr" ? "ضعف القراءة من المصحف" : "ضعف القراءة والكتابة", "صعوبة اللغة العربية (غير الناطقين بها)", "ضعف الدافعية نحو التعلم", "الغياب المتكرر", "قلة المتابعة الأسرية", "ظروف صحية أو اجتماعية"]],
+    c: ["الإجراءات العلاجية المتخذة", d => d === "qr"
+      ? ["إعداد خطة علاجية فردية", "تجزئة المقطع المقرر للحفظ", "تسميع إضافي ومتابعة أسبوعية", "الاستماع لتلاوة قارئ متقن وترديدها", "تكليف زميل متقن بمساعدته في التسميع", "التواصل مع ولي الأمر", "التنسيق مع الأخصائي الاجتماعي"]
+      : ["إعداد خطة علاجية فردية", "تجزئة الحديث المقرر للحفظ", "تبسيط المعاني بأمثلة من واقع المتعلم", "تسميع إضافي ومتابعة أسبوعية", "تكليف زميل متفوق بمساعدته", "التواصل مع ولي الأمر", "التنسيق مع الأخصائي الاجتماعي"]] }
 };
 const SREP_KEY = { "متعلم فائق": "excel", "متعلم متعثر": "weak" };
 let SREPS = null, CUR_SREP = null, srepBack = "home", srepFilter = "", srepDelArmed = false;
@@ -1245,7 +1257,8 @@ function renderSreps() {
   const all = (SREPS || []).filter(r => !srepFilter || SREP_KEY[r.type] === srepFilter);
   const home = all.filter(r => !clsTeacherFilter || r.teacher === clsTeacherFilter || teacherOfCls(r.cls) === clsTeacherFilter);
   $("srep-title").textContent = ME.isHead && !ME.isDemo ? "تقارير المتعلمين الواردة" : "تقاريري عن المتعلمين";
-  $("srep-list").innerHTML = home.map(srepRow).join("") || `<div class="empty">لا توجد تقارير${srepFilter ? " من هذا النوع" : ""} بعد.${ME.isHead ? "" : " افتح أحد صفوفك لإرسال تقرير متعلم فائق أو متعثر."}</div>`;
+  const byDept = ["hd", "qr"].map(d => [d, home.filter(r => r.cls.indexOf(d + ":") === 0)]).filter(([, l]) => l.length);
+  $("srep-list").innerHTML = byDept.map(([d, l]) => `<div class="vis-group">قسم ${SUBJECTS[d]} (${ar(l.length)})</div>` + l.map(srepRow).join("")).join("") || `<div class="empty">لا توجد تقارير${srepFilter ? " من هذا النوع" : ""} بعد.${ME.isHead ? "" : " افتح أحد صفوفك لإرسال تقرير متعلم فائق أو متعثر."}</div>`;
   if (CUR_CLS) {
     const mine = (SREPS || []).filter(r => r.cls === CUR_CLS.cls);
     $("srep-class-list").innerHTML = mine.map(srepRow).join("") || `<div class="sub">لا توجد تقارير لهذا الصف بعد.</div>`;
@@ -1270,7 +1283,7 @@ function srepForm(type, rep) {
   CUR_SREP = rep || null; srepBack = "sheet"; clsView("cls-rep");
   $("cls-rep").innerHTML = `<div class="vis-head-row"><button class="btn ghost sm" type="button" id="srep-cancel">→ رجوع إلى الكشف</button></div>
   <form class="card" id="srep-form" style="margin-top:10px">
-    <h2>${F.title}</h2><div class="sub">${esc(classFull(CUR_CLS.cls))} · الفصل الدراسي ${TERM_NAMES[CUR_CLS.term]} · المعلم: أ. ${esc(rep ? rep.teacher : ME.name)}</div>
+    <h2>${F.title} · ${SUBJECTS[dept]}</h2><div class="sub">${esc(classFull(CUR_CLS.cls))} · الفصل الدراسي ${TERM_NAMES[CUR_CLS.term]} · المعلم: أ. ${esc(rep ? rep.teacher : ME.name)}</div>
     <label class="f" for="sr-student">اسم المتعلم</label>
     <select id="sr-student" required><option value="">اختر المتعلم…</option>${CUR_CLS.students.map(s => `<option value="${esc(s.name)}"${rep && rep.student === s.name ? " selected" : ""}>${ar(s.n)}. ${esc(s.name)}</option>`).join("")}</select>
     <div class="sub" id="sr-score"></div>
@@ -1310,7 +1323,7 @@ function openSrep(id, back, note) {
   const ci = classInfo(r.cls);
   $("cls-rep").innerHTML = `<div class="vis-head-row"><button class="btn ghost sm" type="button" id="srep-back">→ رجوع</button><span class="saved">${note || ""}</span></div>
   <div class="card minute" style="margin-top:10px">
-    <h2>${F.title}: ${esc(r.student)}</h2>
+    <h2>${F.title} · ${SUBJECTS[ci.dept]}: ${esc(r.student)}</h2>
     <dl class="meta-grid" style="margin-top:10px"><div><dt>الصف</dt><dd>${esc(ci.label)} · ${SUBJECTS[ci.dept]}</dd></div><div><dt>الفصل الدراسي</dt><dd>${TERM_NAMES[r.term]}</dd></div>
       <div><dt>المعلم</dt><dd>أ. ${esc(r.teacher)}</dd></div><div><dt>درجة التقييم البنائي</dt><dd>${r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : "—"}</dd></div>
       <div><dt>تاريخ الإرسال</dt><dd>${fmtStamp(r.createdAt)}</dd></div>${r.updatedAt ? `<div><dt>آخر تعديل</dt><dd>${fmtStamp(r.updatedAt)}</dd></div>` : ""}</dl>
@@ -1327,7 +1340,7 @@ function openSrep(id, back, note) {
   $("srep-word").onclick = async () => {
     const m = $("srep-vmsg");
     if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
-    try { await deliver(await window.docx.Packer.toBlob(buildStudentReportDoc(window.docx, r)), `${F.title} - ${r.student} - ${ci.label}.docx`, m); }
+    try { await deliver(await window.docx.Packer.toBlob(buildStudentReportDoc(window.docx, r)), `${F.title} - ${SUBJECTS[ci.dept]} - ${r.student} - ${ci.label}.docx`, m); }
     catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
   };
   if (mine) {
@@ -1351,13 +1364,13 @@ function openSrep(id, back, note) {
 
 // تقرير متعلم فائق/متعثر (وورد) بالديباجة المعتمدة. بدون بيانات = نموذج فارغ للطباعة
 function buildStudentReportDoc(D, r) {
-  const h = H(D), C = h.C, k = SREP_KEY[r.type] || r.type, F = SREP[k], d = r.data || {}, dept = r.cls ? r.cls.split(":")[0] : "";
+  const h = H(D), C = h.C, k = SREP_KEY[r.type] || r.type, F = SREP[k], d = r.data || {}, dept = r.cls ? r.cls.split(":")[0] : (r.dept || "hd");
   const ci = r.cls ? classInfo(r.cls) : null, blank = !r.student;
   const hd = t => h.para(t, { size: 22, bold: true, color: h.NAVY, before: 100, after: 40, keepNext: true, shade: "EEF3F8" });
   const L = t => h.lab(t, { w: 1700 }), V = (t, w) => h.cell(t, { w, size: 20 });
   const info = h.table([
     [L("اسم المتعلم:"), V(r.student || "", 3600), L("الصف:"), V(ci ? ci.label : "", 3000)],
-    [L("المادة:"), V(ci ? SUBJECTS[ci.dept] : "□ الحديث الشريف     □ القرآن الكريم", 3600), L("الفصل الدراسي:"), V(r.term ? `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧` : "", 3000)],
+    [L("المادة:"), V(SUBJECTS[dept], 3600), L("الفصل الدراسي:"), V(r.term ? `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧` : "", 3000)],
     [L("المعلم:"), V(r.teacher ? "أ. " + r.teacher : "", 3600), L("درجة البنائي:"), V(r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : blank ? "      من ٤٠" : "—", 3000)],
     [L("تاريخ التقرير:"), V(r.createdAt ? fmtDate(r.createdAt) : "    /    /   ٢٠٢م", 3600), L(""), V("", 3000)]
   ], [1700, 3600, 1700, 3000], h.softBorders("C9D6E3"));
@@ -1368,7 +1381,7 @@ function buildStudentReportDoc(D, r) {
     return [hd(title), h.table(rows, [5000, 5000], h.noBorders)];
   };
   const box = (title, text, lines) => [hd(title), h.table([[h.cell(text ? String(text).split("\n").map(t => h.para(t, { size: 20, after: 40, justify: true })) : Array.from({ length: lines }, () => h.para("", { after: 0, line: 340 })), { w: 10000 })]], [10000], h.softBorders("C9D6E3"))];
-  const kids = [...h.formHeader(F.title), info,
+  const kids = [...h.formHeader(`${F.title} · ${SUBJECTS[dept]}`), info,
     ...checks(F.a[0], F.a[1](dept), d.a), ...checks(F.b[0], F.b[1](dept), d.b), ...(F.c ? checks(F.c[0], F.c[1](dept), d.c) : []),
     ...box(F.desc, d.desc, 3)];
   if (k === "weak" && (blank || d.need)) kids.push(...box("الدعم المطلوب من رئيس الشعبة أو الإدارة", d.need, 2));

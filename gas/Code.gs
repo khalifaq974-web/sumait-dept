@@ -872,8 +872,8 @@ function saveStudentReport(code, rep) {
   withLock_(() => { if (row > 0) writeRow_(sh, row, vals); else appendText_(sh, vals); });
   const li = a => a.length ? "<ul>" + a.map(x => "<li>" + esc_(x) + "</li>").join("") + "</ul>" : "—";
   const t = rep.type === "excel";
-  notify_(me, `${row > 0 ? "عدّل" : "أرسل"} أ. ${me.name} تقرير ${SREP_TYPES[rep.type]}: ${student}`, `
-    <p>${row > 0 ? "عدّل" : "أرسل"} <b>أ. ${esc_(me.name)}</b> تقرير <b>${SREP_TYPES[rep.type]}</b> عن المتعلم <b>${esc_(student)}</b>.</p>
+  notify_(me, `${row > 0 ? "عدّل" : "أرسل"} أ. ${me.name} تقرير ${SREP_TYPES[rep.type]} (${SUBJ[p[0]]}): ${student}`, `
+    <p>${row > 0 ? "عدّل" : "أرسل"} <b>أ. ${esc_(me.name)}</b> تقرير <b>${SREP_TYPES[rep.type]}</b> في <b>${SUBJ[p[0]]}</b> عن المتعلم <b>${esc_(student)}</b>.</p>
     <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
       <tr><td style="background:#e8f1f8"><b>الصف</b></td><td>${esc_(p[1].replace("-", "/"))} · ${esc_(SUBJ[p[0]])}</td></tr>
       <tr><td style="background:#e8f1f8"><b>الفصل الدراسي</b></td><td>${term === 1 ? "الأول" : "الثاني"}</td></tr>
