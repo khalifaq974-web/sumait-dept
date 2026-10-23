@@ -1562,6 +1562,8 @@ async function loadRes(force) {
   return RES;
 }
 
+// معلمون لا يُرشَّحون للاحتياط إلا إذا لم يوجد غيرهم متاح (قرار رئيس القسم)
+const RES_LAST_RESORT = { "أحمد صلاح زيدان القناوي": "مكلّف بالإشراف" };
 // النصاب = عدد حصص المعلم الأسبوعية في الجدول (بدون حصص الاحتياط)
 function nisab(t) { return (TIMETABLE[t] || []).filter(isLesson).length; }
 // ترتيب المرشحين لتغطية حصة: المعلمون الذين ليس عندهم حصة في هذا الوقت فقط (رئيس القسم مستثنى)،
@@ -1581,7 +1583,11 @@ function candidates(date, day, period, cls, absent, absenceId, extra) {
     const why = [`النصاب ${ar(n)} حصص`, weekCount ? `+ ${ar(weekCount)} احتياط هذا الأسبوع = ${ar(load)}` : "لم يأخذ احتياطًا هذا الأسبوع"];
     list.push({ t, n, load, weekCount, total, why });
   }
-  return list.sort((a, b) => a.load - b.load || a.weekCount - b.weekCount || a.total - b.total || a.t.localeCompare(b.t, "ar"));
+  list.sort((a, b) => a.load - b.load || a.weekCount - b.weekCount || a.total - b.total || a.t.localeCompare(b.t, "ar"));
+  const others = list.filter(c => !RES_LAST_RESORT[c.t]);
+  if (others.length) return others;
+  list.forEach(c => c.why.unshift(RES_LAST_RESORT[c.t] + " — لا يوجد غيره متاح"));
+  return list;
 }
 
 let resEditId = "";
