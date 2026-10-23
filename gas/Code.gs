@@ -56,7 +56,7 @@ function doGet() {
 // الصفحة المستضافة خارج جوجل ترسل الطلبات هنا، فلا يتأثر المعلم بتعدد حسابات جوجل في متصفحه.
 const API = { login, saveEntry, headData, submitAchievement, myAchievements, deleteAchievement, allAchievements, saveReport,
   getPhoto, listMinutes, getMinute, saveMinute, deleteMinute, signMinute, mySignature, saveFileToDrive, demoAccounts, demoAction,
-  saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence };
+  saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, classesOverview, classSheet, saveGrades };
 
 function doPost(e) {
   let out;
@@ -101,6 +101,8 @@ function setup() {
   sheet_(SHEET_MAIL, ["الوقت", "إلى", "الموضوع", "النتيجة"], true);
   sheet_(SHEET_ABS, ["المعرف", "التاريخ", "المعلم الغائب", "ملاحظة", "تاريخ التسجيل", "آخر تعديل"], true);
   sheet_(SHEET_COV, ["المعرف", "معرف الغياب", "التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل", "الحالة", "تاريخ التسجيل"], true);
+  sheet_(SHEET_STU, ["الصف", "م", "اسم الطالب", "ملاحظة"], true);
+  gradesSheet_();
   ensureDemoMinute_();
   folder_();
   const first = ss.getSheets()[0];
@@ -479,6 +481,8 @@ function demoAction(code, name, action) {
         (av[i][7] || "").split(",").filter(Boolean).forEach(fid => { try { DriveApp.getFileById(fid).setTrashed(true); } catch (e) {} });
         ach.deleteRow(i + 1);
       }
+      const grd = sh_(SHEET_GRD);
+      if (grd) { const gv = grd.getDataRange().getDisplayValues(); for (let i = gv.length - 1; i >= 1; i--) if (gv[i][0].indexOf("DEMO|" + name + "|") === 0) grd.deleteRow(i + 1); }
       const vis = sh_(SHEET_VIS), vv = vis.getDataRange().getDisplayValues();
       for (let i = vv.length - 1; i >= 1; i--) if (vv[i][1] === name) vis.deleteRow(i + 1);
       [SHEET_SIG, SHEET_MYSIG].forEach((sn, j) => {
@@ -710,3 +714,106 @@ function deleteAbsence(code, id) {
     return true;
   });
 }
+
+// ======================= كشوف متابعة المتعلمين (الدرجات) =======================
+// قوائم الطلاب في ورقة «الطلاب» (الصف-الشعبة، م، الاسم، ملاحظة) بلا أرقام مدنية، والدرجات في ورقة «الدرجات».
+// توزيع الدرجات حسب خطة التوجيه الفني ٢٠٢٦/٢٠٢٧ (واحد للحديث والقرآن):
+// السلوك ٣+٣ · المشاركة ٣+٣ · الواجبات ٣+٣ · المشروع ٣٫٥+٣٫٥ (القسم الأول + القسم الثاني) · اختبار قصير ١٥ = تقييم بنائي ٤٠ · نهاية الفصل ٦٠ · المجموع ١٠٠
+const SHEET_STU = "الطلاب";
+const SHEET_GRD = "الدرجات";
+const GRD_MAX = [3, 3, 3, 3, 3, 3, 3.5, 3.5, 15, 60];
+const GRD_HEAD = ["المفتاح", "القسم", "الصف", "الفصل الدراسي", "م", "اسم المتعلم", "السلوك ق١", "السلوك ق٢", "المشاركة ق١", "المشاركة ق٢",
+  "الواجبات ق١", "الواجبات ق٢", "المشروع ق١", "المشروع ق٢", "الاختبار القصير", "نهاية الفصل", "التقييم البنائي (٤٠)", "المجموع (١٠٠)", "المعلم", "آخر تحديث"];
+const DEMO_STUDENTS = ["متعلم تجريبي ١", "متعلم تجريبي ٢", "متعلم تجريبي ٣", "متعلم تجريبي ٤", "متعلم تجريبي ٥", "متعلم تجريبي ٦",
+  "متعلم تجريبي ٧", "متعلم تجريبي ٨", "متعلم تجريبي ٩", "متعلم تجريبي ١٠", "متعلم تجريبي ١١", "متعلم تجريبي ١٢"];
+
+function teacherOf_(cls) { const t = TEACHERS.find(x => x[1].indexOf(cls) !== -1); return t ? t[0] : ""; }
+function canSeeClass_(me, cls) { return me.isHead && !me.isDemo ? !!teacherOf_(cls) : me.classes.indexOf(cls) !== -1; }
+function gradesSheet_() { return sheet_(SHEET_GRD, GRD_HEAD, true); }
+function studentsOf_(me, cls) {
+  if (me.isDemo) return DEMO_STUDENTS.map((name, i) => ({ n: i + 1, name, note: "" }));
+  const sec = String(cls).split(":")[1];
+  const sh = sh_(SHEET_STU);
+  if (!sh) return [];
+  return sh.getDataRange().getDisplayValues().slice(1).filter(r => r[0] === sec)
+    .map(r => ({ n: Number(r[1]), name: String(r[2]).trim(), note: String(r[3] || "") })).sort((a, b) => a.n - b.n);
+}
+function sum_(vals) { return Math.round(vals.reduce((a, v) => a + Number(v), 0) * 100) / 100; }
+function totals_(v) {
+  const form = v.slice(0, 9).every(x => x !== "") ? sum_(v.slice(0, 9)) : "";
+  return [form === "" ? "" : String(form), form !== "" && v[9] !== "" ? String(sum_([form, v[9]])) : ""];
+}
+
+/** نظرة عامة على صفوفي (أو كل الصفوف لرئيس الشعبة): عدد المتعلمين ومدى اكتمال الرصد في كل فصل دراسي */
+function classesOverview(code) {
+  const me = who_(code);
+  const list = me.isHead && !me.isDemo ? TEACHERS.reduce((a, t) => a.concat(t[1]), []) : me.classes;
+  const counts = {};
+  if (me.isDemo) list.forEach(c => counts[c.split(":")[1]] = DEMO_STUDENTS.length);
+  else if (sh_(SHEET_STU)) rows_(SHEET_STU).slice(1).forEach(r => { if (r[0]) counts[r[0]] = (counts[r[0]] || 0) + 1; });
+  const pre = demoPrefix_(me), stat = {};
+  if (sh_(SHEET_GRD)) rows_(SHEET_GRD).slice(1).forEach(r => {
+    const k = String(r[0] || "");
+    if (pre ? k.indexOf(pre) !== 0 : k.indexOf("DEMO|") === 0) return;
+    const p = k.slice(pre.length).split("|"), id = p[0] + "|" + p[1];
+    const s = stat[id] || (stat[id] = { any: 0, form: 0, low: 0, updatedAt: "" });
+    if (r.slice(6, 16).some(x => x !== "")) s.any++;
+    if (r[16] !== "") { s.form++; if (Number(r[16]) < 20) s.low++; }
+    if (r[19] > s.updatedAt) s.updatedAt = r[19];
+  });
+  return list.map(c => ({ cls: c, teacher: me.isDemo ? me.name : teacherOf_(c), students: counts[c.split(":")[1]] || 0,
+    t1: stat[c + "|1"] || null, t2: stat[c + "|2"] || null }));
+}
+
+/** كشف صف واحد في فصل دراسي: المتعلمون ودرجاتهم */
+function classSheet(code, cls, term) {
+  const me = who_(code);
+  cls = String(cls || ""); term = Number(term) === 2 ? 2 : 1;
+  if (!canSeeClass_(me, cls)) throw new Error("هذا الصف ليس من صفوفك.");
+  const pre = demoPrefix_(me) + cls + "|" + term + "|";
+  const grades = {}; let updatedAt = "";
+  if (sh_(SHEET_GRD)) rows_(SHEET_GRD).slice(1).forEach(r => {
+    if (String(r[0]).indexOf(pre) !== 0) return;
+    grades[String(r[0]).slice(pre.length)] = r.slice(6, 16);
+    if (r[19] > updatedAt) updatedAt = r[19];
+  });
+  return { cls, term, teacher: me.isDemo ? me.name : teacherOf_(cls), students: studentsOf_(me, cls), grades, updatedAt };
+}
+
+/** حفظ درجات صف: data = { "اسم المتعلم": [١٠ قيم نصية أو فارغة] } */
+function saveGrades(code, cls, term, data) {
+  const me = who_(code);
+  cls = String(cls || ""); term = Number(term) === 2 ? 2 : 1;
+  if (!canSeeClass_(me, cls)) throw new Error("هذا الصف ليس من صفوفك.");
+  const studs = studentsOf_(me, cls);
+  if (!studs.length) throw new Error("لا توجد قائمة متعلمين لهذا الصف.");
+  const p = cls.split(":"), dept = SUBJ[p[0]], teacher = me.isDemo ? me.name : teacherOf_(cls);
+  const pre = demoPrefix_(me) + cls + "|" + term + "|", now = nowText_();
+  const rows = [];
+  studs.forEach(s => {
+    const v = (data && data[s.name]) || [];
+    const vals = GRD_MAX.map((mx, i) => {
+      const x = String(v[i] == null ? "" : v[i]).trim();
+      if (x === "") return "";
+      if (!/^\d{1,2}(\.\d{1,2})?$/.test(x) || Number(x) > mx) throw new Error(`درجة غير صحيحة للمتعلم ${s.name}: «${x}» (العظمى ${mx}).`);
+      return String(Number(x));
+    });
+    rows.push([pre + s.name, dept, p[1], term === 1 ? "الأول" : "الثاني", String(s.n), s.name].concat(vals, totals_(vals), [teacher, now]));
+  });
+  return withLock_(() => {
+    const sh = gradesSheet_();
+    const keys = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getDisplayValues().map(r => r[0]);
+    const idx = rows.map(r => keys.indexOf(r[0]) + 1);
+    const contiguous = idx[0] > 0 && idx.every((x, i) => x === idx[0] + i);
+    if (contiguous) {
+      const rg = sh.getRange(idx[0], 1, rows.length, GRD_COLS_());
+      rg.setNumberFormat("@"); rg.setValues(rows);
+    } else {
+      const fresh = [];
+      rows.forEach((r, i) => { if (idx[i] > 0) writeRow_(sh, idx[i], r); else fresh.push(r); });
+      if (fresh.length) { const rg = sh.getRange(sh.getLastRow() + 1, 1, fresh.length, GRD_COLS_()); rg.setNumberFormat("@"); rg.setValues(fresh); }
+    }
+    return { updatedAt: now };
+  });
+}
+function GRD_COLS_() { return GRD_HEAD.length; }

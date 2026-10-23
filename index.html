@@ -196,6 +196,38 @@ table.vis-table td.n { color: var(--muted); width: 32px; }
 .attlist .check .sub { font-size: 11.5px; }
 nav.sections.five { grid-template-columns: repeat(5, 1fr); }
 @media (max-width: 640px) { nav.sections.five { grid-template-columns: 1fr 1fr; } }
+nav.sections.six { grid-template-columns: repeat(6, 1fr); }
+@media (max-width: 640px) { nav.sections.six, nav.sections.five { grid-template-columns: 1fr 1fr 1fr; } }
+.cls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-top: 10px; }
+.cls-card { font: inherit; text-align: right; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; display: grid; gap: 6px; }
+.cls-card:hover { border-color: var(--accent); }
+.cls-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.cls-top b { font-family: var(--f-display); font-size: 16px; }
+.cls-prog { display: flex; gap: 6px; flex-wrap: wrap; }
+.cls-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0 4px; }
+.cls-stats > div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+.cls-stats b { display: block; font-family: var(--f-display); font-size: 20px; }
+.cls-stats span { font-size: 12.5px; color: var(--muted); }
+.cls-stats .ok b { color: var(--ok); } .cls-stats .late b { color: var(--late); } .cls-stats .none b { color: var(--none); }
+.cls-card-sheet { margin-top: 10px; }
+.cls-card-sheet .tabs { margin-top: 10px; }
+table.grades { min-width: 1080px; font-size: 13px; }
+table.grades th { text-align: center; padding: 6px 4px; color: var(--ink); font-size: 12px; border: 1px solid var(--line); }
+table.grades th small { color: var(--muted); font-weight: 500; }
+table.grades thead tr:first-child th { background: var(--accent-soft); }
+table.grades td { padding: 3px 4px; border: 1px solid var(--line); vertical-align: middle; text-align: center; }
+table.grades td.nm, table.grades th.nm { text-align: right; white-space: nowrap; position: sticky; right: 0; background: var(--surface); z-index: 1; min-width: 190px; }
+table.grades th.nm { background: var(--accent-soft); z-index: 2; }
+table.grades td.n { color: var(--muted); width: 30px; }
+table.grades td.in input { width: 48px; text-align: center; padding: 6px 2px; border-radius: 8px; border: 1px solid var(--line); font: inherit; color: var(--ink); background: var(--bg); }
+table.grades td.in input.bad { border-color: var(--late); background: var(--late-soft); color: var(--late); font-weight: 700; }
+table.grades td.calc { font-weight: 700; background: var(--accent-soft); min-width: 54px; }
+table.grades td.note { font-size: 12px; color: var(--muted); white-space: nowrap; }
+table.grades tr.low td.nm { color: var(--late); font-weight: 700; }
+table.grades tr.low td.form { color: var(--late); background: var(--late-soft); }
+table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(--bg); }
+.cls-hint { margin: 10px 0; line-height: 1.7; }
+@media (max-width: 640px) { .cls-stats { grid-template-columns: 1fr 1fr; } table.grades td.nm, table.grades th.nm { min-width: 140px; white-space: normal; } }
 .res-items { display: grid; gap: 10px; margin-top: 14px; }
 .res-row { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
 .res-row.muted-row { opacity: .75; }
@@ -245,6 +277,7 @@ nav.sections.five { grid-template-columns: repeat(5, 1fr); }
 
     <nav class="sections" aria-label="أركان الموقع">
       <button id="nav-curr" aria-selected="true"><b>ما قطع من المنهج</b><span>متابعة الخطة</span></button>
+      <button id="nav-cls" aria-selected="false"><b id="nav-cls-t">صفوفي</b><span>كشوف المتعلمين</span></button>
       <button id="nav-ach" aria-selected="false"><b>الإنجازات</b><span>الأنشطة والفعاليات</span></button>
       <button id="nav-min" aria-selected="false"><b>محاضر الاجتماعات</b><span>الاطلاع والتوقيع</span></button>
       <button id="nav-vis" aria-selected="false"><b>الزيارات الصفية</b><span>بطاقات الزيارة</span></button>
@@ -280,6 +313,31 @@ nav.sections.five { grid-template-columns: repeat(5, 1fr); }
       </section>
     </section>
 
+    <!-- ركن الصفوف: كشوف متابعة المتعلمين -->
+    <section id="sec-cls" hidden>
+      <div id="cls-home">
+        <div class="toolbar">
+          <select id="cls-teacher" class="head-only" hidden aria-label="المعلم"></select>
+          <select id="cls-term" aria-label="الفصل الدراسي"><option value="1">الفصل الدراسي الأول</option><option value="2">الفصل الدراسي الثاني</option></select>
+          <button class="btn ghost" id="cls-reload" type="button">تحديث</button>
+        </div>
+        <div class="saved" id="cls-lmsg"></div>
+        <div id="cls-list"></div>
+      </div>
+      <div id="cls-sheet" hidden>
+        <div class="vis-head-row"><button class="btn ghost sm" id="cls-back" type="button">→ الرجوع إلى الصفوف</button><span class="saved" id="cls-upd"></span></div>
+        <div class="card cls-card-sheet">
+          <h2 id="cls-title"></h2>
+          <div class="sub" id="cls-subtitle"></div>
+          <nav class="tabs" role="tablist" aria-label="الفصل الدراسي"><button id="cls-t1" role="tab" aria-selected="true">الفصل الدراسي الأول</button><button id="cls-t2" role="tab" aria-selected="false">الفصل الدراسي الثاني</button></nav>
+          <div class="cls-stats" id="cls-stats"></div>
+          <div class="tablebox"><table class="grades" id="cls-table"></table></div>
+          <div class="sub cls-hint">توزيع الدرجات حسب خطة التوجيه الفني: السلوك والمشاركة والواجبات ٣ لكل قسم، والمشروع ٣٫٥ لكل قسم، والاختبار القصير ١٥، فيكون التقييم البنائي ٤٠، وامتحان نهاية الفصل ٦٠. يُحسب البنائي والمجموع تلقائيًا، واترك الخانة فارغة إن لم تُرصد بعد. اضغط Enter للانتقال إلى المتعلم التالي.</div>
+          <div class="row-actions"><button class="btn" id="cls-save" type="button">حفظ الدرجات</button><button class="btn ghost" id="cls-word" type="button">تنزيل الكشف وورد</button></div>
+          <div class="saved" id="cls-msg"></div>
+        </div>
+      </div>
+    </section>
     <!-- ركن الإنجازات -->
     <section id="sec-ach" hidden>
       <nav class="tabs" role="tablist">
@@ -809,7 +867,9 @@ async function doLogin(code, silent) {
     $("me-name").textContent = "أ. " + r.name;
     document.querySelectorAll(".head-only").forEach(el => el.hidden = !r.isHead);
     document.querySelectorAll(".teacher-only").forEach(el => el.hidden = r.isHead);
-    document.querySelector("nav.sections").classList.toggle("five", !!r.isHead);
+    document.querySelector("nav.sections").classList.toggle("five", !r.isHead);
+    document.querySelector("nav.sections").classList.toggle("six", !!r.isHead);
+    $("nav-cls-t").textContent = r.isHead ? "الصفوف" : "صفوفي";
     $("demo-note").hidden = !r.isDemo;
     if (r.isHead) $("demo-admin").ontoggle = () => { if ($("demo-admin").open) loadDemos(); };
     let last = "curr"; try { last = localStorage.getItem("section") || "curr"; } catch (e) {}
@@ -823,19 +883,20 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = "";
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; $("cls-sheet").hidden = true; $("cls-home").hidden = false;
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
 };
 
-const SECTIONS = ["curr", "ach", "min", "vis", "res"];
+const SECTIONS = ["curr", "cls", "ach", "min", "vis", "res"];
 function go(sec) {
   if (SECTIONS.indexOf(sec) === -1 || (sec === "res" && !ME.isHead)) sec = "curr";
   SECTIONS.forEach(s => { $("nav-" + s).setAttribute("aria-selected", s === sec); $("sec-" + s).hidden = s !== sec; });
   try { localStorage.setItem("section", sec); } catch (e) {}
   if (sec === "curr") setTab(ME.isHead && !$("view-head").hidden ? "head" : "teacher");
   if (sec === "ach") achTab(ME.isHead && achSub === "all" ? "all" : "mine");
+  if (sec === "cls") { if (CUR_CLS) { $("cls-home").hidden = true; $("cls-sheet").hidden = false; } else clsHome(); }
   if (sec === "min") loadMinutes();
   if (sec === "vis") visTab(ME.isHead ? (visSub === "mine" ? "new" : visSub) : "mine");
   if (sec === "res") resTab(resSub);
@@ -959,6 +1020,188 @@ $("export-btn").onclick = async () => {
     await deliver(blob, `تقرير متابعة المنهج${dept ? " - " + SUBJECTS[dept] : ""} - الأسبوع ${WEEK >= 1 && WEEK <= WEEKS ? WEEK : "النهائي"}.docx`, msg);
   } catch (e) { msg.textContent = "لم يتم إنشاء الملف، حاول مرة أخرى."; }
 };
+
+// ================= ركن الصفوف: كشف متابعة المتعلمين =================
+// توزيع الدرجات حسب خطة التوجيه الفني ٢٠٢٦/٢٠٢٧ لمادتي الحديث الشريف والقرآن الكريم (المرحلة الثانوية):
+// السلوك ٦ · المشاركة ٦ · الواجبات ٦ · المشروع ٧ (نصفها في القسم الأول ونصفها في الثاني) · اختبار قصير ١٥ = تقييم بنائي ٤٠ · نهاية الفصل ٦٠
+const GRD_MAX = [3, 3, 3, 3, 3, 3, 3.5, 3.5, 15, 60];
+const GRD_PARTS = [["السلوك", 6], ["المشاركة", 6], ["الواجبات", 6], ["المشروع", 7]];
+const TERM_NAMES = { 1: "الأول", 2: "الثاني" };
+let CLS = null, CUR_CLS = null, clsTerm = (NOW.getMonth() >= 1 && NOW.getMonth() <= 6) ? 2 : 1, clsDirty = false, clsTeacherFilter = "", clsLeaveArmed = false;
+
+function partName(i, dept) { return i === 1 && dept === "qr" ? "المشاركة وتسميع الآيات" : GRD_PARTS[i][0]; }
+function normNum(s) { return String(s ?? "").trim().replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[٫,،]/g, "."); }
+function fmtN(v) { return v === "" || v == null ? "" : ar(String(Math.round(Number(v) * 100) / 100)).replace(".", "٫"); }
+function gradeOk(x, i) { return x === "" || (/^\d{1,2}(\.\d{1,2})?$/.test(x) && Number(x) <= GRD_MAX[i]); }
+function rowTotals(v) {
+  const form = v.slice(0, 9).every(x => x !== "") ? Math.round(v.slice(0, 9).reduce((a, x) => a + Number(x), 0) * 100) / 100 : "";
+  return { form, total: form !== "" && v[9] !== "" ? Math.round((form + Number(v[9])) * 100) / 100 : "" };
+}
+
+function clsHome() { $("cls-sheet").hidden = true; $("cls-home").hidden = false; CUR_CLS = null; clsDirty = false; loadClasses(); }
+async function loadClasses(force) {
+  $("cls-term").value = String(clsTerm);
+  if (CLS && !force) return renderClsList();
+  $("cls-lmsg").textContent = "جارٍ التحميل…";
+  try { CLS = await run("classesOverview", CODE); $("cls-lmsg").textContent = ""; renderClsList(); }
+  catch (e) { $("cls-lmsg").textContent = cleanErr(e); }
+}
+function clsProgress(c) {
+  const t = c["t" + clsTerm], n = c.students;
+  if (!n) return `<span class="pill none">لا توجد قائمة متعلمين</span>`;
+  let p = !t || !t.any ? `<span class="pill none">لم يبدأ الرصد</span>`
+    : t.form >= n ? `<span class="pill ok">اكتمل رصد التقييم البنائي</span>` : `<span class="pill ahead">رُصد البنائي لـ ${ar(t.form)} من ${ar(n)}</span>`;
+  if (t && t.low) p += ` <span class="pill late">دون ٥٠٪: ${ar(t.low)}</span>`;
+  return p;
+}
+function renderClsList() {
+  const sel = $("cls-teacher");
+  if (ME.isHead && !ME.isDemo && sel.options.length === 0) sel.innerHTML = `<option value="">كل المعلمين</option>` + TEACHERS.map(([t]) => `<option value="${esc(t)}">أ. ${esc(t)}</option>`).join("");
+  sel.value = clsTeacherFilter;
+  const items = CLS.filter(c => !clsTeacherFilter || c.teacher === clsTeacherFilter);
+  const card = c => { const ci = classInfo(c.cls);
+    return `<button type="button" class="cls-card" data-cls="${esc(c.cls)}"><span class="cls-top"><b>الصف ${esc(ci.label)}</b><span class="dept-tag ${ci.dept}">${SUBJECTS[ci.dept]}</span></span>
+      <span class="sub">${ar(c.students)} متعلمًا</span><span class="cls-prog">${clsProgress(c)}</span></button>`; };
+  const sortFn = (a, b) => { const x = classInfo(a.cls), y = classInfo(b.cls); return (x.dept === y.dept ? 0 : x.dept === "hd" ? -1 : 1) || x.grade - y.grade || x.num - y.num; };
+  let html = "";
+  if (ME.isHead && !ME.isDemo) {
+    const done = items.filter(c => c.students && c["t" + clsTerm] && c["t" + clsTerm].form >= c.students).length;
+    const none = items.filter(c => !c["t" + clsTerm] || !c["t" + clsTerm].any).length;
+    const low = items.reduce((a, c) => a + ((c["t" + clsTerm] || {}).low || 0), 0);
+    html += `<div class="cls-stats"><div><b>${ar(items.length)}</b><span>صفًا</span></div><div class="ok"><b>${ar(done)}</b><span>اكتمل رصد البنائي</span></div><div class="none"><b>${ar(none)}</b><span>لم يبدأ الرصد</span></div><div class="late"><b>${ar(low)}</b><span>متعلمًا دون ٥٠٪ في البنائي</span></div></div>`;
+    for (const [t] of TEACHERS) {
+      const mine = items.filter(c => c.teacher === t).sort(sortFn);
+      if (mine.length) html += `<div class="vis-group">أ. ${esc(t)}</div><div class="cls-grid">${mine.map(card).join("")}</div>`;
+    }
+  } else html = `<div class="cls-grid">${items.slice().sort(sortFn).map(card).join("")}</div>`;
+  $("cls-list").innerHTML = html || `<div class="empty">لا توجد صفوف.</div>`;
+  $("cls-list").querySelectorAll("[data-cls]").forEach(b => b.onclick = () => openClass(b.dataset.cls));
+}
+$("cls-teacher").onchange = () => { clsTeacherFilter = $("cls-teacher").value; renderClsList(); };
+$("cls-term").onchange = () => { clsTerm = Number($("cls-term").value); renderClsList(); };
+$("cls-reload").onclick = () => loadClasses(true);
+
+async function openClass(cls, keepScroll) {
+  $("cls-home").hidden = true; $("cls-sheet").hidden = false; clsLeaveArmed = false;
+  $("cls-title").textContent = "كشف متابعة المتعلمين"; $("cls-subtitle").textContent = classFull(cls);
+  $("cls-table").innerHTML = ""; $("cls-stats").innerHTML = ""; $("cls-msg").textContent = "جارٍ تحميل الكشف…"; $("cls-upd").textContent = "";
+  ["cls-t1", "cls-t2"].forEach((id, i) => $(id).setAttribute("aria-selected", clsTerm === i + 1));
+  if (!keepScroll) window.scrollTo({ top: $("sec-cls").offsetTop - 10 });
+  try { CUR_CLS = await run("classSheet", CODE, cls, clsTerm); clsDirty = false; $("cls-msg").textContent = ""; renderSheet(); }
+  catch (e) { $("cls-msg").textContent = cleanErr(e); }
+}
+function renderSheet() {
+  const r = CUR_CLS, ci = classInfo(r.cls);
+  $("cls-title").textContent = `كشف متابعة المتعلمين · ${SUBJECTS[ci.dept]} · الصف ${ci.label}`;
+  $("cls-subtitle").textContent = `المعلم: أ. ${r.teacher} · الفصل الدراسي ${TERM_NAMES[r.term]} · العام الدراسي ٢٠٢٦/٢٠٢٧`;
+  $("cls-upd").textContent = r.updatedAt ? "آخر حفظ: " + fmtStamp(r.updatedAt) : "";
+  if (!r.students.length) { $("cls-table").innerHTML = ""; $("cls-msg").textContent = "لا توجد قائمة متعلمين لهذا الصف بعد."; return; }
+  let h = `<thead><tr><th rowspan="2" class="n">م</th><th rowspan="2" class="nm">اسم المتعلم</th>`;
+  GRD_PARTS.forEach((p, i) => h += `<th colspan="2">${partName(i, ci.dept)} <small>(${ar(p[1])})</small></th>`);
+  h += `<th rowspan="2">الاختبار القصير <small>(١٥)</small></th><th rowspan="2" class="calc">التقييم البنائي <small>(٤٠)</small></th><th rowspan="2">نهاية الفصل <small>(٦٠)</small></th><th rowspan="2" class="calc">المجموع <small>(١٠٠)</small></th><th rowspan="2">ملاحظات</th></tr><tr>`;
+  for (let i = 0; i < 8; i++) h += `<th class="q">ق${i % 2 ? "٢" : "١"} <small>(${fmtN(GRD_MAX[i])})</small></th>`;
+  h += `</tr></thead><tbody>`;
+  r.students.forEach((s, k) => {
+    const v = r.grades[s.name] || [];
+    h += `<tr data-k="${k}"><td class="n">${ar(s.n)}</td><td class="nm">${esc(s.name)}</td>`;
+    for (let i = 0; i < 10; i++) {
+      if (i === 9) h += `<td class="calc form" id="cf-${k}"></td>`;
+      h += `<td class="in"><input inputmode="decimal" autocomplete="off" data-k="${k}" data-i="${i}" value="${esc(fmtN(v[i] ?? ""))}" aria-label="${esc(s.name)}: ${i < 8 ? partName(i >> 1, ci.dept) + " ق" + (i % 2 + 1) : i === 8 ? "الاختبار القصير" : "نهاية الفصل"}"></td>`;
+    }
+    h += `<td class="calc" id="ct-${k}"></td><td class="note">${esc(s.note)}</td></tr>`;
+  });
+  h += `</tbody><tfoot><tr><td></td><td class="nm">المتوسط</td>${Array.from({ length: 12 }, (_, j) => `<td id="ca-${j}"></td>`).join("")}<td></td></tr></tfoot>`;
+  $("cls-table").innerHTML = h;
+  $("cls-table").querySelectorAll("input").forEach(inp => {
+    inp.oninput = () => { clsDirty = true; clsLeaveArmed = false; $("cls-msg").textContent = "توجد تغييرات غير محفوظة."; recalc(); };
+    inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); const nx = $("cls-table").querySelector(`input[data-k="${+inp.dataset.k + 1}"][data-i="${inp.dataset.i}"]`); if (nx) nx.focus(); } };
+    inp.onfocus = () => inp.select();
+  });
+  recalc();
+}
+function sheetValues() {
+  return CUR_CLS.students.map((s, k) => Array.from({ length: 10 }, (_, i) => normNum($("cls-table").querySelector(`input[data-k="${k}"][data-i="${i}"]`).value)));
+}
+function recalc() {
+  const vals = sheetValues(), cols = Array.from({ length: 12 }, () => []);
+  let full = 0, low = 0, formSum = 0;
+  vals.forEach((v, k) => {
+    v.forEach((x, i) => { const inp = $("cls-table").querySelector(`input[data-k="${k}"][data-i="${i}"]`); const ok = gradeOk(x, i); inp.classList.toggle("bad", !ok);
+      if (ok && x !== "") cols[i < 9 ? i : 10].push(Number(x)); });
+    const t = rowTotals(v.map((x, i) => gradeOk(x, i) ? x : ""));
+    $("cf-" + k).textContent = fmtN(t.form); $("ct-" + k).textContent = fmtN(t.total);
+    const isLow = t.form !== "" && t.form < 20;
+    $("cls-table").querySelector(`tr[data-k="${k}"]`).classList.toggle("low", isLow);
+    if (t.form !== "") { full++; formSum += t.form; cols[9].push(t.form); if (isLow) low++; }
+    if (t.total !== "") cols[11].push(t.total);
+  });
+  cols.forEach((c, j) => $("ca-" + j).textContent = c.length ? fmtN(c.reduce((a, b) => a + b, 0) / c.length) : "");
+  const n = vals.length;
+  $("cls-stats").innerHTML = `<div><b>${ar(n)}</b><span>متعلمًا</span></div><div class="ok"><b>${ar(full)}</b><span>اكتمل رصد البنائي</span></div>
+    <div><b>${full ? fmtN(formSum / full) : "—"}</b><span>متوسط البنائي من ٤٠</span></div><div class="late"><b>${ar(low)}</b><span>دون ٥٠٪ في البنائي</span></div>`;
+}
+$("cls-save").onclick = async () => {
+  if (!CUR_CLS) return;
+  const vals = sheetValues(), m = $("cls-msg");
+  const bad = $("cls-table").querySelector("input.bad");
+  if (bad) { m.textContent = "بعض الدرجات غير صحيحة (باللون الأحمر): تأكد ألا تتجاوز الدرجة العظمى للبند."; bad.focus(); return; }
+  const data = {}; CUR_CLS.students.forEach((s, k) => data[s.name] = vals[k]);
+  $("cls-save").disabled = true; m.textContent = "جارٍ الحفظ…";
+  try {
+    const r = await run("saveGrades", CODE, CUR_CLS.cls, CUR_CLS.term, data);
+    CUR_CLS.updatedAt = r.updatedAt; CUR_CLS.students.forEach((s, k) => CUR_CLS.grades[s.name] = vals[k]);
+    clsDirty = false; CLS = null; m.textContent = "تم حفظ الدرجات ✓"; $("cls-upd").textContent = "آخر حفظ: " + fmtStamp(r.updatedAt);
+  } catch (e) { m.textContent = cleanErr(e); }
+  finally { $("cls-save").disabled = false; }
+};
+function guardLeave() {
+  if (!clsDirty || clsLeaveArmed) return true;
+  clsLeaveArmed = true; $("cls-msg").textContent = "لديك تغييرات غير محفوظة. احفظها، أو اضغط مرة أخرى للمتابعة دون حفظ.";
+  return false;
+}
+$("cls-back").onclick = () => { if (guardLeave()) clsHome(); };
+[1, 2].forEach(t => $("cls-t" + t).onclick = () => { if (!CUR_CLS || CUR_CLS.term === t || !guardLeave()) return; clsTerm = t; openClass(CUR_CLS.cls, true); });
+$("cls-word").onclick = async () => {
+  const m = $("cls-msg");
+  if (!CUR_CLS || !CUR_CLS.students.length) return;
+  if (clsDirty) { m.textContent = "احفظ الدرجات أولًا، ثم نزّل الكشف."; return; }
+  if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. تأكد من الإنترنت وأعد تحميل الصفحة."; return; }
+  const ci = classInfo(CUR_CLS.cls);
+  try { await deliver(await window.docx.Packer.toBlob(buildClassSheetDoc(window.docx, CUR_CLS)), `كشف متابعة المتعلمين - ${SUBJECTS[ci.dept]} ${ci.label} - الفصل ${TERM_NAMES[CUR_CLS.term]}.docx`, m); }
+  catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
+};
+
+// كشف متابعة المتعلمين (وورد، أفقي) بالديباجة المعتمدة
+function buildClassSheetDoc(D, r) {
+  const h = H(D), C = h.C, ci = classInfo(r.cls), NAVY = h.NAVY;
+  const mg = { top: 8, bottom: 8, left: 50, right: 50 }, few = r.students.length <= 27;
+  const hc = (t, o = {}) => new D.TableCell({ columnSpan: o.span, rowSpan: o.rows, verticalAlign: D.VerticalAlign.CENTER, margins: mg,
+    shading: { type: D.ShadingType.CLEAR, fill: o.fill || NAVY, color: "auto" }, children: [h.para(t, { size: o.size || 16, bold: true, color: o.color || "FFFFFF", align: C, after: 0, line: 240 })] });
+  const dc = (t, o = {}) => new D.TableCell({ verticalAlign: D.VerticalAlign.CENTER, margins: mg, shading: o.fill ? { type: D.ShadingType.CLEAR, fill: o.fill, color: "auto" } : undefined,
+    children: [h.para(t, { size: o.size || 16, bold: o.bold, color: o.color, align: o.align || C, after: 0, line: few ? 180 : 240 })] });
+  const W = [400, 3380, 640, 640, 640, 640, 640, 640, 640, 640, 850, 950, 900, 950, 1750];
+  const r1 = [hc("م", { rows: 2 }), hc("اسم المتعلم", { rows: 2 }), ...GRD_PARTS.map((p, i) => hc(`${partName(i, ci.dept)} (${ar(p[1])})`, { span: 2 })),
+    hc("الاختبار القصير (١٥)", { rows: 2 }), hc("التقييم البنائي (٤٠)", { rows: 2 }), hc("نهاية الفصل (٦٠)", { rows: 2 }), hc("المجموع (١٠٠)", { rows: 2 }), hc("ملاحظات", { rows: 2 })];
+  const r2 = Array.from({ length: 8 }, (_, i) => hc(`ق${i % 2 ? "٢" : "١"} (${fmtN(GRD_MAX[i])})`, { fill: "EEF3F8", color: NAVY, size: 14 }));
+  let full = 0, low = 0, sum = 0;
+  const body = r.students.map(s => {
+    const v = (r.grades[s.name] || []).map(x => x ?? ""), t = rowTotals(Array.from({ length: 10 }, (_, i) => v[i] || ""));
+    const isLow = t.form !== "" && t.form < 20;
+    if (t.form !== "") { full++; sum += t.form; if (isLow) low++; }
+    const g = i => dc(fmtN(v[i] || ""));
+    return new D.TableRow({ cantSplit: true, children: [dc(ar(s.n)), dc(s.name, { align: h.R }), ...[0, 1, 2, 3, 4, 5, 6, 7, 8].map(g),
+      dc(fmtN(t.form), { bold: true, fill: "EEF3F8", color: isLow ? "B4382B" : undefined }), g(9), dc(fmtN(t.total), { bold: true, fill: "EEF3F8" }), dc(s.note || "", { size: 15 })] });
+  });
+  const grid = new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: W, width: { size: W.reduce((a, b) => a + b, 0), type: D.WidthType.DXA },
+    borders: h.softBorders("C9D6E3"), rows: [new D.TableRow({ tableHeader: true, children: r1 }), new D.TableRow({ tableHeader: true, children: r2 }), ...body] });
+  const info = h.table([[h.lab("المادة:", { w: 1300 }), h.cell(SUBJECTS[ci.dept], { w: 2300, size: 19 }), h.lab("الصف:", { w: 1000 }), h.cell(ci.label, { w: 1200, size: 19 }),
+    h.lab("المعلم:", { w: 1100 }), h.cell("أ. " + r.teacher, { w: 3700, size: 19 }), h.lab("الفصل الدراسي:", { w: 1700 }), h.cell(`${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧`, { w: 2100, size: 19 })]],
+    [1300, 2300, 1000, 1200, 1100, 3700, 1700, 2100], h.softBorders("C9D6E3"));
+  const stats = `عدد المتعلمين ${ar(r.students.length)}، واكتمل رصد التقييم البنائي لـ ${ar(full)}، ومتوسط التقييم البنائي ${full ? fmtN(sum / full) : "—"} من ٤٠، ودون ٥٠٪ في البنائي ${ar(low)}.`;
+  return h.doc([...h.formHeader("كشف متابعة المتعلمين", 14400), info, h.para("", { after: 40 }), grid,
+    h.para(stats, { size: 17, bold: true, color: NAVY, before: 60, after: 0 }),
+    h.signRow([["معلم المادة", "أ. " + r.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400)], { landscape: true });
+}
 
 // ================= ركن الإنجازات =================
 let ACH = null, ACH_ALL = null, achSub = "mine", PHOTOS = [];
