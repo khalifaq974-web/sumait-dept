@@ -354,12 +354,12 @@ nav.sections.five { grid-template-columns: repeat(5, 1fr); }
     <section id="sec-res" hidden>
       <nav class="tabs" role="tablist">
         <button id="restab-new" role="tab" aria-selected="true">تسجيل غياب</button>
-        <button id="restab-log" role="tab" aria-selected="false">سجل الاحتياط والعدادات</button>
+        <button id="restab-log" role="tab" aria-selected="false">سجل الغياب والاحتياط</button>
       </nav>
       <section id="res-new">
         <form id="res-form" class="card">
           <h2 id="rf-heading">تسجيل غياب</h2>
-          <div class="sub">اختر المعلم الغائب، فتظهر حصصه في ذلك اليوم، ولكل حصة قائمة بالمعلمين المتاحين مرتبين من الأفضل.</div>
+          <div class="sub">اختر المعلم الغائب، فتظهر حصصه في ذلك اليوم، ولكل حصة قائمة بالمعلمين الذين ليس عندهم حصة في ذلك الوقت، مرتبين من الأقل نصابًا.</div>
           <div class="grid2">
             <div><label class="f" for="rf-date">التاريخ <span class="sub" id="rf-day"></span></label><input type="date" id="rf-date" required></div>
             <div><label class="f" for="rf-teacher">المعلم الغائب</label><select id="rf-teacher"></select></div>
@@ -378,7 +378,7 @@ nav.sections.five { grid-template-columns: repeat(5, 1fr); }
         <div class="toolbar">
           <select id="res-range" aria-label="الفترة"><option value="week">هذا الأسبوع</option><option value="month">هذا الشهر</option><option value="all" selected>الفصل كله</option></select>
           <button class="btn ghost" id="res-reload" type="button">تحديث</button>
-          <button class="btn" id="res-word" type="button">تنزيل تقرير الاحتياط وورد</button>
+          <button class="btn" id="res-word" type="button">تنزيل سجل الغياب والاحتياط وورد</button>
         </div>
         <div class="saved" id="res-lmsg"></div>
         <div id="res-log-body"></div>
@@ -1562,32 +1562,26 @@ async function loadRes(force) {
   return RES;
 }
 
-// ترتيب المرشحين لتغطية حصة: المتاح فقط، والأفضل أولًا
-function candidates(date, day, period, cls, absent, absenceId) {
+// النصاب = عدد حصص المعلم الأسبوعية في الجدول (بدون حصص الاحتياط)
+function nisab(t) { return (TIMETABLE[t] || []).filter(isLesson).length; }
+// ترتيب المرشحين لتغطية حصة: المعلمون الذين ليس عندهم حصة في هذا الوقت فقط (رئيس القسم مستثنى)،
+// والأفضل = الأقل نصابًا هذا الأسبوع (حصصه في الجدول + ما أخذه من احتياط هذا الأسبوع)، ثم الأقل احتياطًا في الفصل كله
+// extra = احتياطات اختيرت في النموذج نفسه قبل الحفظ، حتى لا تتجمع حصص الغائب كلها على معلم واحد
+function candidates(date, day, period, cls, absent, absenceId, extra) {
   const absentToday = RES.absences.filter(a => a.date === date && a.id !== absenceId).map(a => a.teacher).concat([absent]);
   const takenNow = RES.covers.filter(c => c.date === date && c.period === period && c.absenceId !== absenceId && c.status === COV_DONE).map(c => c.substitute);
   const wk = weekStartISO(date), wkEnd = addDaysISO(wk, 6);
-  const dept = cls.split(":")[0], grp = cls.split(":")[1];
   const list = [];
   for (const t of Object.keys(TIMETABLE)) {
-    if (absentToday.indexOf(t) !== -1 || takenNow.indexOf(t) !== -1) continue;
-    const s = slotOf(t, day, period);
-    if (isLesson(s)) continue;
-    const weekCount = RES.covers.filter(c => c.substitute === t && c.status === COV_DONE && c.date >= wk && c.date <= wkEnd && c.absenceId !== absenceId).length;
+    if (t === HEAD_NAME || absentToday.indexOf(t) !== -1 || takenNow.indexOf(t) !== -1) continue;
+    if (isLesson(slotOf(t, day, period))) continue;
+    const weekCount = RES.covers.filter(c => c.substitute === t && c.status === COV_DONE && c.date >= wk && c.date <= wkEnd && c.absenceId !== absenceId).length + ((extra || {})[t] || 0);
     const total = RES.covers.filter(c => c.substitute === t && c.status === COV_DONE && c.absenceId !== absenceId).length;
-    const todayLessons = (TIMETABLE[t] || []).filter(x => x[0] === day && isLesson(x)).length;
-    const sameDept = (TIMETABLE[t] || []).some(x => isLesson(x) && x[2].split(":")[0] === dept);
-    const knowsClass = (TIMETABLE[t] || []).some(x => isLesson(x) && x[2].split(":")[1] === grp);
-    let score = 0; const why = [];
-    if (s) { score += s[2] === "RF" ? 120 : 100; why.push(s[2] === "RF" ? "احتياط فنية في هذه الحصة" : "احتياط في هذه الحصة"); }
-    if (sameDept) { score += 20; why.push("من قسم " + SUBJECTS[dept]); }
-    if (knowsClass) { score += 10; why.push("يدرّس الفصل"); }
-    score -= weekCount * 6 + total + todayLessons * 2;
-    why.push(weekCount ? `أخذ ${ar(weekCount)} احتياط هذا الأسبوع` : "لم يأخذ احتياطًا هذا الأسبوع");
-    if (t === HEAD_NAME) { score -= 60; why.push("رئيس القسم"); }
-    list.push({ t, score, why, weekCount, total });
+    const n = nisab(t), load = n + weekCount;
+    const why = [`النصاب ${ar(n)} حصص`, weekCount ? `+ ${ar(weekCount)} احتياط هذا الأسبوع = ${ar(load)}` : "لم يأخذ احتياطًا هذا الأسبوع"];
+    list.push({ t, n, load, weekCount, total, why });
   }
-  return list.sort((a, b) => b.score - a.score || a.total - b.total || a.t.localeCompare(b.t, "ar"));
+  return list.sort((a, b) => a.load - b.load || a.weekCount - b.weekCount || a.total - b.total || a.t.localeCompare(b.t, "ar"));
 }
 
 let resEditId = "";
@@ -1615,11 +1609,13 @@ function renderResItems() {
   const slots = (TIMETABLE[t] || []).filter(x => x[0] === day).sort((a, b) => a[1] - b[1]);
   if (!slots.length) { box.innerHTML = `<div class="empty">ليس لـ أ. ${esc(t)} حصص يوم ${DAYS[day]}.</div>`; $("rf-save").disabled = true; return; }
   $("rf-save").disabled = false;
+  const extra = {};
   box.innerHTML = slots.map(([d, p, cls]) => {
     if (!isLesson([d, p, cls])) return `<div class="res-row muted-row"><div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${cls === "RF" ? "احتياط فنية" : "احتياط"} — لا تحتاج تغطية</span></div></div>`;
-    const cands = candidates(date, day, p, cls, t, resEditId);
+    const cands = candidates(date, day, p, cls, t, resEditId, extra);
     const sv = saved.find(c => c.period === p);
     const sel = sv ? (sv.status === COV_DONE ? sv.substitute : sv.status === COV_PRESENT ? "__present" : "__none") : (cands[0] ? cands[0].t : "__none");
+    if (!sel.startsWith("__")) extra[sel] = (extra[sel] || 0) + 1;
     const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 ? "★ الأفضل: " : ""}${esc(c.t)} — ${esc(c.why.join("، "))}</option>`).join("");
     const keep = sv && sv.status === COV_DONE && !cands.some(c => c.t === sv.substitute) ? `<option value="${esc(sv.substitute)}" selected>${esc(sv.substitute)} (مسجّل سابقًا)</option>` : "";
     return `<div class="res-row" data-p="${p}">
@@ -1710,7 +1706,7 @@ $("res-range").onchange = renderResLog;
 $("res-reload").onclick = async () => { await loadRes(true); renderResLog(); };
 $("res-word").onclick = async () => {
   const m = $("res-lmsg"); m.textContent = "جارٍ إنشاء الملف…";
-  try { await deliver(await window.docx.Packer.toBlob(buildReserveReport(window.docx, resRange())), `تقرير الاحتياط - ${resRange().label}.docx`, m); }
+  try { await deliver(await window.docx.Packer.toBlob(buildReserveReport(window.docx, resRange())), `سجل الغياب والاحتياط - ${resRange().label}.docx`, m); }
   catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
 };
 
@@ -1737,7 +1733,7 @@ function buildReserveReport(D, r) {
   const drows = [["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"].map(t => h.th(t)),
     ...det.map(c => [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(PERIOD_NAMES[c.period], { align: C, size: 17 }), h.cell(classLabel(c.classId), { align: C, size: 17 }), h.cell("أ. " + c.absent, { size: 17 }),
       h.cell(c.status === COV_DONE ? "أ. " + c.substitute : "لم تُغطَّ", { size: 17, bold: c.status !== COV_DONE, color: c.status === COV_DONE ? undefined : "B4382B" })])];
-  const kids = [...h.formHeader("تقرير الاحتياط"), h.para(r.label, { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
+  const kids = [...h.formHeader("سجل الغياب والاحتياط"), h.para(r.label, { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
     h.heading("أولًا: عدّاد الغياب والاحتياط لكل معلم"), h.table(rows, [2600, 900, 950, 850, 950, 1000, 2750], h.softBorders("C9D6E3"))];
   kids.push(h.heading("ثانيًا: تفاصيل حصص الاحتياط"), det.length ? h.table(drows, [2300, 1300, 1000, 2700, 2700], h.softBorders("C9D6E3")) : h.para("لا توجد حصص احتياط في هذه الفترة.", { size: 20 }));
   kids.push(h.para("", { after: 300 }), h.signRow([["رئيس القسم", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
