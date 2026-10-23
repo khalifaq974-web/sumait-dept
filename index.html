@@ -223,6 +223,12 @@ input[type="time"] { width: 100%; font: inherit; color: var(--ink); background: 
 table.grades { min-width: 900px; font-size: 13px; }
 table.grades th { text-align: center; padding: 6px 4px; color: var(--ink); font-size: 12px; border: 1px solid var(--line); }
 table.grades th small { color: var(--muted); font-weight: 500; }
+.doc-hd { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding-bottom: 10px; margin-bottom: 12px; border-bottom: 3px double #1E3A5F; background: #fff; border-radius: 10px; padding: 10px 12px; }
+.doc-hd img.moe { justify-self: start; height: 64px; } .doc-hd img.ins { justify-self: end; height: 64px; }
+.doc-hd .mid { text-align: center; display: grid; justify-items: center; gap: 4px; } .doc-hd .mid img.g { height: 40px; }
+.doc-hd .t { font-family: var(--f-display); font-weight: 700; color: #1E3A5F; font-size: 15px; }
+.doc-hd .box { background: #1E3A5F; color: #fff; padding: 4px 16px; border-radius: 8px; font-family: var(--f-display); font-weight: 700; font-size: 15px; }
+@media (max-width: 640px) { .doc-hd img.moe, .doc-hd img.ins { height: 44px; } .doc-hd .t, .doc-hd .box { font-size: 13px; } }
 table.grades thead tr:first-child th.sec { background: var(--accent); color: var(--accent-ink); }
 table.grades td.calc.sec { font-weight: 700; background: var(--accent-soft); }
 table.grades thead tr:first-child th { background: var(--accent-soft); }
@@ -351,6 +357,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <div id="cls-sheet" hidden>
         <div class="vis-head-row"><button class="btn ghost sm" id="cls-back" type="button">→ الرجوع إلى الصفوف</button><span class="saved" id="cls-upd"></span></div>
         <div class="card cls-card-sheet">
+          <div class="doc-hd" aria-hidden="true"><img class="moe" id="cls-moe" alt=""><div class="mid"><img class="g" id="cls-guid" alt=""><div class="t">التوجيه الفني للعلوم الشرعية</div><span class="box">كشف متابعة المتعلمين</span></div><img class="ins" id="cls-ins" alt=""></div>
           <h2 id="cls-title"></h2>
           <div class="sub" id="cls-subtitle"></div>
           <nav class="tabs" role="tablist" aria-label="الفصل الدراسي"><button id="cls-t1" role="tab" aria-selected="true">الفصل الدراسي الأول</button><button id="cls-t2" role="tab" aria-selected="false">الفصل الدراسي الثاني</button></nav>
@@ -1232,6 +1239,7 @@ function renderClsList() {
   $("cls-list").innerHTML = html || `<div class="empty">لا توجد صفوف.</div>`;
   $("cls-list").querySelectorAll("[data-cls]").forEach(b => b.onclick = () => openClass(b.dataset.cls));
 }
+$("cls-moe").src = "data:image/png;base64," + MOE_B64; $("cls-guid").src = "data:image/png;base64," + GUID_B64; $("cls-ins").src = "data:image/png;base64," + LOGO_B64;
 $("cls-teacher").onchange = () => { clsTeacherFilter = $("cls-teacher").value; renderClsList(); renderSreps(); };
 $("cls-term").onchange = () => { clsTerm = Number($("cls-term").value); renderClsList(); };
 $("cls-reload").onclick = () => loadClasses(true);
@@ -1804,7 +1812,7 @@ const PDF_CSS = `
 .pp.tight .bd{zoom:.88}.pp .ph{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pp .ph img{width:100%;height:170px;object-fit:cover;border:1px solid #C9D6E3;border-radius:6px}
 .pp .tbx{display:inline-block;min-width:64px;border:1px solid #C9D6E3;text-align:center;font-weight:700;margin-left:4px;vertical-align:middle}.pp .tbx i{display:block;font-style:normal;background:#1E3A5F;color:#fff;font-size:11px;padding:1px 0}
 .pp table.plain{table-layout:auto}.pp table.plain td{vertical-align:middle}
-.pp.land .hd{grid-template-columns:100px 1fr 100px}.pp.land .hd .moe{width:62px}.pp.land .hd .ins{width:64px}.pp.land .mid .g{width:26px}.pp.land .mid .t{font-size:14px;margin:2px 0 4px}.pp.land .box{font-size:16px;padding:3px 36px}.pp.land .sg{margin-top:4px;font-size:12.5px}.pp.land .sg .sp{height:26px}.pp.land .bd p{margin:0 0 2px}.pp.land .fr{padding:12px 22px 10px}.pp.land .rule{margin:6px 0 8px}
+.pp.land .hd{grid-template-columns:120px 1fr 120px}.pp.land .hd .moe{width:80px}.pp.land .hd .ins{width:84px}.pp.land .mid .g{width:26px}.pp.land .mid .t{font-size:14px;margin:2px 0 4px}.pp.land .box{font-size:16px;padding:3px 36px}.pp.land .sg{margin-top:4px;font-size:12.5px}.pp.land .sg .sp{height:26px}.pp.land .bd p{margin:0 0 2px}.pp.land .fr{padding:12px 22px 10px}.pp.land .rule{margin:6px 0 8px}
 .pp table.xs td{padding:0 4px;font-size:10.5px;line-height:1.22}.pp.land table.info td{padding:2px 8px;font-size:12px}.pp.land table{margin:1px 0 4px}.pp table.xs th{padding:2px 3px;font-size:10.5px}
 .pp img.sig{height:38px;max-width:130px;object-fit:contain}
 `;
