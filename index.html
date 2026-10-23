@@ -1801,7 +1801,7 @@ const PDF_CSS = `
 .pp .late{color:#B4382B;font-weight:700}.pp .ok{color:#2F7D4F;font-weight:700}.pp .ahead{color:#6B4FB5;font-weight:700}.pp .none{color:#7D8892}
 .pp .sg{display:grid;text-align:center;font-size:13.5px;margin-top:8px}
 .pp .sg b{display:block;color:#1E3A5F}.pp .sg .n{font-weight:700}.pp .sg .sp{height:38px}.pp .sg img{height:42px;max-width:150px;object-fit:contain;display:block;margin:2px auto}
-.pp .ph{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pp .ph img{width:100%;height:190px;object-fit:cover;border:1px solid #C9D6E3;border-radius:6px}
+.pp.tight .bd{zoom:.88}.pp .ph{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pp .ph img{width:100%;height:170px;object-fit:cover;border:1px solid #C9D6E3;border-radius:6px}
 .pp .tbx{display:inline-block;min-width:64px;border:1px solid #C9D6E3;text-align:center;font-weight:700;margin-left:4px;vertical-align:middle}.pp .tbx i{display:block;font-style:normal;background:#1E3A5F;color:#fff;font-size:11px;padding:1px 0}
 .pp table.plain{table-layout:auto}.pp table.plain td{vertical-align:middle}
 .pp.land .hd{grid-template-columns:100px 1fr 100px}.pp.land .hd .moe{width:62px}.pp.land .hd .ins{width:64px}.pp.land .mid .g{width:26px}.pp.land .mid .t{font-size:14px;margin:2px 0 4px}.pp.land .box{font-size:16px;padding:3px 36px}.pp.land .sg{margin-top:4px;font-size:12.5px}.pp.land .sg .sp{height:26px}.pp.land .bd p{margin:0 0 2px}.pp.land .fr{padding:12px 22px 10px}.pp.land .rule{margin:6px 0 8px}
@@ -1837,15 +1837,18 @@ async function buildPdf(spec) {
   host.style.cssText = "position:fixed;left:-30000px;top:0;z-index:-1;";
   host.innerHTML = `<style>${PDF_CSS}</style>`;
   document.body.appendChild(host);
-  const pages = [];
+  let pages = [], tight = false;
   const newPage = first => {
-    const pg = document.createElement("div"); pg.className = "pp" + (spec.landscape ? " land" : "");
+    const pg = document.createElement("div"); pg.className = "pp" + (spec.landscape ? " land" : "") + (tight ? " tight" : "");
     pg.innerHTML = `<div class="fr">${first ? pdfHeader(spec.box) : ""}<div class="bd"></div></div>`;
     host.appendChild(pg); pages.push(pg); return pg.querySelector(".bd");
   };
   const over = b => b.scrollHeight > b.clientHeight + 1;
-  let body = newPage(true);
   const blocks = [...spec.blocks, pdfSigns(spec.signs)];
+  let body;
+  // إذا فاض القليل (مثل التواقيع) إلى صفحة ثانية، يُعاد الترتيب بخط أصغر قليلًا ليبقى في صفحة واحدة
+  for (let pass = 0; pass < 2; pass++) {
+  pages.forEach(pg => pg.remove()); pages = []; body = newPage(true);
   for (const html of blocks) {
     if (!html) continue;
     const tmp = document.createElement("div"); tmp.innerHTML = html;
@@ -1867,6 +1870,10 @@ async function buildPdf(spec) {
         }
       } else { body = newPage(false); body.appendChild(el); }
     }
+  }
+  const bb = body.getBoundingClientRect(), lc = body.lastElementChild;
+  const lastFill = lc ? (lc.getBoundingClientRect().bottom - bb.top) / bb.height : 0;
+  if (pass === 0 && pages.length === 2 && lastFill < 0.3) tight = true; else break;
   }
   try {
     const { PDFDocument } = window.PDFLib, pdf = await PDFDocument.create();
