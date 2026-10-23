@@ -57,7 +57,8 @@ function doGet() {
 const API = { login, saveEntry, headData, submitAchievement, myAchievements, deleteAchievement, allAchievements, saveReport,
   getPhoto, listMinutes, getMinute, saveMinute, deleteMinute, signMinute, mySignature, saveFileToDrive, demoAccounts, demoAction,
   saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, classesOverview, classSheet, saveGrades,
-  listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport };
+  listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport,
+  myProfile, saveProfile, listPermissions, getPermission, submitPermission, decidePermission, deletePermission };
 
 function doPost(e) {
   let out;
@@ -105,6 +106,8 @@ function setup() {
   sheet_(SHEET_STU, ["الصف", "م", "اسم الطالب", "ملاحظة"], true);
   gradesSheet_();
   srepSheet_();
+  profSheet_();
+  permSheet_();
   ensureDemoMinute_();
   folder_();
   const first = ss.getSheets()[0];
@@ -484,6 +487,7 @@ function demoAction(code, name, action) {
         ach.deleteRow(i + 1);
       }
       const grd = sh_(SHEET_GRD);
+      [SHEET_PERM, SHEET_PROF].forEach((sn, j) => { const sh = sh_(sn); if (!sh) return; const v = sh.getDataRange().getDisplayValues(); for (let i = v.length - 1; i >= 1; i--) if (v[i][j === 0 ? 2 : 0] === name) sh.deleteRow(i + 1); });
       const srp = sh_(SHEET_SREP);
       if (srp) { const sv = srp.getDataRange().getDisplayValues(); for (let i = sv.length - 1; i >= 1; i--) if (sv[i][2] === name) srp.deleteRow(i + 1); }
       if (grd) { const gv = grd.getDataRange().getDisplayValues(); for (let i = gv.length - 1; i >= 1; i--) if (gv[i][0].indexOf("DEMO|" + name + "|") === 0) grd.deleteRow(i + 1); }
@@ -903,6 +907,119 @@ function deleteStudentReport(code, id) {
     if (row < 0) throw new Error("التقرير غير موجود.");
     const owner = sh.getRange(row, 3).getDisplayValue();
     if (owner !== me.name && !(me.isHead && !me.isDemo)) throw new Error("لا يمكنك حذف تقرير غيرك.");
+    sh.deleteRow(row);
+    return true;
+  });
+}
+
+// ======================= سجل الاستئذان (إذن خروج — نموذج ٥م) =======================
+// المعلم يحفظ بياناته (الوظيفة، الرقم المدني، القسم) مرة واحدة، ثم يطلب إذن الخروج ويوقّع،
+// فيصل رئيس الشعبة إيميل ويعتمده بتوقيعه. توقيع المدير المساعد ومدير المعهد وجزء التأخير على الورقة المطبوعة.
+// الرقم المدني في الشيت فقط (لا في المستودع)، ولا يراه إلا صاحبه ورئيس الشعبة.
+const SHEET_PROF = "بيانات المعلمين";
+const SHEET_PERM = "الاستئذان";
+const PERM_TYPES = ["بداية الدوام", "أثناء الدوام", "نهاية الدوام"];
+const PERM_PENDING = "بانتظار الاعتماد", PERM_OK = "معتمد", PERM_NO = "مرفوض";
+const PERM_HEAD = ["المعرف", "المسلسل", "المعلم", "نوع الاستئذان", "القسم", "الوظيفة", "الرقم المدني", "سبب التصريح", "التاريخ", "من", "إلى",
+  "المعلم متفرغ / بديل", "اسم البديل", "توقيع المعلم", "وقت الإرسال", "الحالة", "توقيع رئيس الشعبة", "وقت الاعتماد", "ملاحظة رئيس الشعبة"];
+function profSheet_() { return sheet_(SHEET_PROF, ["المعلم", "الوظيفة", "الرقم المدني", "القسم", "آخر تحديث"], true); }
+function permSheet_() { return sheet_(SHEET_PERM, PERM_HEAD, true); }
+function cleanProfile_(p) {
+  const job = String(p && p.job || "").trim().slice(0, 60), dept = String(p && p.dept || "").trim().slice(0, 80);
+  const civil = String(p && p.civil || "").replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/\s/g, "");
+  if (!job) throw new Error("اكتب الوظيفة.");
+  if (!/^\d{12}$/.test(civil)) throw new Error("الرقم المدني يتكون من ١٢ رقمًا.");
+  if (!dept) throw new Error("اكتب القسم.");
+  return { job, civil, dept };
+}
+function myProfile(code) {
+  const me = who_(code), sh = sh_(SHEET_PROF);
+  const r = sh ? sh.getDataRange().getDisplayValues().slice(1).find(x => x[0] === me.name) : null;
+  return r ? { job: r[1], civil: r[2], dept: r[3] } : null;
+}
+function saveProfile_(name, p) {
+  const sh = profSheet_(), row = findRow_(sh, 1, name), vals = [name, p.job, p.civil, p.dept, nowText_()];
+  if (row > 0) writeRow_(sh, row, vals); else appendText_(sh, vals);
+}
+function saveProfile(code, p) { const me = who_(code), c = cleanProfile_(p); withLock_(() => saveProfile_(me.name, c)); return c; }
+
+function permObj_(r, withImages) {
+  const o = { id: r[0], serial: r[1], teacher: r[2], type: r[3], dept: r[4], job: r[5], civil: r[6], reason: r[7], date: r[8], from: r[9], to: r[10],
+    mode: r[11], substitute: r[12], sentAt: r[14], status: r[15], decidedAt: r[17], headNote: r[18] };
+  if (withImages) { o.teacherSig = r[13]; o.headSig = r[16]; }
+  return o;
+}
+function permRows_() { const sh = sh_(SHEET_PERM); return sh ? sh.getDataRange().getDisplayValues().slice(1).filter(r => r[0]) : []; }
+function canSeePerm_(me, r) { return r[2] === me.name || (me.isHead && !me.isDemo && !isDemo_(r[2])); }
+
+function listPermissions(code) {
+  const me = who_(code);
+  return permRows_().filter(r => canSeePerm_(me, r)).map(r => permObj_(r, false)).reverse();
+}
+function getPermission(code, id) {
+  const me = who_(code), r = permRows_().find(x => x[0] === String(id));
+  if (!r || !canSeePerm_(me, r)) throw new Error("الاستئذان غير موجود.");
+  return permObj_(r, true);
+}
+function submitPermission(code, p) {
+  const me = who_(code), prof = cleanProfile_(p);
+  const type = String(p.type || ""); if (PERM_TYPES.indexOf(type) === -1) throw new Error("اختر نوع الاستئذان: بداية الدوام أو أثناءه أو نهايته.");
+  const reason = String(p.reason || "").trim().slice(0, 300); if (reason.length < 3) throw new Error("اكتب سبب الاستئذان.");
+  const date = String(p.date || ""); const day = dayOf_(date); if (day > 4) throw new Error("التاريخ ليس يوم دوام.");
+  const tm = t => { const m = String(t || "").match(/^(\d{2}):(\d{2})$/); if (!m) throw new Error("اكتب وقت الاستئذان (من وإلى)."); return +m[1] * 60 + +m[2]; };
+  if (tm(p.to) <= tm(p.from)) throw new Error("وقت النهاية لازم يكون بعد وقت البداية.");
+  const mode = p.mode === "بديل" ? "بديل" : "متفرغ";
+  const sub = mode === "بديل" ? String(p.substitute || "").trim().slice(0, 80) : "";
+  if (mode === "بديل" && !sub) throw new Error("اكتب اسم المعلم البديل.");
+  if (!validSig_(p.sig)) throw new Error("وقّع على الطلب قبل الإرسال.");
+  const id = newId_(), now = nowText_(), year = date.slice(0, 4);
+  const serial = withLock_(() => {
+    saveProfile_(me.name, prof);
+    const rows = permRows_().filter(r => r[8].slice(0, 4) === year && (me.isDemo ? r[2] === me.name : !isDemo_(r[2])));
+    const n = rows.reduce((mx, r) => Math.max(mx, Number(String(r[1]).split("/")[0]) || 0), 0) + 1;
+    const s = n + "/" + year;
+    appendText_(permSheet_(), [id, s, me.name, type, prof.dept, prof.job, prof.civil, reason, date, p.from, p.to, mode, sub, p.sig, now, PERM_PENDING, "", "", ""]);
+    saveMySig_(me.name, p.sig, now);
+    return s;
+  });
+  notify_(me, `طلب إذن خروج من أ. ${me.name} (${date})`, `
+    <p>أرسل <b>أ. ${esc_(me.name)}</b> طلب إذن خروج، وهو بانتظار اعتمادك من الموقع.</p>
+    <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
+      <tr><td style="background:#e8f1f8"><b>المسلسل</b></td><td>${esc_(serial)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>النوع</b></td><td>${esc_(type)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>التاريخ</b></td><td>${esc_(date)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>الوقت</b></td><td>من ${esc_(p.from)} إلى ${esc_(p.to)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>السبب</b></td><td>${esc_(reason)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>الحصص</b></td><td>${mode === "بديل" ? "بديل المعلم: " + esc_(sub) : "المعلم متفرغ"}</td></tr>
+    </table>`);
+  return { id, serial };
+}
+function decidePermission(code, id, approve, sig, note) {
+  const me = head_(code);
+  return withLock_(() => {
+    const sh = permSheet_(), row = findRow_(sh, 1, String(id));
+    if (row < 0) throw new Error("الاستئذان غير موجود.");
+    const r = sh.getRange(row, 1, 1, PERM_HEAD.length).getDisplayValues()[0];
+    if (isDemo_(r[2]) && !me.isDemo) throw new Error("هذا طلب حساب تجريبي.");
+    const now = nowText_();
+    if (approve) {
+      if (!validSig_(sig)) throw new Error("وقّع لاعتماد الاستئذان.");
+      sh.getRange(row, 16, 1, 4).setNumberFormat("@").setValues([[PERM_OK, sig, now, String(note || "").slice(0, 300)]]);
+      saveMySig_(me.name, sig, now);
+    } else {
+      sh.getRange(row, 16, 1, 4).setNumberFormat("@").setValues([[PERM_NO, "", now, String(note || "").slice(0, 300)]]);
+    }
+    return { status: approve ? PERM_OK : PERM_NO, decidedAt: now };
+  });
+}
+function deletePermission(code, id) {
+  const me = who_(code);
+  return withLock_(() => {
+    const sh = permSheet_(), row = findRow_(sh, 1, String(id));
+    if (row < 0) throw new Error("الاستئذان غير موجود.");
+    const r = sh.getRange(row, 1, 1, PERM_HEAD.length).getDisplayValues()[0];
+    const head = me.isHead && !me.isDemo;
+    if (!(head || (r[2] === me.name && r[15] === PERM_PENDING))) throw new Error("لا يمكن حذف هذا الاستئذان بعد اعتماده.");
     sh.deleteRow(row);
     return true;
   });

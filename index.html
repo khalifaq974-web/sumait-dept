@@ -197,6 +197,12 @@ table.vis-table td.n { color: var(--muted); width: 32px; }
 nav.sections.five { grid-template-columns: repeat(5, 1fr); }
 @media (max-width: 640px) { nav.sections.five { grid-template-columns: 1fr 1fr; } }
 nav.sections.six { grid-template-columns: repeat(6, 1fr); }
+nav.sections.seven { grid-template-columns: repeat(7, 1fr); }
+@media (max-width: 640px) { nav.sections.seven { grid-template-columns: 1fr 1fr 1fr; } }
+.pf-prof { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.pf-prof summary { cursor: pointer; font-weight: 700; }
+.pf-name { font-weight: 700; }
+input[type="time"] { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
 @media (max-width: 640px) { nav.sections.six, nav.sections.five { grid-template-columns: 1fr 1fr 1fr; } }
 .cls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-top: 10px; }
 .cls-card { font: inherit; text-align: right; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; display: grid; gap: 6px; }
@@ -287,6 +293,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <button id="nav-ach" aria-selected="false"><b>الإنجازات</b><span>الأنشطة والفعاليات</span></button>
       <button id="nav-min" aria-selected="false"><b>محاضر الاجتماعات</b><span>الاطلاع والتوقيع</span></button>
       <button id="nav-vis" aria-selected="false"><b>الزيارات الصفية</b><span>بطاقات الزيارة</span></button>
+      <button id="nav-prm" aria-selected="false"><b>الاستئذان</b><span>إذن الخروج والسجل</span></button>
       <button id="nav-res" aria-selected="false" class="head-only" hidden><b>الاحتياط</b><span>الغياب والبدلاء</span></button>
     </nav>
 
@@ -456,6 +463,59 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="saved" id="res-lmsg"></div>
         <div id="res-log-body"></div>
       </section>
+    </section>
+    <!-- ركن الاستئذان (إذن خروج — نموذج ٥م) -->
+    <section id="sec-prm" hidden>
+      <nav class="tabs" role="tablist">
+        <button id="prmtab-new" role="tab" aria-selected="true">طلب إذن خروج</button>
+        <button id="prmtab-mine" role="tab" aria-selected="false">استئذاناتي</button>
+        <button id="prmtab-req" role="tab" aria-selected="false" class="head-only" hidden>الطلبات الواردة</button>
+        <button id="prmtab-log" role="tab" aria-selected="false" class="head-only" hidden>سجل الاستئذان</button>
+      </nav>
+      <section id="prm-new">
+        <form id="prm-form" class="card">
+          <h2>إذن خروج</h2>
+          <div class="sub">إخطار بمدة الاستئذان المصرح بها · نموذج رقم (٥م). يصل الطلب إلى رئيس الشعبة فور إرساله.</div>
+          <details id="pf-prof" class="pf-prof">
+            <summary>بياناتي الوظيفية <span class="sub" id="pf-prof-sum"></span></summary>
+            <div class="sub">تُحفظ مرة واحدة وتظهر في كل استئذان، ولا يراها إلا أنت ورئيس الشعبة.</div>
+            <label class="f">الاسم</label><div class="pf-name" id="pf-name"></div>
+            <div class="grid3">
+              <div><label class="f" for="pf-job">الوظيفة</label><input type="text" id="pf-job" maxlength="60" placeholder="مثال: معلم"></div>
+              <div><label class="f" for="pf-civil">الرقم المدني</label><input type="text" id="pf-civil" inputmode="numeric" maxlength="12" autocomplete="off" dir="ltr" placeholder="١٢ رقمًا"></div>
+              <div><label class="f" for="pf-dept">القسم</label><input type="text" id="pf-dept" maxlength="80"></div>
+            </div>
+          </details>
+          <label class="f">نوع الاستئذان</label>
+          <div class="chips" id="pf-types"></div>
+          <label class="f" for="pf-reason">سبب التصريح</label>
+          <input type="text" id="pf-reason" maxlength="300" placeholder="مثال: مراجعة طبية">
+          <div class="grid3">
+            <div><label class="f" for="pf-date">بالاستئذان يوم <span class="sub" id="pf-day"></span></label><input type="date" id="pf-date"></div>
+            <div><label class="f" for="pf-from">اعتبارًا من</label><input type="time" id="pf-from"></div>
+            <div><label class="f" for="pf-to">حتى</label><input type="time" id="pf-to"></div>
+          </div>
+          <label class="f">الحصص وقت الاستئذان</label>
+          <div class="chips"><label class="chip"><input type="radio" name="pf-mode" value="متفرغ" checked><span>المعلم متفرغ</span></label><label class="chip"><input type="radio" name="pf-mode" value="بديل"><span>بديل المعلم</span></label></div>
+          <div id="pf-subbox" hidden><label class="f" for="pf-sub">اسم المعلم البديل</label><input type="text" id="pf-sub" maxlength="80"></div>
+          <label class="f">توقيع المعلم</label>
+          <div id="pf-sig"></div>
+          <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="pf-send">إرسال الطلب إلى رئيس الشعبة</button></div>
+          <div class="saved" id="pf-msg"></div>
+        </form>
+      </section>
+      <section id="prm-mine" hidden><div class="saved" id="prm-mine-msg"></div><div class="list" id="prm-mine-list"></div></section>
+      <section id="prm-req" hidden><div class="saved" id="prm-req-msg"></div><div class="list" id="prm-req-list"></div></section>
+      <section id="prm-log" hidden>
+        <div class="toolbar">
+          <select id="prm-range" aria-label="الفترة"><option value="week">هذا الأسبوع</option><option value="month" selected>هذا الشهر</option><option value="all">العام الدراسي</option></select>
+          <button class="btn ghost" id="prm-reload" type="button">تحديث</button>
+          <button class="btn" id="prm-logword" type="button">تنزيل سجل الاستئذان وورد</button>
+        </div>
+        <div class="saved" id="prm-lmsg"></div>
+        <div id="prm-log-body"></div>
+      </section>
+      <div id="prm-detail" hidden></div>
     </section>
     <!-- ركن الزيارات الصفية -->
     <section id="sec-vis" hidden>
@@ -882,8 +942,8 @@ async function doLogin(code, silent) {
     $("me-name").textContent = "أ. " + r.name;
     document.querySelectorAll(".head-only").forEach(el => el.hidden = !r.isHead);
     document.querySelectorAll(".teacher-only").forEach(el => el.hidden = r.isHead);
-    document.querySelector("nav.sections").classList.toggle("five", !r.isHead);
-    document.querySelector("nav.sections").classList.toggle("six", !!r.isHead);
+    document.querySelector("nav.sections").classList.toggle("six", !r.isHead);
+    document.querySelector("nav.sections").classList.toggle("seven", !!r.isHead);
     $("demo-note").hidden = !r.isDemo;
     if (r.isHead) $("demo-admin").ontoggle = () => { if ($("demo-admin").open) loadDemos(); };
     let last = "curr"; try { last = localStorage.getItem("section") || "curr"; } catch (e) {}
@@ -897,13 +957,13 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; CUR_PRM = null; prmSub = "new"; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
 };
 
-const SECTIONS = ["curr", "cls", "ach", "min", "vis", "res"];
+const SECTIONS = ["curr", "cls", "ach", "min", "vis", "prm", "res"];
 function go(sec) {
   if (SECTIONS.indexOf(sec) === -1 || (sec === "res" && !ME.isHead)) sec = "curr";
   SECTIONS.forEach(s => { $("nav-" + s).setAttribute("aria-selected", s === sec); $("sec-" + s).hidden = s !== sec; });
@@ -911,6 +971,7 @@ function go(sec) {
   if (sec === "curr") setTab(ME.isHead && !$("view-head").hidden ? "head" : "teacher");
   if (sec === "ach") achTab(ME.isHead && achSub === "all" ? "all" : "mine");
   if (sec === "cls") { if (!CUR_CLS && $("cls-rep").hidden) clsHome(); }
+  if (sec === "prm") { if ($("prm-detail").hidden || !CUR_PRM) prmTab(prmSub); }
   if (sec === "min") loadMinutes();
   if (sec === "vis") visTab(ME.isHead ? (visSub === "mine" ? "new" : visSub) : "mine");
   if (sec === "res") resTab(resSub);
@@ -1388,6 +1449,224 @@ function buildStudentReportDoc(D, r) {
   if (d.other) kids.push(...box("ملاحظات أخرى", d.other, 1));
   kids.push(h.para("", { after: 80 }), h.signRow([["المعلم", r.teacher ? "أ. " + r.teacher : ""], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
   return h.doc(kids);
+}
+
+// ================= ركن الاستئذان (إذن خروج — نموذج ٥م) =================
+const PERM_TYPES = ["بداية الدوام", "أثناء الدوام", "نهاية الدوام"];
+const PERM_PILL = { "بانتظار الاعتماد": "ahead", "معتمد": "ok", "مرفوض": "late" };
+let PRM = null, prmSub = "new", PRM_PROF = undefined, CUR_PRM = null, prmDelArmed = false;
+
+function defaultDept() {
+  const ds = [...new Set((ME.classes || []).map(c => c.split(":")[0]))];
+  return "المواد الشرعية – " + (ds.length > 1 ? "الحديث الشريف والقرآن الكريم" : SUBJECTS[ds[0] || "hd"]);
+}
+function minutesOf(t) { const m = String(t || "").match(/^(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : 0; }
+function hm(t) { const m = String(t || "").match(/^(\d{1,2}):(\d{2})/); if (!m) return ["", ""]; let h = +m[1] % 12; if (h === 0) h = 12; return [ar(h), ar(m[2])]; }
+function fmtClock(t) { const [h, mi] = hm(t); return h ? `${h}:${mi}` : "—"; }
+function fmtDur(min) { const h = Math.floor(min / 60), m = min % 60; return h && m ? `${ar(h)} س ${ar(m)} د` : h ? `${ar(h)} ساعة` : `${ar(m)} دقيقة`; }
+
+function prmTab(which) {
+  if (!ME.isHead && (which === "req" || which === "log")) which = "new";
+  prmSub = which; $("prm-detail").hidden = true; CUR_PRM = null;
+  ["new", "mine", "req", "log"].forEach(t => { $("prmtab-" + t).setAttribute("aria-selected", t === which); $("prm-" + t).hidden = t !== which; });
+  if (which === "new") prmForm(); else loadPerms().then(renderPerms);
+}
+["new", "mine", "req", "log"].forEach(t => $("prmtab-" + t).onclick = () => prmTab(t));
+
+async function loadPerms(force) {
+  if (PRM && !force) return PRM;
+  try { PRM = await run("listPermissions", CODE); } catch (e) { ["prm-mine-msg", "prm-req-msg", "prm-lmsg"].forEach(id => $(id).textContent = cleanErr(e)); PRM = PRM || []; }
+  const pend = PRM.filter(p => p.status === "بانتظار الاعتماد" && p.teacher !== ME.name).length;
+  $("prmtab-req").textContent = "الطلبات الواردة" + (pend ? ` (${ar(pend)})` : "");
+  return PRM;
+}
+function permRow(p) {
+  return `<button type="button" class="li srep-li" data-prm="${esc(p.id)}"><span><b>${ME.isHead && p.teacher !== ME.name ? "أ. " + esc(p.teacher) + " · " : ""}${fmtDate(p.date, true)}</b> <span class="pill ${PERM_PILL[p.status] || "none"}">${esc(p.status)}</span><br>
+    <span class="sub">${esc(p.type)} · من ${fmtClock(p.from)} إلى ${fmtClock(p.to)} · ${esc(p.reason)} · المسلسل ${ar(p.serial)}</span></span><span class="sub">عرض ←</span></button>`;
+}
+function renderPerms() {
+  const L = PRM || [];
+  const mine = L.filter(p => p.teacher === ME.name);
+  $("prm-mine-list").innerHTML = mine.map(permRow).join("") || `<div class="empty">لم ترسل أي طلب استئذان بعد.</div>`;
+  if (ME.isHead) {
+    const others = L.filter(p => p.teacher !== ME.name);
+    const pend = others.filter(p => p.status === "بانتظار الاعتماد"), done = others.filter(p => p.status !== "بانتظار الاعتماد");
+    $("prm-req-list").innerHTML = (pend.length ? `<div class="vis-group">بانتظار اعتمادك (${ar(pend.length)})</div>` + pend.map(permRow).join("") : `<div class="empty">لا توجد طلبات بانتظار الاعتماد.</div>`)
+      + (done.length ? `<div class="vis-group">آخر الطلبات</div>` + done.slice(0, 30).map(permRow).join("") : "");
+    renderPermLog();
+  }
+  document.querySelectorAll("[data-prm]").forEach(b => b.onclick = () => openPerm(b.dataset.prm));
+}
+
+// ---------- نموذج الطلب ----------
+async function prmForm() {
+  $("pf-name").textContent = "أ. " + ME.name;
+  $("pf-types").innerHTML = PERM_TYPES.map((t, i) => `<label class="chip"><input type="radio" name="pf-type" value="${t}"${i === 1 ? " checked" : ""}><span>${t}</span></label>`).join("");
+  if (!$("pf-date").value) $("pf-date").value = todayISO();
+  $("pf-date").oninput(); setupVisPad("pf-sig", true);
+  if (PRM_PROF === undefined) { try { PRM_PROF = await run("myProfile", CODE); } catch (e) { PRM_PROF = null; } }
+  const p = PRM_PROF || {};
+  $("pf-job").value = p.job || (ME.isHead ? "رئيس الشعبة" : "معلم"); $("pf-civil").value = p.civil || ""; $("pf-dept").value = p.dept || defaultDept();
+  $("pf-prof").open = !p.civil;
+  $("pf-prof-sum").textContent = p.civil ? "(محفوظة)" : "(أكملها مرة واحدة)";
+}
+$("pf-date").oninput = () => { const d = isoDay($("pf-date").value); $("pf-day").textContent = d >= 0 ? "(" + DAYS[d] + ")" : ""; };
+document.querySelectorAll('input[name="pf-mode"]').forEach(r => r.onchange = () => { $("pf-subbox").hidden = document.querySelector('input[name="pf-mode"]:checked').value !== "بديل"; });
+$("prm-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const m = $("pf-msg"), sig = padImage("pf-sig");
+  const body = { job: $("pf-job").value, civil: normNum($("pf-civil").value), dept: $("pf-dept").value,
+    type: (document.querySelector('input[name="pf-type"]:checked') || {}).value, reason: $("pf-reason").value, date: $("pf-date").value,
+    from: $("pf-from").value, to: $("pf-to").value, mode: document.querySelector('input[name="pf-mode"]:checked').value, substitute: $("pf-sub").value, sig };
+  if (!/^\d{12}$/.test(body.civil)) { $("pf-prof").open = true; m.textContent = "الرقم المدني يتكون من ١٢ رقمًا."; $("pf-civil").focus(); return; }
+  if (!body.from || !body.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)."; return; }
+  if (!sig) { m.textContent = "وقّع على الطلب قبل الإرسال."; return; }
+  $("pf-send").disabled = true; m.textContent = "جارٍ الإرسال…";
+  try {
+    const r = await run("submitPermission", CODE, body);
+    PRM_PROF = { job: body.job.trim(), civil: body.civil, dept: body.dept.trim() };
+    $("pf-reason").value = ""; $("pf-from").value = ""; $("pf-to").value = ""; $("pf-sub").value = ""; document.querySelector('input[name="pf-mode"][value="متفرغ"]').checked = true; $("pf-subbox").hidden = true;
+    PRM = null; await loadPerms(true); m.textContent = "";
+    openPerm(r.id, `تم إرسال الطلب (المسلسل ${ar(r.serial)}) إلى رئيس الشعبة ✓`);
+  } catch (err) { m.textContent = cleanErr(err); }
+  finally { $("pf-send").disabled = false; }
+});
+
+// ---------- عرض الاستئذان واعتماده ----------
+async function openPerm(id, note) {
+  const box = $("prm-detail"); ["new", "mine", "req", "log"].forEach(t => $("prm-" + t).hidden = true);
+  box.hidden = false; box.innerHTML = `<div class="saved">جارٍ التحميل…</div>`; prmDelArmed = false;
+  let p; try { p = await run("getPermission", CODE, id); } catch (e) { box.innerHTML = `<div class="saved">${esc(cleanErr(e))}</div>`; return; }
+  CUR_PRM = p;
+  const mine = p.teacher === ME.name, head = ME.isHead && !ME.isDemo, pending = p.status === "بانتظار الاعتماد";
+  const canDecide = ME.isHead && pending;
+  const [fh, fm] = hm(p.from), [th, tm] = hm(p.to);
+  box.innerHTML = `<div class="vis-head-row"><button class="btn ghost sm" type="button" id="pd-back">→ رجوع</button><span class="saved">${note || ""}</span></div>
+  <div class="card minute" style="margin-top:10px">
+    <h2>إذن خروج · المسلسل ${ar(p.serial)} <span class="pill ${PERM_PILL[p.status] || "none"}">${esc(p.status)}</span></h2>
+    <div class="sub">إخطار بمدة الاستئذان المصرح بها · ${esc(p.type)}</div>
+    <dl class="meta-grid" style="margin-top:10px">
+      <div><dt>الاسم</dt><dd>أ. ${esc(p.teacher)}</dd></div><div><dt>القسم</dt><dd>${esc(p.dept)}</dd></div>
+      <div><dt>الوظيفة</dt><dd>${esc(p.job)}</dd></div><div><dt>الرقم المدني</dt><dd>${ar(p.civil)}</dd></div>
+      <div><dt>اليوم والتاريخ</dt><dd>${fmtDate(p.date, true)}</dd></div><div><dt>المدة</dt><dd>من ${fh}:${fm} حتى ${th}:${tm} (${fmtDur(minutesOf(p.to) - minutesOf(p.from))})</dd></div>
+      <div class="wide"><dt>سبب التصريح</dt><dd>${esc(p.reason)}</dd></div>
+      <div class="wide"><dt>الحصص</dt><dd>${p.mode === "بديل" ? "بديل المعلم: أ. " + esc(p.substitute) : "المعلم متفرغ"}</dd></div>
+    </dl>
+    <div class="sig-pair" style="margin-top:12px"><div><div class="sub">توقيع المعلم</div>${p.teacherSig ? `<img class="sigimg" src="${p.teacherSig}" alt="توقيع المعلم">` : "—"}</div>
+      <div><div class="sub">توقيع رئيس الشعبة</div>${p.headSig ? `<img class="sigimg" src="${p.headSig}" alt="توقيع رئيس الشعبة">` : `<span class="sub">${pending ? "بانتظار الاعتماد" : "—"}</span>`}</div></div>
+    ${p.headNote ? `<p><b>ملاحظة رئيس الشعبة:</b> ${esc(p.headNote)}</p>` : ""}
+    ${canDecide ? `<div class="signbox"><h3>اعتماد الاستئذان</h3><div id="pd-sig"></div>
+      <label class="f" for="pd-note">ملاحظة (اختياري)</label><input type="text" id="pd-note" maxlength="300">
+      <div class="row-actions" style="margin-top:10px"><button class="btn" type="button" id="pd-ok">اعتماد وتوقيع</button><button class="btn ghost" type="button" id="pd-no">رفض</button></div></div>` : ""}
+    <div class="row-actions" style="margin-top:14px"><button class="btn${canDecide ? " ghost" : ""}" type="button" id="pd-word">تنزيل النموذج وورد للطباعة</button>
+      ${head || (mine && pending) ? `<button class="btn ghost" type="button" id="pd-del">حذف</button>` : ""}</div>
+    <div class="sub">توقيع المدير المساعد ومدير المعهد وجزء التأخير يُعبّأ على الورقة المطبوعة.</div>
+    <div class="saved" id="pd-msg"></div>
+  </div>`;
+  $("pd-back").onclick = () => prmTab(prmSub === "new" && !mine ? "req" : prmSub === "new" ? "mine" : prmSub);
+  $("pd-word").onclick = async () => {
+    const m = $("pd-msg"); if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
+    try { await deliver(await window.docx.Packer.toBlob(buildPermissionDoc(window.docx, p)), `إذن خروج ${p.serial.replace("/", "-")} - ${p.teacher}.docx`, m); }
+    catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
+  };
+  if ($("pd-del")) $("pd-del").onclick = async () => {
+    if (!prmDelArmed) { prmDelArmed = true; $("pd-msg").textContent = "اضغط «حذف» مرة أخرى للتأكيد."; return; }
+    try { await run("deletePermission", CODE, p.id); PRM = null; await loadPerms(true); prmTab(mine ? "mine" : "req"); } catch (e) { $("pd-msg").textContent = cleanErr(e); }
+  };
+  if (canDecide) {
+    setupVisPad("pd-sig", true);
+    const decide = async ok => {
+      const m = $("pd-msg"), sig = ok ? padImage("pd-sig") : "";
+      if (ok && !sig) { m.textContent = "وقّع داخل المربع لاعتماد الاستئذان."; return; }
+      m.textContent = "جارٍ الحفظ…";
+      try { await run("decidePermission", CODE, p.id, ok, sig, $("pd-note").value); PRM = null; await loadPerms(true); openPerm(p.id, ok ? "تم اعتماد الاستئذان ✓" : "تم رفض الطلب"); }
+      catch (e) { m.textContent = cleanErr(e); }
+    };
+    $("pd-ok").onclick = () => decide(true); $("pd-no").onclick = () => decide(false);
+  }
+  window.scrollTo({ top: $("sec-prm").offsetTop - 10 });
+}
+
+// ---------- سجل الاستئذان (رئيس الشعبة) ----------
+function permRange() {
+  const v = $("prm-range").value, d = new Date(), iso = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+  if (v === "week") { const s = new Date(d); s.setDate(d.getDate() - d.getDay()); const e = new Date(s); e.setDate(s.getDate() + 4); return { from: iso(s), to: iso(e), label: `الأسبوع من ${fmtDate(iso(s))} إلى ${fmtDate(iso(e))}` }; }
+  if (v === "month") { const s = new Date(d.getFullYear(), d.getMonth(), 1), e = new Date(d.getFullYear(), d.getMonth() + 1, 0); return { from: iso(s), to: iso(e), label: `شهر ${ar(d.getMonth() + 1)}/${ar(d.getFullYear())}` }; }
+  return { from: "2026-08-01", to: "2027-07-31", label: "العام الدراسي ٢٠٢٦/٢٠٢٧" };
+}
+function permStats(r) {
+  const list = (PRM || []).filter(p => p.status === "معتمد" && p.date >= r.from && p.date <= r.to).sort((a, b) => a.date.localeCompare(b.date) || a.from.localeCompare(b.from));
+  const by = {};
+  list.forEach(p => { const s = by[p.teacher] || (by[p.teacher] = { t: p.teacher, n: 0, min: 0 }); s.n++; s.min += Math.max(0, minutesOf(p.to) - minutesOf(p.from)); });
+  const order = TEACHERS.map(([t]) => t);
+  return { list, sum: Object.values(by).sort((a, b) => order.indexOf(a.t) - order.indexOf(b.t)) };
+}
+function renderPermLog() {
+  const r = permRange(), st = permStats(r);
+  $("prm-log-body").innerHTML = `<h3 class="list-title">${r.label}</h3>
+    <div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>مرات الاستئذان المعتمدة</th><th>مجموع المدة</th></tr></thead><tbody>
+    ${st.sum.map(s => `<tr><td class="t">أ. ${esc(s.t)}</td><td>${ar(s.n)}</td><td>${fmtDur(s.min)}</td></tr>`).join("") || `<tr><td colspan="3" class="sub">لا يوجد استئذان معتمد في هذه الفترة.</td></tr>`}</tbody></table></div>
+    ${st.list.length ? `<div class="tablebox"><table><thead><tr><th>المسلسل</th><th>التاريخ</th><th>المعلم</th><th>النوع</th><th>من</th><th>إلى</th><th>المدة</th><th>السبب</th><th>الحصص</th></tr></thead><tbody>
+    ${st.list.map(p => `<tr data-prm-row="${esc(p.id)}"><td>${ar(p.serial)}</td><td>${fmtDate(p.date, true)}</td><td class="t">أ. ${esc(p.teacher)}</td><td>${esc(p.type)}</td><td>${fmtClock(p.from)}</td><td>${fmtClock(p.to)}</td><td>${fmtDur(minutesOf(p.to) - minutesOf(p.from))}</td><td>${esc(p.reason)}</td><td>${p.mode === "بديل" ? "بديل: " + esc(p.substitute) : "متفرغ"}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
+  $("prm-log-body").querySelectorAll("[data-prm-row]").forEach(tr => { tr.style.cursor = "pointer"; tr.onclick = () => openPerm(tr.dataset.prmRow); });
+}
+$("prm-range").onchange = renderPermLog;
+$("prm-reload").onclick = async () => { PRM = null; await loadPerms(true); renderPerms(); };
+$("prm-logword").onclick = async () => {
+  const m = $("prm-lmsg"); if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
+  try { await deliver(await window.docx.Packer.toBlob(buildPermLogDoc(window.docx, permRange())), `سجل الاستئذان - ${permRange().label}.docx`, m); }
+  catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
+};
+
+// ---------- ملفات الوورد (بالديباجة المعتمدة) ----------
+function buildPermissionDoc(D, p) {
+  const h = H(D), C = h.C, R = h.R, NAVY = h.NAVY, box = c => c ? "■" : "□";
+  const [fh, fm] = hm(p.from), [th, tm] = hm(p.to);
+  const sigImg = (data, label) => data ? new D.Paragraph({ alignment: C, children: [h.img(b64ToBytes(data), 130, 48, "png")] }) : h.para("", { after: 0, line: 700 });
+  const timeTable = (hh, mm) => h.table([[h.th("ساعة", { w: 900 }), h.th("دقيقة", { w: 900 })], [h.cell(hh, { align: C, size: 22, bold: true }), h.cell(mm, { align: C, size: 22, bold: true })]], [900, 900], h.softBorders("C9D6E3"));
+  const kids = [...h.formHeader("إذن خروج"),
+    h.table([[h.cell([h.para(`المسلسل: ${ar(p.serial)}`, { size: 21, bold: true, color: NAVY, after: 0 })], { w: 3300 }),
+      h.cell([h.para("إخطار بمدة الاستئذان المصرح بها", { size: 22, bold: true, color: NAVY, align: C, after: 0 })], { w: 3400 }),
+      h.cell([h.para("نموذج رقم (٥م)", { size: 21, bold: true, color: NAVY, align: D.AlignmentType.LEFT, after: 0 })], { w: 3300 })]], [3300, 3400, 3300], h.noBorders),
+    h.para(PERM_TYPES.map(t => `${box(p.type === t)} ${t}`).join("        "), { size: 21, align: C, before: 80, after: 120, bold: true }),
+    h.para([h.run("السيد المحترم / مدير معهد عبدالرحمن السميط الديني الثانوي بنين", { size: 22, bold: true }), h.run("          بعد التحية،", { size: 22 })], { after: 120 }),
+    h.table([
+      [h.lab("لقد تم التصريح للسيد:", { w: 2100 }), h.cell("أ. " + p.teacher, { w: 3300, size: 21, bold: true }), h.lab("القسم:", { w: 1500 }), h.cell(p.dept, { w: 3100, size: 20 })],
+      [h.lab("سبب التصريح:"), new D.TableCell({ columnSpan: 3, margins: { top: 80, bottom: 80, left: 100, right: 100 }, children: [h.para(p.reason, { size: 21, after: 0 })] })],
+      [h.lab("الوظيفة:"), h.cell(p.job, { size: 21 }), h.lab("الرقم المدني:"), h.cell(ar(p.civil), { size: 21, bold: true })],
+      [h.lab("بالاستئذان يوم:"), h.cell(DAYS[isoDay(p.date)] || "", { size: 21 }), h.lab("الموافق:"), h.cell(fmtDate(p.date), { size: 21 })]
+    ], [2100, 3300, 1500, 3100], h.softBorders("C9D6E3")),
+    h.para("", { after: 80 }),
+    h.table([[h.cell([h.para("اعتبارًا من:", { size: 22, bold: true, color: NAVY, after: 0 })], { w: 1700 }), h.cell([timeTable(fh, fm)], { w: 2300 }),
+      h.cell([h.para("حتى:", { size: 22, bold: true, color: NAVY, align: C, after: 0 })], { w: 1000 }), h.cell([timeTable(th, tm)], { w: 2300 }),
+      h.cell([h.para(`(${fmtDur(minutesOf(p.to) - minutesOf(p.from))})`, { size: 20, align: C, after: 0 })], { w: 2700 })]], [1700, 2300, 1000, 2300, 2700], h.noBorders),
+    h.para([h.run(`${box(p.mode !== "بديل")}  المعلم متفرغ`, { size: 22, bold: true }), h.run(`          ${box(p.mode === "بديل")}  بديل المعلم: ${p.mode === "بديل" ? "أ. " + p.substitute : "........................................"}`, { size: 22, bold: true })], { before: 120, after: 160 }),
+    h.table([[h.cell([h.para("توقيع المعلم", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.teacherSig), h.para("أ. " + p.teacher, { size: 18, align: C, after: 0 })], { w: 3300 }),
+      h.cell([h.para("توقيع رئيس الشعبة", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.headSig), h.para(HEAD_SIGN, { size: 18, align: C, after: 0 })], { w: 3400 }),
+      h.cell([h.para("توقيع المدير المساعد", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), h.para("", { after: 0, line: 900 })], { w: 3300 })]], [3300, 3400, 3300], h.noBorders),
+    h.para("", { after: 80, line: 120, rule: true }),
+    h.para(`□  تأخر عن الموعد لمدة: ........ ساعة`, { size: 22, bold: true, before: 80, after: 80 }),
+    h.para(`□  لم يعد حتى نهاية الدوام.`, { size: 22, bold: true, after: 120 }),
+    h.table([[h.cell([h.para("تضاف مدة التأخير", { size: 22, bold: true, after: 0 })], { w: 2200 }), h.cell([h.para("وقدرها", { size: 22, bold: true, align: C, after: 0 })], { w: 1100 }),
+      h.cell([timeTable("", "")], { w: 2300 }), h.cell([h.para("إلى مدد التأخير الشهرية.", { size: 22, bold: true, after: 0 })], { w: 4400 })]], [2200, 1100, 2300, 4400], h.noBorders),
+    h.para("", { after: 200 }),
+    h.signRow([["مدير المعهد", PRINCIPAL]], 10000)];
+  return h.doc(kids);
+}
+function buildPermLogDoc(D, r) {
+  const h = H(D), C = h.C, st = permStats(r);
+  const kids = [...h.formHeader("سجل الاستئذان", 14400), h.para(r.label, { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
+    h.heading("أولًا: عدد مرات الاستئذان ومجموع مدته لكل معلم"),
+    h.table([["المعلم", "مرات الاستئذان المعتمدة", "مجموع المدة"].map(t => h.th(t)),
+      ...(st.sum.length ? st.sum.map(s => [h.cell("أ. " + s.t, { size: 19 }), h.cell(ar(s.n), { align: C, size: 20, bold: true }), h.cell(fmtDur(s.min), { align: C, size: 20 })]) : [[h.cell("لا يوجد استئذان معتمد في هذه الفترة.", { size: 19 }), h.cell("", {}), h.cell("", {})]])],
+      [6400, 4000, 4000], h.softBorders("C9D6E3")),
+    h.heading("ثانيًا: تفاصيل الاستئذان")];
+  if (st.list.length) kids.push(h.table([["المسلسل", "اليوم والتاريخ", "المعلم", "النوع", "من", "إلى", "المدة", "سبب التصريح", "الحصص"].map(t => h.th(t, { size: 16 })),
+    ...st.list.map(p => [ar(p.serial), fmtDate(p.date, true), "أ. " + p.teacher, p.type, fmtClock(p.from), fmtClock(p.to), fmtDur(minutesOf(p.to) - minutesOf(p.from)), p.reason, p.mode === "بديل" ? "بديل: " + p.substitute : "متفرغ"].map((t, i) => h.cell(t, { size: 16, align: [0, 4, 5, 6].indexOf(i) !== -1 ? C : undefined })))],
+    [900, 1900, 2600, 1300, 800, 800, 1200, 3100, 1800], h.softBorders("C9D6E3")));
+  else kids.push(h.para("لا يوجد استئذان معتمد في هذه الفترة.", { size: 20 }));
+  kids.push(h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400));
+  return h.doc(kids, { landscape: true });
 }
 
 // ================= ركن الإنجازات =================
