@@ -312,7 +312,8 @@ function deleteAchievement(code, id) {
 /** لرئيس الشعبة: كل الإنجازات مع التقارير */
 function allAchievements(code) {
   head_(code);
-  return rows_(SHEET_ACH).slice(1).filter(r => r[0] && !isDemo_(r[1])).map(r => achObj_(r, true)).reverse();
+  // تظهر رفوعات الحسابات التجريبية لرئيس الشعبة بعلامة «تجريبي»، ولا تدخل في السجلات المطبوعة
+  return rows_(SHEET_ACH).slice(1).filter(r => r[0]).map(r => Object.assign(achObj_(r, true), { demo: isDemo_(r[1]) })).reverse();
 }
 
 function saveReport(code, id, text) {

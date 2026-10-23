@@ -2115,12 +2115,12 @@ async function loadAllAch(force) {
   const list = ALLK.filter(a => !achFilter || (achFilter === "ready" ? a.status === ST_READY : a.status !== ST_READY));
   if (!list.length) { box.innerHTML = `<div class="empty">${achFilter === "pending" ? "لا يوجد شيء بانتظار الصياغة في هذا السجل." : "لا يوجد شيء في هذا السجل بعد."}</div>`; return; }
   box.innerHTML = list.map(a => `<button class="li li-btn" data-open="${a.id}">
-      <div class="li-main"><b>${esc(a.title)}</b><span class="sub">أ. ${esc(a.teacher)} · ${esc(a.type)} · ${fmtDate(a.date)}</span></div>
+      <div class="li-main"><b>${esc(a.title)}${a.demo ? ' <span class="pill none">تجريبي</span>' : ""}</b><span class="sub">أ. ${esc(a.teacher)} · ${esc(a.type)} · ${fmtDate(a.date)}</span></div>
       <span class="pill ${a.status === ST_READY ? "ok" : "late"}">${a.status === ST_READY ? "جاهز" : "بانتظار الصياغة"}</span></button>`).join("");
   box.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openAch(b.dataset.open));
 }
 $("ach-reload").onclick = () => loadAllAch(true);
-function achLogRows() { return (ACH_ALL || []).filter(a => a.kind === ACH_KIND).slice().sort((x, y) => (x.date || "").localeCompare(y.date || "")); }
+function achLogRows() { return (ACH_ALL || []).filter(a => a.kind === ACH_KIND && !a.demo).slice().sort((x, y) => (x.date || "").localeCompare(y.date || "")); }
 $("ach-logpdf").onclick = () => deliverPdf(() => pdfAchLog(ACH_KIND, achLogRows()), ACH_UI[ACH_KIND].log + ".pdf", $("ach-lmsg"));
 $("ach-logword").onclick = async () => {
   const m = $("ach-lmsg"); if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
@@ -2136,7 +2136,7 @@ async function openAch(id) {
   $("ach-all-list").hidden = true; $("ach-filter").hidden = true; $("ach-detail").hidden = false;
   const d = $("ach-detail");
   d.innerHTML = `<button class="btn ghost sm" id="ach-back">→ رجوع للقائمة</button>
-    <h2 style="margin-top:10px">${esc(a.title)}</h2>
+    <h2 style="margin-top:10px">${esc(a.title)}${a.demo ? ' <span class="pill none">تجريبي</span>' : ""}</h2>${a.demo ? '<div class="sub">مرفوع من حساب تجريبي: يظهر لك هنا فقط، ولا يدخل في السجل المطبوع.</div>' : ""}
     <div class="sub">أ. ${esc(a.teacher)} · ${esc(a.type)} · ${fmtDate(a.date, true)}${a.target ? " · " + esc(a.target) : ""} · رُفع ${fmtStamp(a.createdAt)}</div>
     <div class="gallery" id="ach-gallery">${a.photos.map(p => `<div class="ph" data-ph="${p}"><span class="sub">جارٍ تحميل الصورة…</span></div>`).join("")}</div>
     <h3>وصف المعلم</h3><p class="teacher-desc">${esc(a.desc)}</p>${a.results ? `<h3>النتائج والفائزون</h3><p class="teacher-desc">${esc(a.results)}</p>` : ""}
