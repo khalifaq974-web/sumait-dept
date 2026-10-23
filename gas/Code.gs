@@ -270,8 +270,8 @@ function submitAchievement(code, a) {
   const row = [id, me.name, String(a.date || "").slice(0, 10), String(a.type || "").slice(0, 60), title,
     String(a.target || "").slice(0, 150), desc, ids.join(","), ST_PENDING, "", nowText_(), ""];
   withLock_(() => appendText_(sh_(SHEET_ACH), row));
-  notify_(me, `رفع أ. ${me.name} إنجازًا جديدًا: ${title}`, `
-    <p>رفع <b>أ. ${esc_(me.name)}</b> إنجازًا جديدًا في موقع القسم، وهو بانتظار الصياغة.</p>
+  notify_(me, `رفع أ. ${me.name} نشاطًا جديدًا: ${title}`, `
+    <p>رفع <b>أ. ${esc_(me.name)}</b> نشاطًا جديدًا في سجل التنمية المهنية والأنشطة، وهو بانتظار الصياغة.</p>
     <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
       <tr><td style="background:#e8f1f8"><b>العنوان</b></td><td>${esc_(title)}</td></tr>
       <tr><td style="background:#e8f1f8"><b>النوع</b></td><td>${esc_(row[3])}</td></tr>
@@ -293,9 +293,9 @@ function deleteAchievement(code, id) {
   const me = who_(code);
   return withLock_(() => {
     const sh = sh_(SHEET_ACH), row = findRow_(sh, 1, id);
-    if (row < 0) throw new Error("الإنجاز غير موجود.");
+    if (row < 0) throw new Error("النشاط غير موجود.");
     const r = sh.getRange(row, 1, 1, 12).getDisplayValues()[0];
-    if (!me.isHead && (r[1] !== me.name || r[8] === ST_READY)) throw new Error("لا يمكن حذف هذا الإنجاز.");
+    if (!me.isHead && (r[1] !== me.name || r[8] === ST_READY)) throw new Error("لا يمكن حذف هذا النشاط.");
     (r[7] || "").split(",").filter(Boolean).forEach(fid => { try { DriveApp.getFileById(fid).setTrashed(true); } catch (e) {} });
     sh.deleteRow(row);
     return true;
@@ -313,7 +313,7 @@ function saveReport(code, id, text) {
   text = String(text || "").slice(0, 20000);
   return withLock_(() => {
     const sh = sh_(SHEET_ACH), row = findRow_(sh, 1, id);
-    if (row < 0) throw new Error("الإنجاز غير موجود.");
+    if (row < 0) throw new Error("النشاط غير موجود.");
     const r = sh.getRange(row, 1, 1, 12).getDisplayValues()[0];
     r[9] = text; r[8] = text.trim() ? ST_READY : ST_PENDING; r[11] = text.trim() ? nowText_() : "";
     writeRow_(sh, row, r);
