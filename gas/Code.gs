@@ -722,12 +722,13 @@ function deleteAbsence(code, id) {
 // ======================= كشوف متابعة المتعلمين (الدرجات) =======================
 // قوائم الطلاب في ورقة «الطلاب» (الصف-الشعبة، م، الاسم، ملاحظة) بلا أرقام مدنية، والدرجات في ورقة «الدرجات».
 // توزيع الدرجات حسب خطة التوجيه الفني ٢٠٢٦/٢٠٢٧ (واحد للحديث والقرآن):
-// السلوك ٣+٣ · المشاركة ٣+٣ · الواجبات ٣+٣ · المشروع ٣٫٥+٣٫٥ (القسم الأول + القسم الثاني) · اختبار قصير ١٥ = تقييم بنائي ٤٠ · نهاية الفصل ٦٠ · المجموع ١٠٠
+// السلوك ٣+٣ · المشاركة ٣+٣ · الواجبات ٣+٣ · المشروع ٣٫٥+٣٫٥ (القسم الأول + القسم الثاني) · اختبار قصير ١٥ = المجموع ٤٠
+// قرار رئيس الشعبة: لا يُرصد في الكشف غير هذه البنود (لا امتحان نهائي)
 const SHEET_STU = "الطلاب";
 const SHEET_GRD = "الدرجات";
-const GRD_MAX = [3, 3, 3, 3, 3, 3, 3.5, 3.5, 15, 60];
+const GRD_MAX = [3, 3, 3, 3, 3, 3, 3.5, 3.5, 15];
 const GRD_HEAD = ["المفتاح", "القسم", "الصف", "الفصل الدراسي", "م", "اسم المتعلم", "السلوك ق١", "السلوك ق٢", "المشاركة ق١", "المشاركة ق٢",
-  "الواجبات ق١", "الواجبات ق٢", "المشروع ق١", "المشروع ق٢", "الاختبار القصير", "نهاية الفصل", "التقييم البنائي (٤٠)", "المجموع (١٠٠)", "المعلم", "آخر تحديث"];
+  "الواجبات ق١", "الواجبات ق٢", "المشروع ق١", "المشروع ق٢", "الاختبار القصير", "المجموع (٤٠)", "المعلم", "آخر تحديث"];
 const DEMO_STUDENTS = ["متعلم تجريبي ١", "متعلم تجريبي ٢", "متعلم تجريبي ٣", "متعلم تجريبي ٤", "متعلم تجريبي ٥", "متعلم تجريبي ٦",
   "متعلم تجريبي ٧", "متعلم تجريبي ٨", "متعلم تجريبي ٩", "متعلم تجريبي ١٠", "متعلم تجريبي ١١", "متعلم تجريبي ١٢"];
 
@@ -743,10 +744,7 @@ function studentsOf_(me, cls) {
     .map(r => ({ n: Number(r[1]), name: String(r[2]).trim(), note: String(r[3] || "") })).sort((a, b) => a.n - b.n);
 }
 function sum_(vals) { return Math.round(vals.reduce((a, v) => a + Number(v), 0) * 100) / 100; }
-function totals_(v) {
-  const form = v.slice(0, 9).every(x => x !== "") ? sum_(v.slice(0, 9)) : "";
-  return [form === "" ? "" : String(form), form !== "" && v[9] !== "" ? String(sum_([form, v[9]])) : ""];
-}
+function totals_(v) { return [v.every(x => x !== "") ? String(sum_(v)) : ""]; }
 
 /** نظرة عامة على صفوفي (أو كل الصفوف لرئيس الشعبة): عدد المتعلمين ومدى اكتمال الرصد في كل فصل دراسي */
 function classesOverview(code) {
@@ -761,9 +759,9 @@ function classesOverview(code) {
     if (pre ? k.indexOf(pre) !== 0 : k.indexOf("DEMO|") === 0) return;
     const p = k.slice(pre.length).split("|"), id = p[0] + "|" + p[1];
     const s = stat[id] || (stat[id] = { any: 0, form: 0, low: 0, updatedAt: "" });
-    if (r.slice(6, 16).some(x => x !== "")) s.any++;
-    if (r[16] !== "") { s.form++; if (Number(r[16]) < 20) s.low++; }
-    if (r[19] > s.updatedAt) s.updatedAt = r[19];
+    if (r.slice(6, 15).some(x => x !== "")) s.any++;
+    if (r[15] !== "") { s.form++; if (Number(r[15]) < 20) s.low++; }
+    if (r[17] > s.updatedAt) s.updatedAt = r[17];
   });
   return list.map(c => ({ cls: c, teacher: me.isDemo ? me.name : teacherOf_(c), students: counts[c.split(":")[1]] || 0,
     t1: stat[c + "|1"] || null, t2: stat[c + "|2"] || null }));
@@ -778,8 +776,8 @@ function classSheet(code, cls, term) {
   const grades = {}; let updatedAt = "";
   if (sh_(SHEET_GRD)) rows_(SHEET_GRD).slice(1).forEach(r => {
     if (String(r[0]).indexOf(pre) !== 0) return;
-    grades[String(r[0]).slice(pre.length)] = r.slice(6, 16);
-    if (r[19] > updatedAt) updatedAt = r[19];
+    grades[String(r[0]).slice(pre.length)] = r.slice(6, 15);
+    if (r[17] > updatedAt) updatedAt = r[17];
   });
   return { cls, term, teacher: me.isDemo ? me.name : teacherOf_(cls), students: studentsOf_(me, cls), grades, updatedAt };
 }
@@ -826,7 +824,7 @@ function GRD_COLS_() { return GRD_HEAD.length; }
 // يرسلها المعلم لمتعلم من صفوفه، فتصل رئيس الشعبة بالإيميل وتظهر عنده في ركن الصفوف
 const SHEET_SREP = "تقارير المتعلمين";
 const SREP_TYPES = { excel: "متعلم فائق", weak: "متعلم متعثر" };
-const SREP_HEAD = ["المعرف", "النوع", "المعلم", "الصف", "القسم", "الفصل الدراسي", "اسم المتعلم", "درجة البنائي", "البيانات", "تاريخ الإرسال", "اطّلع رئيس الشعبة", "آخر تعديل"];
+const SREP_HEAD = ["المعرف", "النوع", "المعلم", "الصف", "القسم", "الفصل الدراسي", "اسم المتعلم", "المجموع في الكشف", "البيانات", "تاريخ الإرسال", "اطّلع رئيس الشعبة", "آخر تعديل"];
 function srepSheet_() { return sheet_(SHEET_SREP, SREP_HEAD, true); }
 function srepObj_(r) {
   let data = {}; try { data = JSON.parse(r[8] || "{}"); } catch (e) {}
@@ -877,7 +875,7 @@ function saveStudentReport(code, rep) {
     <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
       <tr><td style="background:#e8f1f8"><b>الصف</b></td><td>${esc_(p[1].replace("-", "/"))} · ${esc_(SUBJ[p[0]])}</td></tr>
       <tr><td style="background:#e8f1f8"><b>الفصل الدراسي</b></td><td>${term === 1 ? "الأول" : "الثاني"}</td></tr>
-      <tr><td style="background:#e8f1f8"><b>درجة التقييم البنائي</b></td><td>${esc_(vals[7] || "لم تكتمل بعد")}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>المجموع في الكشف</b></td><td>${esc_(vals[7] || "لم يكتمل رصده بعد")}</td></tr>
     </table>
     <p><b>${t ? "مظاهر التفوق" : "مظاهر التعثر"}:</b></p>${li(data.a)}
     ${t ? "" : `<p><b>الأسباب المحتملة:</b></p>${li(data.b)}`}

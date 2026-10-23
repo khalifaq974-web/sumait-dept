@@ -211,7 +211,7 @@ nav.sections.six { grid-template-columns: repeat(6, 1fr); }
 .cls-stats .ok b { color: var(--ok); } .cls-stats .late b { color: var(--late); } .cls-stats .none b { color: var(--none); }
 .cls-card-sheet { margin-top: 10px; }
 .cls-card-sheet .tabs { margin-top: 10px; }
-table.grades { min-width: 1080px; font-size: 13px; }
+table.grades { min-width: 900px; font-size: 13px; }
 table.grades th { text-align: center; padding: 6px 4px; color: var(--ink); font-size: 12px; border: 1px solid var(--line); }
 table.grades th small { color: var(--muted); font-weight: 500; }
 table.grades thead tr:first-child th { background: var(--accent-soft); }
@@ -342,7 +342,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <nav class="tabs" role="tablist" aria-label="الفصل الدراسي"><button id="cls-t1" role="tab" aria-selected="true">الفصل الدراسي الأول</button><button id="cls-t2" role="tab" aria-selected="false">الفصل الدراسي الثاني</button></nav>
           <div class="cls-stats" id="cls-stats"></div>
           <div class="tablebox"><table class="grades" id="cls-table"></table></div>
-          <div class="sub cls-hint">توزيع الدرجات حسب خطة التوجيه الفني: السلوك والمشاركة والواجبات ٣ لكل قسم، والمشروع ٣٫٥ لكل قسم، والاختبار القصير ١٥، فيكون التقييم البنائي ٤٠، وامتحان نهاية الفصل ٦٠. يُحسب البنائي والمجموع تلقائيًا، واترك الخانة فارغة إن لم تُرصد بعد. اضغط Enter للانتقال إلى المتعلم التالي.</div>
+          <div class="sub cls-hint">توزيع الدرجات حسب خطة التوجيه الفني: السلوك والمشاركة والواجبات ٣ لكل قسم، والمشروع ٣٫٥ لكل قسم، والاختبار القصير ١٥، والمجموع من ٤٠ يُحسب تلقائيًا، واترك الخانة فارغة إن لم تُرصد بعد. اضغط Enter للانتقال إلى المتعلم التالي.</div>
           <div class="row-actions"><button class="btn" id="cls-save" type="button">حفظ الدرجات</button><button class="btn ghost" id="cls-word" type="button">تنزيل الكشف وورد</button></div>
           <div class="saved" id="cls-msg"></div>
         </div>
@@ -1037,8 +1037,8 @@ $("export-btn").onclick = async () => {
 
 // ================= ركن الصفوف: كشف متابعة المتعلمين =================
 // توزيع الدرجات حسب خطة التوجيه الفني ٢٠٢٦/٢٠٢٧ لمادتي الحديث الشريف والقرآن الكريم (المرحلة الثانوية):
-// السلوك ٦ · المشاركة ٦ · الواجبات ٦ · المشروع ٧ (نصفها في القسم الأول ونصفها في الثاني) · اختبار قصير ١٥ = تقييم بنائي ٤٠ · نهاية الفصل ٦٠
-const GRD_MAX = [3, 3, 3, 3, 3, 3, 3.5, 3.5, 15, 60];
+// السلوك ٦ · المشاركة ٦ · الواجبات ٦ · المشروع ٧ (نصفها في القسم الأول ونصفها في الثاني) · اختبار قصير ١٥ = المجموع ٤٠ (لا يُرصد في الكشف غير هذه البنود)
+const GRD_MAX = [3, 3, 3, 3, 3, 3, 3.5, 3.5, 15];
 const GRD_PARTS = [["السلوك", 6], ["المشاركة", 6], ["الواجبات", 6], ["المشروع", 7]];
 const TERM_NAMES = { 1: "الأول", 2: "الثاني" };
 let CLS = null, CUR_CLS = null, clsTerm = (NOW.getMonth() >= 1 && NOW.getMonth() <= 6) ? 2 : 1, clsDirty = false, clsTeacherFilter = "", clsLeaveArmed = false;
@@ -1049,7 +1049,7 @@ function fmtN(v) { return v === "" || v == null ? "" : ar(String(Math.round(Numb
 function gradeOk(x, i) { return x === "" || (/^\d{1,2}(\.\d{1,2})?$/.test(x) && Number(x) <= GRD_MAX[i]); }
 function rowTotals(v) {
   const form = v.slice(0, 9).every(x => x !== "") ? Math.round(v.slice(0, 9).reduce((a, x) => a + Number(x), 0) * 100) / 100 : "";
-  return { form, total: form !== "" && v[9] !== "" ? Math.round((form + Number(v[9])) * 100) / 100 : "" };
+  return { form };
 }
 
 function clsHome() { clsView("cls-home"); CUR_CLS = null; clsDirty = false; loadClasses(); loadSreps(); }
@@ -1064,7 +1064,7 @@ function clsProgress(c) {
   const t = c["t" + clsTerm], n = c.students;
   if (!n) return `<span class="pill none">لا توجد قائمة متعلمين</span>`;
   let p = !t || !t.any ? `<span class="pill none">لم يبدأ الرصد</span>`
-    : t.form >= n ? `<span class="pill ok">اكتمل رصد التقييم البنائي</span>` : `<span class="pill ahead">رُصد البنائي لـ ${ar(t.form)} من ${ar(n)}</span>`;
+    : t.form >= n ? `<span class="pill ok">اكتمل الرصد</span>` : `<span class="pill ahead">اكتمل رصد ${ar(t.form)} من ${ar(n)}</span>`;
   if (t && t.low) p += ` <span class="pill late">دون ٥٠٪: ${ar(t.low)}</span>`;
   return p;
 }
@@ -1081,7 +1081,7 @@ function renderClsList() {
     const t = c => c["t" + clsTerm];
     const done = list.filter(c => c.students && t(c) && t(c).form >= c.students).length, none = list.filter(c => !t(c) || !t(c).any).length;
     const low = list.reduce((a, c) => a + ((t(c) || {}).low || 0), 0);
-    return `<div class="cls-stats"><div><b>${ar(list.length)}</b><span>صفًا</span></div><div class="ok"><b>${ar(done)}</b><span>اكتمل رصد البنائي</span></div><div class="none"><b>${ar(none)}</b><span>لم يبدأ الرصد</span></div><div class="late"><b>${ar(low)}</b><span>متعلمًا دون ٥٠٪ في البنائي</span></div></div>`;
+    return `<div class="cls-stats"><div><b>${ar(list.length)}</b><span>صفًا</span></div><div class="ok"><b>${ar(done)}</b><span>اكتمل رصده</span></div><div class="none"><b>${ar(none)}</b><span>لم يبدأ الرصد</span></div><div class="late"><b>${ar(low)}</b><span>متعلمًا دون ٥٠٪ (أقل من ٢٠ من ٤٠)</span></div></div>`;
   };
   let html = "";
   const depts = ["hd", "qr"].filter(d => items.some(c => c.cls.indexOf(d + ":") === 0));
@@ -1117,19 +1117,19 @@ function renderSheet() {
   if (!r.students.length) { $("cls-table").innerHTML = ""; $("cls-msg").textContent = "لا توجد قائمة متعلمين لهذا الصف بعد."; return; }
   let h = `<thead><tr><th rowspan="2" class="n">م</th><th rowspan="2" class="nm">اسم المتعلم</th>`;
   GRD_PARTS.forEach((p, i) => h += `<th colspan="2">${partName(i, ci.dept)} <small>(${ar(p[1])})</small></th>`);
-  h += `<th rowspan="2">الاختبار القصير <small>(١٥)</small></th><th rowspan="2" class="calc">التقييم البنائي <small>(٤٠)</small></th><th rowspan="2">نهاية الفصل <small>(٦٠)</small></th><th rowspan="2" class="calc">المجموع <small>(١٠٠)</small></th><th rowspan="2">ملاحظات</th></tr><tr>`;
+  h += `<th rowspan="2">الاختبار القصير <small>(١٥)</small></th><th rowspan="2" class="calc">المجموع <small>(٤٠)</small></th><th rowspan="2">ملاحظات</th></tr><tr>`;
   for (let i = 0; i < 8; i++) h += `<th class="q">ق${i % 2 ? "٢" : "١"} <small>(${fmtN(GRD_MAX[i])})</small></th>`;
   h += `</tr></thead><tbody>`;
   r.students.forEach((s, k) => {
     const v = r.grades[s.name] || [];
     h += `<tr data-k="${k}"><td class="n">${ar(s.n)}</td><td class="nm">${esc(s.name)}</td>`;
-    for (let i = 0; i < 10; i++) {
-      if (i === 9) h += `<td class="calc form" id="cf-${k}"></td>`;
-      h += `<td class="in"><input inputmode="decimal" autocomplete="off" data-k="${k}" data-i="${i}" value="${esc(fmtN(v[i] ?? ""))}" aria-label="${esc(s.name)}: ${i < 8 ? partName(i >> 1, ci.dept) + " ق" + (i % 2 + 1) : i === 8 ? "الاختبار القصير" : "نهاية الفصل"}"></td>`;
+    for (let i = 0; i < 9; i++) {
+      h += `<td class="in"><input inputmode="decimal" autocomplete="off" data-k="${k}" data-i="${i}" value="${esc(fmtN(v[i] ?? ""))}" aria-label="${esc(s.name)}: ${i < 8 ? partName(i >> 1, ci.dept) + " ق" + (i % 2 + 1) : "الاختبار القصير"}"></td>`;
     }
-    h += `<td class="calc" id="ct-${k}"></td><td class="note">${esc(s.note)}</td></tr>`;
+    h += `<td class="calc form" id="cf-${k}"></td>`;
+    h += `<td class="note">${esc(s.note)}</td></tr>`;
   });
-  h += `</tbody><tfoot><tr><td></td><td class="nm">المتوسط</td>${Array.from({ length: 12 }, (_, j) => `<td id="ca-${j}"></td>`).join("")}<td></td></tr></tfoot>`;
+  h += `</tbody><tfoot><tr><td></td><td class="nm">المتوسط</td>${Array.from({ length: 10 }, (_, j) => `<td id="ca-${j}"></td>`).join("")}<td></td></tr></tfoot>`;
   $("cls-table").innerHTML = h;
   $("cls-table").querySelectorAll("input").forEach(inp => {
     inp.oninput = () => { clsDirty = true; clsLeaveArmed = false; $("cls-msg").textContent = "توجد تغييرات غير محفوظة."; recalc(); };
@@ -1139,25 +1139,24 @@ function renderSheet() {
   recalc();
 }
 function sheetValues() {
-  return CUR_CLS.students.map((s, k) => Array.from({ length: 10 }, (_, i) => normNum($("cls-table").querySelector(`input[data-k="${k}"][data-i="${i}"]`).value)));
+  return CUR_CLS.students.map((s, k) => Array.from({ length: 9 }, (_, i) => normNum($("cls-table").querySelector(`input[data-k="${k}"][data-i="${i}"]`).value)));
 }
 function recalc() {
-  const vals = sheetValues(), cols = Array.from({ length: 12 }, () => []);
+  const vals = sheetValues(), cols = Array.from({ length: 10 }, () => []);
   let full = 0, low = 0, formSum = 0;
   vals.forEach((v, k) => {
     v.forEach((x, i) => { const inp = $("cls-table").querySelector(`input[data-k="${k}"][data-i="${i}"]`); const ok = gradeOk(x, i); inp.classList.toggle("bad", !ok);
-      if (ok && x !== "") cols[i < 9 ? i : 10].push(Number(x)); });
+      if (ok && x !== "") cols[i].push(Number(x)); });
     const t = rowTotals(v.map((x, i) => gradeOk(x, i) ? x : ""));
-    $("cf-" + k).textContent = fmtN(t.form); $("ct-" + k).textContent = fmtN(t.total);
+    $("cf-" + k).textContent = fmtN(t.form);
     const isLow = t.form !== "" && t.form < 20;
     $("cls-table").querySelector(`tr[data-k="${k}"]`).classList.toggle("low", isLow);
     if (t.form !== "") { full++; formSum += t.form; cols[9].push(t.form); if (isLow) low++; }
-    if (t.total !== "") cols[11].push(t.total);
   });
   cols.forEach((c, j) => $("ca-" + j).textContent = c.length ? fmtN(c.reduce((a, b) => a + b, 0) / c.length) : "");
   const n = vals.length;
-  $("cls-stats").innerHTML = `<div><b>${ar(n)}</b><span>متعلمًا</span></div><div class="ok"><b>${ar(full)}</b><span>اكتمل رصد البنائي</span></div>
-    <div><b>${full ? fmtN(formSum / full) : "—"}</b><span>متوسط البنائي من ٤٠</span></div><div class="late"><b>${ar(low)}</b><span>دون ٥٠٪ في البنائي</span></div>`;
+  $("cls-stats").innerHTML = `<div><b>${ar(n)}</b><span>متعلمًا</span></div><div class="ok"><b>${ar(full)}</b><span>اكتمل رصده</span></div>
+    <div><b>${full ? fmtN(formSum / full) : "—"}</b><span>متوسط المجموع من ٤٠</span></div><div class="late"><b>${ar(low)}</b><span>دون ٥٠٪ (أقل من ٢٠)</span></div>`;
 }
 $("cls-save").onclick = async () => {
   if (!CUR_CLS) return;
@@ -1198,25 +1197,25 @@ function buildClassSheetDoc(D, r) {
     shading: { type: D.ShadingType.CLEAR, fill: o.fill || NAVY, color: "auto" }, children: [h.para(t, { size: o.size || 16, bold: true, color: o.color || "FFFFFF", align: C, after: 0, line: 240 })] });
   const dc = (t, o = {}) => new D.TableCell({ verticalAlign: D.VerticalAlign.CENTER, margins: mg, shading: o.fill ? { type: D.ShadingType.CLEAR, fill: o.fill, color: "auto" } : undefined,
     children: [h.para(t, { size: o.size || 16, bold: o.bold, color: o.color, align: o.align || C, after: 0, line: few ? 180 : 240 })] });
-  const W = [400, 3380, 640, 640, 640, 640, 640, 640, 640, 640, 850, 950, 900, 950, 1750];
+  const W = [450, 3900, 700, 700, 700, 700, 700, 700, 700, 700, 1100, 1100, 2150];
   const r1 = [hc("م", { rows: 2 }), hc("اسم المتعلم", { rows: 2 }), ...GRD_PARTS.map((p, i) => hc(`${partName(i, ci.dept)} (${ar(p[1])})`, { span: 2 })),
-    hc("الاختبار القصير (١٥)", { rows: 2 }), hc("التقييم البنائي (٤٠)", { rows: 2 }), hc("نهاية الفصل (٦٠)", { rows: 2 }), hc("المجموع (١٠٠)", { rows: 2 }), hc("ملاحظات", { rows: 2 })];
+    hc("الاختبار القصير (١٥)", { rows: 2 }), hc("المجموع (٤٠)", { rows: 2 }), hc("ملاحظات", { rows: 2 })];
   const r2 = Array.from({ length: 8 }, (_, i) => hc(`ق${i % 2 ? "٢" : "١"} (${fmtN(GRD_MAX[i])})`, { fill: "EEF3F8", color: NAVY, size: 14 }));
   let full = 0, low = 0, sum = 0;
   const body = r.students.map(s => {
-    const v = (r.grades[s.name] || []).map(x => x ?? ""), t = rowTotals(Array.from({ length: 10 }, (_, i) => v[i] || ""));
+    const v = (r.grades[s.name] || []).map(x => x ?? ""), t = rowTotals(Array.from({ length: 9 }, (_, i) => v[i] || ""));
     const isLow = t.form !== "" && t.form < 20;
     if (t.form !== "") { full++; sum += t.form; if (isLow) low++; }
     const g = i => dc(fmtN(v[i] || ""));
     return new D.TableRow({ cantSplit: true, children: [dc(ar(s.n)), dc(s.name, { align: h.R }), ...[0, 1, 2, 3, 4, 5, 6, 7, 8].map(g),
-      dc(fmtN(t.form), { bold: true, fill: "EEF3F8", color: isLow ? "B4382B" : undefined }), g(9), dc(fmtN(t.total), { bold: true, fill: "EEF3F8" }), dc(s.note || "", { size: 15 })] });
+      dc(fmtN(t.form), { bold: true, fill: "EEF3F8", color: isLow ? "B4382B" : undefined }), dc(s.note || "", { size: 15 })] });
   });
   const grid = new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: W, width: { size: W.reduce((a, b) => a + b, 0), type: D.WidthType.DXA },
     borders: h.softBorders("C9D6E3"), rows: [new D.TableRow({ tableHeader: true, children: r1 }), new D.TableRow({ tableHeader: true, children: r2 }), ...body] });
   const info = h.table([[h.lab("المادة:", { w: 1300 }), h.cell(SUBJECTS[ci.dept], { w: 2300, size: 19 }), h.lab("الصف:", { w: 1000 }), h.cell(ci.label, { w: 1200, size: 19 }),
     h.lab("المعلم:", { w: 1100 }), h.cell("أ. " + r.teacher, { w: 3700, size: 19 }), h.lab("الفصل الدراسي:", { w: 1700 }), h.cell(`${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧`, { w: 2100, size: 19 })]],
     [1300, 2300, 1000, 1200, 1100, 3700, 1700, 2100], h.softBorders("C9D6E3"));
-  const stats = `عدد المتعلمين ${ar(r.students.length)}، واكتمل رصد التقييم البنائي لـ ${ar(full)}، ومتوسط التقييم البنائي ${full ? fmtN(sum / full) : "—"} من ٤٠، ودون ٥٠٪ في البنائي ${ar(low)}.`;
+  const stats = `عدد المتعلمين ${ar(r.students.length)}، واكتمل الرصد لـ ${ar(full)}، ومتوسط المجموع ${full ? fmtN(sum / full) : "—"} من ٤٠، ودون ٥٠٪ (أقل من ٢٠) ${ar(low)}.`;
   return h.doc([...h.formHeader("كشف متابعة المتعلمين", 14400), info, h.para("", { after: 40 }), grid,
     h.para(stats, { size: 17, bold: true, color: NAVY, before: 60, after: 0 }),
     h.signRow([["معلم المادة", "أ. " + r.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400)], { landscape: true });
@@ -1275,7 +1274,7 @@ function checkGroup(id, title, opts, chosen) {
 function studentScore(name) {
   const v = CUR_CLS && CUR_CLS.grades[name];
   if (!v) return "";
-  const t = rowTotals(Array.from({ length: 10 }, (_, i) => v[i] || ""));
+  const t = rowTotals(Array.from({ length: 9 }, (_, i) => v[i] || ""));
   return t.form === "" ? "" : `${String(t.form)} من 40`;
 }
 function srepForm(type, rep) {
@@ -1297,7 +1296,7 @@ function srepForm(type, rep) {
     <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="sr-save">${rep ? "حفظ التعديل وإرساله" : "إرسال التقرير إلى رئيس الشعبة"}</button></div>
     <div class="saved" id="sr-msg"></div>
   </form>`;
-  const upd = () => { const s = studentScore($("sr-student").value); $("sr-score").textContent = $("sr-student").value ? (s ? "درجة التقييم البنائي الحالية: " + fmtN(s.split(" ")[0]) + " من ٤٠" : "لم يكتمل رصد التقييم البنائي لهذا المتعلم بعد.") : ""; };
+  const upd = () => { const s = studentScore($("sr-student").value); $("sr-score").textContent = $("sr-student").value ? (s ? "مجموعه الحالي في الكشف: " + fmtN(s.split(" ")[0]) + " من ٤٠" : "لم يكتمل رصد درجاته في الكشف بعد.") : ""; };
   $("sr-student").onchange = upd; upd();
   $("srep-cancel").onclick = () => { clsView("cls-sheet"); renderSreps(); };
   $("srep-form").onsubmit = async e => {
@@ -1325,7 +1324,7 @@ function openSrep(id, back, note) {
   <div class="card minute" style="margin-top:10px">
     <h2>${F.title} · ${SUBJECTS[ci.dept]}: ${esc(r.student)}</h2>
     <dl class="meta-grid" style="margin-top:10px"><div><dt>الصف</dt><dd>${esc(ci.label)} · ${SUBJECTS[ci.dept]}</dd></div><div><dt>الفصل الدراسي</dt><dd>${TERM_NAMES[r.term]}</dd></div>
-      <div><dt>المعلم</dt><dd>أ. ${esc(r.teacher)}</dd></div><div><dt>درجة التقييم البنائي</dt><dd>${r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : "—"}</dd></div>
+      <div><dt>المعلم</dt><dd>أ. ${esc(r.teacher)}</dd></div><div><dt>المجموع في الكشف</dt><dd>${r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : "—"}</dd></div>
       <div><dt>تاريخ الإرسال</dt><dd>${fmtStamp(r.createdAt)}</dd></div>${r.updatedAt ? `<div><dt>آخر تعديل</dt><dd>${fmtStamp(r.updatedAt)}</dd></div>` : ""}</dl>
     <h3>${F.a[0]}</h3>${ul(d.a)}<h3>${F.b[0]}</h3>${ul(d.b)}${F.c ? `<h3>${F.c[0]}</h3>${ul(d.c)}` : ""}
     <h3>${F.desc}</h3><p>${esc(d.desc || "—").replace(/\n/g, "<br>")}</p>
@@ -1371,7 +1370,7 @@ function buildStudentReportDoc(D, r) {
   const info = h.table([
     [L("اسم المتعلم:"), V(r.student || "", 3600), L("الصف:"), V(ci ? ci.label : "", 3000)],
     [L("المادة:"), V(SUBJECTS[dept], 3600), L("الفصل الدراسي:"), V(r.term ? `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧` : "", 3000)],
-    [L("المعلم:"), V(r.teacher ? "أ. " + r.teacher : "", 3600), L("درجة البنائي:"), V(r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : blank ? "      من ٤٠" : "—", 3000)],
+    [L("المعلم:"), V(r.teacher ? "أ. " + r.teacher : "", 3600), L("المجموع في الكشف:"), V(r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : blank ? "      من ٤٠" : "—", 3000)],
     [L("تاريخ التقرير:"), V(r.createdAt ? fmtDate(r.createdAt) : "    /    /   ٢٠٢م", 3600), L(""), V("", 3000)]
   ], [1700, 3600, 1700, 3000], h.softBorders("C9D6E3"));
   const checks = (title, opts, chosen) => {
