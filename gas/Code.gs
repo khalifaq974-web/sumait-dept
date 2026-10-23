@@ -58,7 +58,7 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, del
   getPhoto, listMinutes, getMinute, saveMinute, deleteMinute, signMinute, mySignature, saveFileToDrive, demoAccounts, demoAction,
   saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, classesOverview, classSheet, saveGrades,
   listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport,
-  myProfile, saveProfile, listPermissions, getPermission, submitPermission, decidePermission, deletePermission };
+  myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission };
 
 function doPost(e) {
   let out;
@@ -984,17 +984,37 @@ function submitPermission(code, p) {
     saveMySig_(me.name, p.sig, now);
     return s;
   });
-  notify_(me, `طلب إذن خروج من أ. ${me.name} (${date})`, `
-    <p>أرسل <b>أ. ${esc_(me.name)}</b> طلب إذن خروج، وهو بانتظار اعتمادك من الموقع.</p>
-    <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
-      <tr><td style="background:#e8f1f8"><b>المسلسل</b></td><td>${esc_(serial)}</td></tr>
-      <tr><td style="background:#e8f1f8"><b>النوع</b></td><td>${esc_(type)}</td></tr>
-      <tr><td style="background:#e8f1f8"><b>التاريخ</b></td><td>${esc_(date)}</td></tr>
-      <tr><td style="background:#e8f1f8"><b>الوقت</b></td><td>من ${esc_(p.from)} ${toEnd ? "حتى نهاية الدوام" : "إلى " + esc_(p.to)}</td></tr>
-      <tr><td style="background:#e8f1f8"><b>السبب</b></td><td>${esc_(reason)}</td></tr>
-      <tr><td style="background:#e8f1f8"><b>الحصص</b></td><td>${mode === "بديل" ? "بديل المعلم: " + esc_(sub) : "المعلم متفرغ"}</td></tr>
-    </table>`);
+  if (!p.deferMail) permMail_(me, { serial, type, date, from: p.from, to: p.to, reason, mode, sub }, null);
   return { id, serial };
+}
+function permMail_(me, q, pdf) {
+  const toEnd = q.to === "نهاية الدوام";
+  notify_(me, `طلب إذن خروج من أ. ${me.name} (${q.date})`, `
+    <p>أرسل <b>أ. ${esc_(me.name)}</b> طلب إذن خروج${pdf ? "، والنموذج مرفق PDF جاهز للطباعة والتوقيع" : ""}. ويمكن اعتماده أيضًا من الموقع.</p>
+    <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
+      <tr><td style="background:#e8f1f8"><b>المسلسل</b></td><td>${esc_(q.serial)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>النوع</b></td><td>${esc_(q.type)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>التاريخ</b></td><td>${esc_(q.date)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>الوقت</b></td><td>من ${esc_(q.from)} ${toEnd ? "حتى نهاية الدوام" : "إلى " + esc_(q.to)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>السبب</b></td><td>${esc_(q.reason)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>الحصص</b></td><td>${q.mode === "بديل" ? "بديل المعلم: " + esc_(q.sub) : "المعلم متفرغ"}</td></tr>
+    </table>`, pdf ? [pdf] : []);
+}
+/** بعد الإرسال: يرسل المتصفح نموذج الإذن PDF فيصل رئيس الشعبة مرفقًا بالإيميل (مرة واحدة لكل طلب) */
+function mailPermissionPdf(code, id, b64) {
+  const me = who_(code);
+  const sh = permSheet_(), row = findRow_(sh, 1, String(id));
+  if (row < 0) throw new Error("الاستئذان غير موجود.");
+  const r = sh.getRange(row, 1, 1, PERM_HEAD.length).getDisplayValues()[0];
+  if (r[2] !== me.name) throw new Error("ليس طلبك.");
+  const props = PropertiesService.getScriptProperties(), key = "permMail_" + r[0];
+  if (props.getProperty(key)) return { sent: false };
+  props.setProperty(key, "1");
+  let pdf = null;
+  const data = String(b64 || "").replace(/^data:application\/pdf;base64,/, "");
+  if (data && data.length < 8000000) pdf = Utilities.newBlob(Utilities.base64Decode(data), "application/pdf", `إذن خروج ${r[1].replace("/", "-")} - ${r[2]}.pdf`);
+  permMail_(me, { serial: r[1], type: r[3], date: r[8], from: r[9], to: r[10], reason: r[7], mode: r[11], sub: r[12] }, pdf);
+  return { sent: true, attached: !!pdf };
 }
 function decidePermission(code, id, approve, sig, note) {
   const me = head_(code);

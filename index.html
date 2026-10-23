@@ -1536,11 +1536,19 @@ $("prm-form").addEventListener("submit", async e => {
   if (!sig) { m.textContent = "وقّع على الطلب قبل الإرسال."; return; }
   $("pf-send").disabled = true; m.textContent = "جارٍ الإرسال…";
   try {
-    const r = await run("submitPermission", CODE, body);
+    const r = await run("submitPermission", CODE, Object.assign({ deferMail: true }, body));
+    m.textContent = "جارٍ تجهيز النموذج PDF وإرساله لرئيس الشعبة…";
+    let mailed = null;
+    try {
+      const full = await run("getPermission", CODE, r.id);
+      const blob = await buildPdf(pdfPermission(full));
+      const b64 = await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1]); fr.onerror = no; fr.readAsDataURL(blob); });
+      mailed = await run("mailPermissionPdf", CODE, r.id, b64);
+    } catch (e) { try { mailed = await run("mailPermissionPdf", CODE, r.id, ""); } catch (e2) {} }
     PRM_PROF = { job: body.job.trim(), civil: body.civil, dept: body.dept.trim() };
     $("pf-reason").value = ""; $("pf-from").value = ""; $("pf-to").value = ""; $("pf-toend").checked = false; $("pf-to").disabled = false; $("pf-sub").value = ""; document.querySelector('input[name="pf-mode"][value="متفرغ"]').checked = true; $("pf-subbox").hidden = true;
     PRM = null; await loadPerms(true); m.textContent = "";
-    openPerm(r.id, `تم إرسال الطلب (المسلسل ${ar(r.serial)}) إلى رئيس الشعبة ✓`);
+    openPerm(r.id, `تم إرسال الطلب (المسلسل ${ar(r.serial)}) إلى رئيس الشعبة${mailed && mailed.attached ? "، ووصله النموذج PDF على الإيميل" : ""} ✓`);
   } catch (err) { m.textContent = cleanErr(err); }
   finally { $("pf-send").disabled = false; }
 });
@@ -1609,7 +1617,7 @@ function permRange() {
   return { from: "2026-08-01", to: "2027-07-31", label: "العام الدراسي ٢٠٢٦/٢٠٢٧" };
 }
 function permStats(r) {
-  const list = (PRM || []).filter(p => p.status === "معتمد" && p.date >= r.from && p.date <= r.to).sort((a, b) => a.date.localeCompare(b.date) || a.from.localeCompare(b.from));
+  const list = (PRM || []).filter(p => p.status !== "مرفوض" && p.date >= r.from && p.date <= r.to).sort((a, b) => a.date.localeCompare(b.date) || a.from.localeCompare(b.from));
   const by = {};
   list.forEach(p => { const s = by[p.teacher] || (by[p.teacher] = { t: p.teacher, n: 0, min: 0, end: 0 }); s.n++; const m = permMin(p); if (m === null) s.end++; else s.min += m; });
   const order = TEACHERS.map(([t]) => t);
@@ -1619,8 +1627,8 @@ function sumDur(s) { return (s.min || !s.end ? fmtDur(s.min) : "") + (s.end ? `$
 function renderPermLog() {
   const r = permRange(), st = permStats(r);
   $("prm-log-body").innerHTML = `<h3 class="list-title">${r.label}</h3>
-    <div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>مرات الاستئذان المعتمدة</th><th>مجموع المدة</th></tr></thead><tbody>
-    ${st.sum.map(s => `<tr><td class="t">أ. ${esc(s.t)}</td><td>${ar(s.n)}</td><td>${sumDur(s)}</td></tr>`).join("") || `<tr><td colspan="3" class="sub">لا يوجد استئذان معتمد في هذه الفترة.</td></tr>`}</tbody></table></div>
+    <div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>مرات الاستئذان</th><th>مجموع المدة</th></tr></thead><tbody>
+    ${st.sum.map(s => `<tr><td class="t">أ. ${esc(s.t)}</td><td>${ar(s.n)}</td><td>${sumDur(s)}</td></tr>`).join("") || `<tr><td colspan="3" class="sub">لا يوجد استئذان في هذه الفترة (غير المرفوض).</td></tr>`}</tbody></table></div>
     ${st.list.length ? `<div class="tablebox"><table><thead><tr><th>المسلسل</th><th>التاريخ</th><th>المعلم</th><th>النوع</th><th>من</th><th>إلى</th><th>المدة</th><th>السبب</th><th>الحصص</th></tr></thead><tbody>
     ${st.list.map(p => `<tr data-prm-row="${esc(p.id)}"><td>${ar(p.serial)}</td><td>${fmtDate(p.date, true)}</td><td class="t">أ. ${esc(p.teacher)}</td><td>${esc(p.type)}</td><td>${fmtClock(p.from)}</td><td>${fmtClock(p.to)}</td><td>${permDur(p)}</td><td>${esc(p.reason)}</td><td>${p.mode === "بديل" ? "بديل: " + esc(p.substitute) : "متفرغ"}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
   $("prm-log-body").querySelectorAll("[data-prm-row]").forEach(tr => { tr.style.cursor = "pointer"; tr.onclick = () => openPerm(tr.dataset.prmRow); });
@@ -1674,14 +1682,14 @@ function buildPermLogDoc(D, r) {
   const h = H(D), C = h.C, st = permStats(r);
   const kids = [...h.formHeader("سجل الاستئذان", 14400), h.para(r.label, { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
     h.heading("أولًا: عدد مرات الاستئذان ومجموع مدته لكل معلم"),
-    h.table([["المعلم", "مرات الاستئذان المعتمدة", "مجموع المدة"].map(t => h.th(t)),
-      ...(st.sum.length ? st.sum.map(s => [h.cell("أ. " + s.t, { size: 19 }), h.cell(ar(s.n), { align: C, size: 20, bold: true }), h.cell(sumDur(s), { align: C, size: 19 })]) : [[h.cell("لا يوجد استئذان معتمد في هذه الفترة.", { size: 19 }), h.cell("", {}), h.cell("", {})]])],
+    h.table([["المعلم", "مرات الاستئذان", "مجموع المدة"].map(t => h.th(t)),
+      ...(st.sum.length ? st.sum.map(s => [h.cell("أ. " + s.t, { size: 19 }), h.cell(ar(s.n), { align: C, size: 20, bold: true }), h.cell(sumDur(s), { align: C, size: 19 })]) : [[h.cell("لا يوجد استئذان في هذه الفترة (غير المرفوض).", { size: 19 }), h.cell("", {}), h.cell("", {})]])],
       [6400, 4000, 4000], h.softBorders("C9D6E3")),
     h.heading("ثانيًا: تفاصيل الاستئذان")];
   if (st.list.length) kids.push(h.table([["المسلسل", "اليوم والتاريخ", "المعلم", "النوع", "من", "إلى", "المدة", "سبب التصريح", "الحصص"].map(t => h.th(t, { size: 16 })),
     ...st.list.map(p => [ar(p.serial), fmtDate(p.date, true), "أ. " + p.teacher, p.type, fmtClock(p.from), fmtClock(p.to), permDur(p), p.reason, p.mode === "بديل" ? "بديل: " + p.substitute : "متفرغ"].map((t, i) => h.cell(t, { size: 16, align: [0, 4, 5, 6].indexOf(i) !== -1 ? C : undefined })))],
     [900, 1900, 2600, 1300, 800, 800, 1200, 3100, 1800], h.softBorders("C9D6E3")));
-  else kids.push(h.para("لا يوجد استئذان معتمد في هذه الفترة.", { size: 20 }));
+  else kids.push(h.para("لا يوجد استئذان في هذه الفترة (غير المرفوض).", { size: 20 }));
   kids.push(h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400));
   return h.doc(kids, { landscape: true });
 }
@@ -1915,11 +1923,11 @@ function pdfPermLog(r) {
   const st = permStats(r);
   return { box: "سجل الاستئذان", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label, "c b"),
     P.h("أولًا: عدد مرات الاستئذان ومجموع مدته لكل معلم"),
-    P.grid(P.th(["المعلم", "مرات الاستئذان المعتمدة", "مجموع المدة"]), st.sum.length ? st.sum.map(s => P.tr(["أ. " + s.t, { t: ar(s.n), c: "c b" }, { t: sumDur(s), c: "c" }])) : [P.tr([{ t: "لا يوجد استئذان معتمد في هذه الفترة." }, "", ""])]),
+    P.grid(P.th(["المعلم", "مرات الاستئذان", "مجموع المدة"]), st.sum.length ? st.sum.map(s => P.tr(["أ. " + s.t, { t: ar(s.n), c: "c b" }, { t: sumDur(s), c: "c" }])) : [P.tr([{ t: "لا يوجد استئذان في هذه الفترة (غير المرفوض)." }, "", ""])]),
     P.h("ثانيًا: تفاصيل الاستئذان"),
     st.list.length ? P.grid(P.th(["المسلسل", "اليوم والتاريخ", "المعلم", "النوع", "من", "إلى", "المدة", "سبب التصريح", "الحصص"]),
       st.list.map(p => P.tr([{ t: ar(p.serial), c: "c" }, fmtDate(p.date, true), "أ. " + p.teacher, p.type, { t: fmtClock(p.from), c: "c" }, { t: fmtClock(p.to), c: "c" }, { t: permDur(p), c: "c" }, p.reason, p.mode === "بديل" ? "بديل: " + p.substitute : "متفرغ"])), "dense")
-      : P.p("لا يوجد استئذان معتمد في هذه الفترة.")] };
+      : P.p("لا يوجد استئذان في هذه الفترة (غير المرفوض).")] };
 }
 
 // ================= ركن الإنجازات =================
