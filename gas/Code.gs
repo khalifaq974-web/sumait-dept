@@ -8,6 +8,8 @@ const SHEET_CODES = "الرموز";
 const SHEET_DATA = "الإدخالات";
 const SHEET_LOG = "السجل";
 const SHEET_ACH = "الإنجازات";
+const SHEET_NSH = "النشرات والتعاميم";
+const SHEET_NSHACK = "اطلاع النشرات";
 const SHEET_MIN = "المحاضر";
 const SHEET_SIG = "التواقيع";
 const SHEET_MYSIG = "توقيعات المعلمين";
@@ -58,7 +60,8 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, del
   getPhoto, listMinutes, getMinute, saveMinute, deleteMinute, signMinute, mySignature, saveFileToDrive, demoAccounts, demoAction,
   saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, classesOverview, classSheet, saveGrades,
   listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport,
-  myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission };
+  myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
+  listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular };
 
 function doPost(e) {
   let out;
@@ -94,7 +97,7 @@ function setup() {
   codes.autoResizeColumns(1, 4);
   sheet_(SHEET_DATA, ["المفتاح", "الفصل", "القسم", "المعلم", "الحصص المنجزة", "آخر ما أُنجز", "ملاحظة", "آخر تحديث"], true);
   sheet_(SHEET_LOG, ["الوقت", "المعلم", "الفصل", "القسم", "الحصص المنجزة", "ملاحظة"], true);
-  sheet_(SHEET_ACH, ["المعرف", "المعلم", "التاريخ", "النوع", "العنوان", "الفئة المستهدفة", "وصف المعلم", "الصور", "الحالة", "التقرير", "تاريخ الرفع", "تاريخ الصياغة"], true);
+  sheet_(SHEET_ACH, ["المعرف", "المعلم", "التاريخ", "النوع", "العنوان", "الفئة المستهدفة", "وصف المعلم", "الصور", "الحالة", "التقرير", "تاريخ الرفع", "تاريخ الصياغة", "السجل", "النتائج والفائزون"], true);
   sheet_(SHEET_MIN, ["المعرف", "العنوان", "التاريخ", "الوقت", "المكان", "الحضور", "جدول الأعمال", "ما دار في الاجتماع", "التوصيات", "تاريخ الإنشاء"], true);
   sheet_(SHEET_SIG, ["المحضر", "المعلم", "وقت التوقيع", "التوقيع"], true);
   sheet_(SHEET_MYSIG, ["المعلم", "التوقيع", "آخر تحديث"], true);
@@ -244,10 +247,13 @@ function headData(code) { head_(code); return readEntries_(); }
 // أعمدة ورقة الإنجازات:
 // 0 المعرف | 1 المعلم | 2 التاريخ | 3 النوع | 4 العنوان | 5 الفئة المستهدفة | 6 وصف المعلم
 // 7 الصور (معرفات Drive مفصولة بفاصلة) | 8 الحالة | 9 التقرير | 10 تاريخ الرفع | 11 تاريخ الصياغة
+// 12 السجل (pd = التنمية المهنية وإنجاز الموظف، act = الأنشطة والمسابقات) | 13 النتائج والفائزون
+const ACH_KINDS = { pd: "التنمية المهنية وإنجاز الموظف", act: "الأنشطة والمسابقات" };
 
 function achObj_(r, withReport) {
   const o = { id: r[0], teacher: r[1], date: r[2], type: r[3], title: r[4], target: r[5], desc: r[6],
-    photos: r[7] ? r[7].split(",").filter(Boolean) : [], status: r[8] || ST_PENDING, createdAt: r[10], reportedAt: r[11] };
+    photos: r[7] ? r[7].split(",").filter(Boolean) : [], status: r[8] || ST_PENDING, createdAt: r[10], reportedAt: r[11],
+    kind: r[12] === "act" ? "act" : "pd", results: r[13] || "" };
   if (withReport) o.report = r[9];
   return o;
 }
@@ -267,18 +273,19 @@ function submitAchievement(code, a) {
     blobs.push(blob);
     return folder.createFile(blob).getId();
   });
+  const kind = a.kind === "act" ? "act" : "pd", results = kind === "act" ? String(a.results || "").trim().slice(0, 1500) : "";
   const row = [id, me.name, String(a.date || "").slice(0, 10), String(a.type || "").slice(0, 60), title,
-    String(a.target || "").slice(0, 150), desc, ids.join(","), ST_PENDING, "", nowText_(), ""];
+    String(a.target || "").slice(0, 150), desc, ids.join(","), ST_PENDING, "", nowText_(), "", kind, results];
   withLock_(() => appendText_(sh_(SHEET_ACH), row));
-  notify_(me, `رفع أ. ${me.name} نشاطًا جديدًا: ${title}`, `
-    <p>رفع <b>أ. ${esc_(me.name)}</b> نشاطًا جديدًا في سجل التنمية المهنية والأنشطة، وهو بانتظار الصياغة.</p>
+  notify_(me, `${kind === "act" ? "نشاط/مسابقة" : "تنمية مهنية"} من أ. ${me.name}: ${title}`, `
+    <p>رفع <b>أ. ${esc_(me.name)}</b> ${kind === "act" ? "نشاطًا" : "إنجازًا"} جديدًا في سجل «${ACH_KINDS[kind]}»، وهو بانتظار الصياغة.</p>
     <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
       <tr><td style="background:#e8f1f8"><b>العنوان</b></td><td>${esc_(title)}</td></tr>
       <tr><td style="background:#e8f1f8"><b>النوع</b></td><td>${esc_(row[3])}</td></tr>
       <tr><td style="background:#e8f1f8"><b>التاريخ</b></td><td>${esc_(row[2])}</td></tr>
       <tr><td style="background:#e8f1f8"><b>الفئة المستهدفة</b></td><td>${esc_(row[5] || "—")}</td></tr>
     </table>
-    <p><b>وصف المعلم:</b><br>${esc_(desc).replace(/\n/g, "<br>")}</p>
+    <p><b>وصف المعلم:</b><br>${esc_(desc).replace(/\n/g, "<br>")}</p>${results ? `<p><b>النتائج والفائزون:</b><br>${esc_(results).replace(/\n/g, "<br>")}</p>` : ""}
     <p>عدد الصور: ${ids.length} (مرفقة بهذه الرسالة).</p>`, blobs);
   return { id };
 }
@@ -1043,6 +1050,92 @@ function deletePermission(code, id) {
     const head = me.isHead && !me.isDemo;
     if (!(head || (r[2] === me.name && r[15] === PERM_PENDING))) throw new Error("لا يمكن حذف هذا الاستئذان بعد اعتماده.");
     sh.deleteRow(row);
+    return true;
+  });
+}
+
+
+// ======================= سجل النشرات والتعاميم =======================
+// رئيس الشعبة يرفع النشرة/التعميم (ملف PDF أو صورة)، والمعلمون المعنيون يطّلعون ويوقّعون.
+// أعمدة «النشرات والتعاميم»: 0 المعرف | 1 النوع | 2 الرقم | 3 التاريخ | 4 العنوان | 5 جهة الإصدار | 6 المعنيون (all/hd/qr)
+// 7 ملاحظة | 8 الملف (Drive) | 9 اسم الملف | 10 نوع الملف | 11 وقت الرفع
+// أعمدة «اطلاع النشرات»: 0 النشرة | 1 المعلم | 2 وقت الاطلاع | 3 التوقيع
+const NSH_HEAD = ["المعرف", "النوع", "الرقم", "التاريخ", "العنوان", "جهة الإصدار", "المعنيون", "ملاحظة", "الملف", "اسم الملف", "نوع الملف", "وقت الرفع"];
+const NSH_AUD = { all: "جميع معلمي الشعبة", hd: "معلمو الحديث الشريف", qr: "معلمو القرآن الكريم" };
+function nshSheet_() { return sheet_(SHEET_NSH, NSH_HEAD, true); }
+function nshAckSheet_() { return sheet_(SHEET_NSHACK, ["النشرة", "المعلم", "وقت الاطلاع", "التوقيع"], true); }
+function nshRows_() { return nshSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]); }
+function nshAcks_() { return nshAckSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]); }
+/** المعلمون المعنيون بالنشرة (بدون رئيس الشعبة) */
+function nshTargets_(aud) {
+  return TEACHERS.filter(t => !t[2] && (aud === "all" || t[1].some(c => c.indexOf(aud + ":") === 0))).map(t => t[0]);
+}
+function nshObj_(r, me, acks) {
+  const targets = nshTargets_(r[6]), mine = acks.filter(a => a[0] === r[0] && targets.indexOf(a[1]) !== -1);
+  const o = { id: r[0], kind: r[1], number: r[2], date: r[3], title: r[4], source: r[5], aud: r[6], audLabel: NSH_AUD[r[6]] || "", note: r[7],
+    fileName: r[9], mime: r[10], createdAt: r[11], targets, ackCount: mine.length };
+  if (me.isHead) o.acks = mine.map(a => ({ teacher: a[1], at: a[2] }));
+  else { const a = acks.find(x => x[0] === r[0] && x[1] === me.name); o.myAckAt = a ? a[2] : ""; o.forMe = targets.indexOf(me.name) !== -1; }
+  return o;
+}
+function listCirculars(code) {
+  const me = who_(code);
+  if (me.isDemo) return [];
+  const acks = nshAcks_();
+  return nshRows_().map(r => nshObj_(r, me, acks)).filter(o => me.isHead || o.forMe)
+    .sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
+}
+function addCircular(code, c) {
+  const me = head_(code);
+  const kind = c.kind === "تعميم" ? "تعميم" : "نشرة";
+  const title = String(c.title || "").trim().slice(0, 200); if (title.length < 3) throw new Error("اكتب عنوان " + kind + ".");
+  const date = String(c.date || "").slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("اختر التاريخ.");
+  const aud = NSH_AUD[c.aud] ? c.aud : "all";
+  const mime = String(c.mime || ""); if (!/^(application\/pdf|image\/(jpeg|png))$/.test(mime)) throw new Error("الملف لازم يكون PDF أو صورة.");
+  const data = String(c.data || "").replace(/^data:[^,]+,/, ""); if (!data) throw new Error("أرفق ملف " + kind + ".");
+  if (data.length > 14000000) throw new Error("حجم الملف كبير (الحد ١٠ ميغابايت).");
+  const id = newId_(), ext = mime === "application/pdf" ? "pdf" : mime === "image/png" ? "png" : "jpg";
+  const name = String(c.fileName || "").trim().slice(0, 120) || `${kind} ${title}.${ext}`;
+  const file = folder_().createFile(Utilities.newBlob(Utilities.base64Decode(data), mime, `${id} - ${name}`));
+  withLock_(() => appendText_(nshSheet_(), [id, kind, String(c.number || "").trim().slice(0, 40), date, title, String(c.source || "").trim().slice(0, 100), aud,
+    String(c.note || "").trim().slice(0, 1000), file.getId(), name, mime, nowText_()]));
+  return { id };
+}
+function getCircularFile(code, id) {
+  const me = who_(code), r = nshRows_().find(x => x[0] === String(id));
+  if (!r || me.isDemo || (!me.isHead && nshTargets_(r[6]).indexOf(me.name) === -1)) throw new Error("النشرة غير موجودة.");
+  const blob = DriveApp.getFileById(r[8]).getBlob();
+  return { name: r[9], mime: r[10], data: Utilities.base64Encode(blob.getBytes()) };
+}
+function ackCircular(code, id, sig) {
+  const me = who_(code), r = nshRows_().find(x => x[0] === String(id));
+  if (!r || me.isDemo || me.isHead || nshTargets_(r[6]).indexOf(me.name) === -1) throw new Error("النشرة غير موجودة.");
+  if (!validSig_(sig)) throw new Error("وقّع قبل تأكيد الاطلاع.");
+  return withLock_(() => {
+    const old = nshAcks_().find(a => a[0] === r[0] && a[1] === me.name);
+    if (old) return { at: old[2] };
+    const at = nowText_();
+    appendText_(nshAckSheet_(), [r[0], me.name, at, sig]);
+    saveMySig_(me.name, sig, at);
+    return { at };
+  });
+}
+/** لرئيس الشعبة: كشف الاطلاع بالتواقيع */
+function circularAcks(code, id) {
+  head_(code);
+  const r = nshRows_().find(x => x[0] === String(id)); if (!r) throw new Error("النشرة غير موجودة.");
+  const acks = nshAcks_().filter(a => a[0] === r[0]);
+  return nshTargets_(r[6]).map(t => { const a = acks.find(x => x[1] === t); return { teacher: t, at: a ? a[2] : "", sig: a ? a[3] : "" }; });
+}
+function deleteCircular(code, id) {
+  head_(code);
+  return withLock_(() => {
+    const sh = nshSheet_(), row = findRow_(sh, 1, String(id)); if (row < 0) throw new Error("النشرة غير موجودة.");
+    const fid = sh.getRange(row, 9).getDisplayValue();
+    try { DriveApp.getFileById(fid).setTrashed(true); } catch (e) {}
+    sh.deleteRow(row);
+    const ak = nshAckSheet_(), v = ak.getDataRange().getDisplayValues();
+    for (let i = v.length - 1; i >= 1; i--) if (v[i][0] === String(id)) ak.deleteRow(i + 1);
     return true;
   });
 }
