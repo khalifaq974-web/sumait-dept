@@ -19,7 +19,7 @@ const SHEET_COV = "الاحتياط";
 const ST_PENDING = "بانتظار الصياغة";
 const ST_READY = "جاهز";
 
-// التنبيهات بالإيميل (تصل لرئيس القسم فقط)
+// التنبيهات بالإيميل (تصل لرئيس الشعبة فقط)
 const HEAD_EMAIL = "khalifaq974@gmail.com";
 const SITE_URL = "https://khalifaq974-web.github.io/sumait-dept/";
 const SITE_NAME = "موقع قسم المواد الشرعية";
@@ -80,7 +80,7 @@ function setup() {
   if (!codes) {
     codes = ss.insertSheet(SHEET_CODES);
     codes.getRange("B:B").setNumberFormat("@");
-    codes.appendRow(["المعلم", "الرمز", "رئيس القسم", "ملاحظة"]);
+    codes.appendRow(["المعلم", "الرمز", "رئيس الشعبة", "ملاحظة"]);
     codes.setRightToLeft(true);
     codes.setFrozenRows(1);
   }
@@ -97,7 +97,7 @@ function setup() {
   sheet_(SHEET_SIG, ["المحضر", "المعلم", "وقت التوقيع", "التوقيع"], true);
   sheet_(SHEET_MYSIG, ["المعلم", "التوقيع", "آخر تحديث"], true);
   sheet_(SHEET_VIS, ["المعرف", "المعلم", "الفصل", "القسم", "التاريخ", "الحصة", "نوع الزيارة", "الموضوع", "رقم الزيارة", "التقديرات",
-    "الإيجابيات", "الملاحظات والتوصيات", "توقيع رئيس القسم", "تاريخ الإنشاء", "توقيع المعلم", "وقت توقيع المعلم"], true);
+    "الإيجابيات", "الملاحظات والتوصيات", "توقيع رئيس الشعبة", "تاريخ الإنشاء", "توقيع المعلم", "وقت توقيع المعلم"], true);
   sheet_(SHEET_MAIL, ["الوقت", "إلى", "الموضوع", "النتيجة"], true);
   sheet_(SHEET_ABS, ["المعرف", "التاريخ", "المعلم الغائب", "ملاحظة", "تاريخ التسجيل", "آخر تعديل"], true);
   sheet_(SHEET_COV, ["المعرف", "معرف الغياب", "التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل", "الحالة", "تاريخ التسجيل"], true);
@@ -181,7 +181,7 @@ function who_(code) {
 }
 function head_(code) {
   const me = who_(code);
-  if (!me.isHead) throw new Error("هذه الصلاحية لرئيس القسم فقط.");
+  if (!me.isHead) throw new Error("هذه الصلاحية لرئيس الشعبة فقط.");
   return me;
 }
 
@@ -295,7 +295,7 @@ function deleteAchievement(code, id) {
   });
 }
 
-/** لرئيس القسم: كل الإنجازات مع التقارير */
+/** لرئيس الشعبة: كل الإنجازات مع التقارير */
 function allAchievements(code) {
   head_(code);
   return rows_(SHEET_ACH).slice(1).filter(r => r[0] && !isDemo_(r[1])).map(r => achObj_(r, true)).reverse();
@@ -314,7 +314,7 @@ function saveReport(code, id, text) {
   });
 }
 
-/** يعيد صورة إنجاز: لصاحب الإنجاز أو رئيس القسم فقط */
+/** يعيد صورة إنجاز: لصاحب الإنجاز أو رئيس الشعبة فقط */
 function getPhoto(code, fileId) {
   const me = who_(code);
   const r = rows_(SHEET_ACH).slice(1).find(x => (x[7] || "").split(",").indexOf(fileId) !== -1);
@@ -345,7 +345,7 @@ function listMinutes(code) {
   }).reverse();
 }
 
-/** المحضر كاملًا. رئيس القسم يرى صور كل التواقيع، والمعلم يرى توقيعه فقط */
+/** المحضر كاملًا. رئيس الشعبة يرى صور كل التواقيع، والمعلم يرى توقيعه فقط */
 function getMinute(code, id) {
   const me = who_(code);
   const r = rows_(SHEET_MIN).slice(1).find(x => x[0] === id);
@@ -400,7 +400,7 @@ function signMinute(code, id, image) {
     const at = nowText_();
     appendText_(sh, [id, me.name, at, image]);
     saveMySig_(me.name, image, at);
-    // عند اكتمال توقيع جميع الحضور يصل إيميل لرئيس القسم
+    // عند اكتمال توقيع جميع الحضور يصل إيميل لرئيس الشعبة
     const m = minObj_(r), signed = vals.slice(1).filter(v => v[0] === id).map(v => [v[1], v[2]]).concat([[me.name, at]]);
     if (m.attendees.every(n => signed.some(x => x[0] === n))) {
       notify_(me, `اكتمل التوقيع على محضر: ${m.title}`, `
@@ -444,7 +444,7 @@ function ensureDemoMinute_() {
     "هذا محضر تجريبي يوضح طريقة الاطلاع على المحاضر والتوقيع عليها إلكترونيًا.", "مثال على توصية\nمثال على توصية ثانية", nowText_()]);
 }
 
-/** لرئيس القسم: حالة الحسابات التجريبية */
+/** لرئيس الشعبة: حالة الحسابات التجريبية */
 function demoAccounts(code) {
   head_(code);
   const rows = sh_(SHEET_CODES).getDataRange().getDisplayValues();
@@ -494,7 +494,7 @@ function demoAction(code, name, action) {
 
 function esc_(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-/** يرسل تنبيهًا لرئيس القسم. الحسابات التجريبية تصل بعلامة [تجريبي].
+/** يرسل تنبيهًا لرئيس الشعبة. الحسابات التجريبية تصل بعلامة [تجريبي].
  * لا يوقف العملية إن فشل الإرسال، لكن يسجّل كل محاولة ونتيجتها في ورقة «سجل التنبيهات» */
 function notify_(me, subject, html, attachments) {
   const demo = me && me.isDemo;
@@ -520,10 +520,10 @@ function notify_(me, subject, html, attachments) {
 function testEmail() { Logger.log(notify_(null, "تجربة تنبيهات موقع القسم", "<p>وصلتك هذه الرسالة، يعني التنبيهات تعمل.</p>") + " — المتبقي اليوم: " + MailApp.getRemainingDailyQuota()); }
 
 // ======================= الزيارات الصفية =======================
-// نموذج «تقرير زيارة رئيس القسم» — التوجيه الفني للعلوم الشرعية (١٧ بندًا، نفس النموذج للقسمين)
+// نموذج «تقرير زيارة رئيس الشعبة» — التوجيه الفني للعلوم الشرعية (١٧ بندًا، نفس النموذج للقسمين)
 // أعمدة الزيارات: 0 المعرف | 1 المعلم | 2 الفصل (hd:11-1) | 3 القسم | 4 التاريخ | 5 الحصة | 6 نوع الزيارة | 7 الموضوع
 // 8 رقم الزيارة | 9 التقديرات (JSON: [[التقدير، الملاحظة], ...]) | 10 الإيجابيات | 11 الملاحظات والتوصيات
-// 12 توقيع رئيس القسم | 13 تاريخ الإنشاء | 14 توقيع المعلم | 15 وقت توقيع المعلم
+// 12 توقيع رئيس الشعبة | 13 تاريخ الإنشاء | 14 توقيع المعلم | 15 وقت توقيع المعلم
 const VIS_COLS = 16;
 const VIS_ITEMS = 17;
 const VIS_LEVELS = ["ممتاز", "جيد جدًا", "جيد", "ضعيف"];
@@ -539,7 +539,7 @@ function visObj_(r, withImages) {
 function visRows_() { return rows_(SHEET_VIS).slice(1).filter(r => r[0]); }
 function validSig_(img) { return /^data:image\/png;base64,/.test(img) && img.length <= 48000; }
 
-/** لرئيس القسم: إنشاء زيارة أو تعديلها (قبل توقيع المعلم) */
+/** لرئيس الشعبة: إنشاء زيارة أو تعديلها (قبل توقيع المعلم) */
 function saveVisit(code, v) {
   const me = head_(code);
   const teacher = String(v.teacher || "");
@@ -573,7 +573,7 @@ function saveVisit(code, v) {
   });
 }
 
-/** رئيس القسم يرى كل الزيارات، والمعلم يرى زياراته فقط */
+/** رئيس الشعبة يرى كل الزيارات، والمعلم يرى زياراته فقط */
 function listVisits(code) {
   const me = who_(code);
   return visRows_().filter(r => me.isHead || r[1] === me.name).map(r => visObj_(r, false)).reverse();
@@ -617,7 +617,7 @@ function deleteVisit(code, id) {
   });
 }
 
-// ======================= الاحتياط (لرئيس القسم فقط) =======================
+// ======================= الاحتياط (لرئيس الشعبة فقط) =======================
 // الجدول العام للقسم: لكل معلم [اليوم (0 الأحد … 4 الخميس)، الحصة، الفصل]
 // الفصل "R" = حصة احتياط في الجدول، "RF" = احتياط فنية (المعلم متاح ومرشّح أول للتغطية)
 // يجب أن يطابق TIMETABLE في index.html

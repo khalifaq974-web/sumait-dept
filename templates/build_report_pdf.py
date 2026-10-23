@@ -1,5 +1,5 @@
 """
-قالب PDF المعتمد لتقارير قسم المواد الشرعية (تصميم نموذج «تقرير زيارة رئيس القسم»).
+قالب PDF المعتمد لتقارير قسم المواد الشرعية (تصميم نموذج «تقرير زيارة رئيس الشعبة»).
 الاستعمال:
   python3 templates/build_report_pdf.py report.json out.pdf
 report.json:
@@ -10,7 +10,7 @@ report.json:
     "text": "## مقدمة\nفقرة...\n- نقطة",       # نفس صيغة عمود «التقرير» في الشيت (يُتجاهل سطر «العنوان:»)
     "photos": ["photo1.jpg"],                  # اختياري
     "html": "<table class=\"grid\">...</table>",  # اختياري بدل text (جداول: class=grid، صف القسم: tr.dept، الحالات: late/ok/ahead/none)
-    "signs": [["رئيس القسم", "أ. خليفة القصار"], ["مدير المعهد", "د. حامد غازي العتيبي"]],
+    "signs": [["رئيس الشعبة", "أ. خليفة القصار"], ["مدير المعهد", "د. حامد غازي العتيبي"]],
     "landscape": false
   }
 يحتاج: الخطوط في fonts/ (NotoNaskhArabic[wght].ttf و NotoKufiArabic[wght].ttf) والشعارات من index.html، و playwright.

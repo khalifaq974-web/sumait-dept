@@ -223,7 +223,7 @@ nav.sections.five { grid-template-columns: repeat(5, 1fr); }
 
   <section id="view-login" class="card login">
     <h2>الدخول</h2>
-    <div class="sub">اكتب الرمز الخاص بك الذي أرسله لك رئيس القسم.</div>
+    <div class="sub">اكتب الرمز الخاص بك الذي أرسله لك رئيس الشعبة.</div>
     <form id="login-form">
       <label class="f" for="code">الرمز</label>
       <input type="text" id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" required>
@@ -289,7 +289,7 @@ nav.sections.five { grid-template-columns: repeat(5, 1fr); }
       <section id="ach-mine">
         <form id="ach-form" class="card">
           <h2>إضافة إنجاز</h2>
-          <div class="sub">ارفع صور النشاط واكتب وصفًا مختصرًا، ويتولى رئيس القسم إعداد التقرير الرسمي.</div>
+          <div class="sub">ارفع صور النشاط واكتب وصفًا مختصرًا، ويتولى رئيس الشعبة إعداد التقرير الرسمي.</div>
           <div class="grid2">
             <div><label class="f" for="ach-type">نوع النشاط</label><select id="ach-type"></select></div>
             <div><label class="f" for="ach-date">تاريخ النشاط</label><input type="date" id="ach-date" required></div>
@@ -350,7 +350,7 @@ nav.sections.five { grid-template-columns: repeat(5, 1fr); }
         <div class="saved" id="mf-msg"></div>
       </form>
     </section>
-    <!-- ركن الاحتياط (رئيس القسم فقط) -->
+    <!-- ركن الاحتياط (رئيس الشعبة فقط) -->
     <section id="sec-res" hidden>
       <nav class="tabs" role="tablist">
         <button id="restab-new" role="tab" aria-selected="true">تسجيل غياب</button>
@@ -414,7 +414,7 @@ nav.sections.five { grid-template-columns: repeat(5, 1fr); }
           <textarea id="vf-pos" rows="4" maxlength="3000" placeholder="كل نقطة في سطر"></textarea>
           <label class="f" for="vf-rec">ملاحظات وتوصيات</label>
           <textarea id="vf-rec" rows="4" maxlength="3000" placeholder="كل نقطة في سطر"></textarea>
-          <label class="f">توقيع رئيس القسم</label>
+          <label class="f">توقيع رئيس الشعبة</label>
           <div id="vf-sig"></div>
           <div class="row-actions" style="margin-top:14px"><button class="btn" id="vf-save" type="submit">حفظ الزيارة</button></div>
           <div class="saved" id="vf-msg"></div>
@@ -719,7 +719,7 @@ function buildReport(D, rows, week, now, counts, deptFilter) {
     h.heading("أولًا: ملخص الحالة"), sumTable, h.para("", { after: 80 }),
     h.heading("ثانيًا: تفاصيل ما قُطع من المنهج لكل فصل"), table, h.para("", { after: 80 }),
     h.para("ملاحظة: تُحسب الحالة بمقارنة عدد الحصص المنجزة بما يقرره توزيع الخطة المعتمد من التوجيه الفني حتى نهاية الأسبوع الحالي.", { size: 17, color: h.MUTED, after: 240 }),
-    h.signRow([["رئيس القسم", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400)
+    h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400)
   ], { landscape: true });
 }
 /*ENDCORE*/
@@ -745,7 +745,7 @@ function run(fn, ...args) {
   if (window.google && google.script && google.script.run) {
     return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(e => rej(e && e.message ? e : new Error(String(e))))[fn](...args));
   }
-  if (!window.API_URL) return Promise.reject(new Error("الموقع لم يُربط بالخادم بعد. راجع رئيس القسم."));
+  if (!window.API_URL) return Promise.reject(new Error("الموقع لم يُربط بالخادم بعد. راجع رئيس الشعبة."));
   return fetch(window.API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ fn, args }) })
     .catch(() => { throw new Error("تعذّر الاتصال بالخادم. تأكد من الإنترنت وحاول مرة أخرى."); })
     .then(r => r.json().catch(() => { throw new Error("الخادم لم يرد بشكل صحيح. حاول بعد قليل."); }))
@@ -781,7 +781,7 @@ function classFull(id) { try { const c = classInfo(id); return `${c.label} · ${
   else { b.textContent = `الأسبوع ${WEEK_NAMES[WEEK]}`; const r = document.createElement("span"); r.textContent = weekRange(WEEK); b.after(r); }
 })();
 
-// تنزيل ملف وورد، مع خيار حفظه في Drive لرئيس القسم
+// تنزيل ملف وورد، مع خيار حفظه في Drive لرئيس الشعبة
 async function deliver(blob, filename, msgEl) {
   try {
     const a = document.createElement("a");
@@ -1013,7 +1013,7 @@ $("ach-form").addEventListener("submit", async e => {
   try {
     await run("submitAchievement", CODE, { type: $("ach-type").value, title: $("ach-title").value, date: $("ach-date").value, target: $("ach-target").value, desc: $("ach-desc").value, photos: PHOTOS });
     PHOTOS = []; renderPreviews(); $("ach-title").value = ""; $("ach-target").value = ""; $("ach-desc").value = ""; $("ach-date").value = todayISO();
-    msg.textContent = "تم رفع الإنجاز. سيُعدّ رئيس القسم التقرير الرسمي.";
+    msg.textContent = "تم رفع الإنجاز. سيُعدّ رئيس الشعبة التقرير الرسمي.";
     ACH = null; ACH_ALL = null; loadMyAch();
   } catch (x) { msg.textContent = cleanErr(x); }
   finally { btn.disabled = false; }
@@ -1038,7 +1038,7 @@ function confirmInline(btn, label, fn) {
   setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = old; btn.classList.remove("danger"); } }, 4000);
 }
 
-// ---- عرض رئيس القسم ----
+// ---- عرض رئيس الشعبة ----
 let achFilter = "pending";
 async function loadAllAch(force) {
   const box = $("ach-all-list");
@@ -1214,7 +1214,7 @@ function exportSig(c) {
   return "";
 }
 
-// نموذج كتابة المحضر (رئيس القسم)
+// نموذج كتابة المحضر (رئيس الشعبة)
 function editMinute(m) {
   $("min-listwrap").hidden = true; $("min-detail").hidden = true; $("min-form").hidden = false;
   $("mf-id").value = m ? m.id : "";
@@ -1233,7 +1233,7 @@ function editMinute(m) {
 document.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => {
   const k = b.dataset.pick;
   $("mf-att").querySelectorAll("input").forEach(i => {
-    // رئيس القسم يحضر اجتماعات القسمين
+    // رئيس الشعبة يحضر اجتماعات القسمين
     i.checked = k === "all" ? true : k === "none" ? false : (i.value === HEAD_NAME || DEPT_OF[i.value].indexOf(k) !== -1);
   });
 });
@@ -1249,7 +1249,7 @@ $("min-form").addEventListener("submit", async e => {
   catch (x) { msg.textContent = cleanErr(x); } finally { btn.disabled = false; }
 });
 
-// ================= الحسابات التجريبية (رئيس القسم) =================
+// ================= الحسابات التجريبية (رئيس الشعبة) =================
 async function loadDemos() {
   const box = $("demo-list"); box.innerHTML = '<div class="empty">جارٍ التحميل…</div>';
   let list; try { list = await run("demoAccounts", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; }
@@ -1273,7 +1273,7 @@ async function loadDemos() {
 }
 
 // ================= ركن الزيارات الصفية =================
-// بنود نموذج «تقرير زيارة رئيس القسم» — التوجيه الفني للعلوم الشرعية (نفس النموذج لقسمي الحديث والقرآن)
+// بنود نموذج «تقرير زيارة رئيس الشعبة» — التوجيه الفني للعلوم الشرعية (نفس النموذج لقسمي الحديث والقرآن)
 const VIS_ITEMS = ["المظهر العام", "سلامة اللغة", "ترتيب الفصل وإدارته", "التحضير الكتابي", "التحضير الذهني", "التمهيد", "تسلسل الأفكار",
   "الربط بالواقع", "التمكن من المادة العلمية", "تحقيق الأهداف السلوكية", "استخدام الوسائل", "تنوع أساليب التدريس",
   "علاقة المعلم بالمتعلمين", "تحقيق الأهداف", "الالتزام بالخطة والمنهج", "الأعمال التحريرية", "وضوح التقويم وابتكاره"];
@@ -1294,7 +1294,7 @@ $("vistab-new").onclick = () => { visTab("new"); initVisForm(); };
 $("vistab-log").onclick = () => { visTeacherFilter = ""; visTab("log"); };
 $("vistab-mine").onclick = () => visTab("mine");
 
-// ---------- استمارة الزيارة (رئيس القسم) ----------
+// ---------- استمارة الزيارة (رئيس الشعبة) ----------
 function teacherClasses(name) { const t = TEACHERS.find(x => x[0] === name); return t ? t[1] : (DEMO_CLASSES[name] || []); }
 function visTeachers() { return TEACHERS.filter(t => t[0] !== HEAD_NAME).map(t => t[0]).concat(Object.keys(DEMO_CLASSES)); }
 function initVisForm(v) {
@@ -1424,7 +1424,7 @@ $("vis-mine-reload").onclick = () => loadVisits("mine", true);
 function visCardHtml(v) {
   const rows = VIS_ITEMS.map((t, i) => { const r = v.ratings[i] || ["", ""]; return `<tr><td class="n">${ar(i + 1)}</td><td>${esc(t)}</td><td class="lv">${esc(r[0] || "—")}</td><td>${esc(r[1] || "")}</td></tr>`; }).join("");
   const pos = lines(v.positives), rec = lines(v.recommendations);
-  return `<h2>تقرير زيارة رئيس القسم</h2>
+  return `<h2>تقرير زيارة رئيس الشعبة</h2>
     <dl class="meta-grid">
       <div><dt>المعلم</dt><dd>أ. ${esc(v.teacher)}</dd></div><div><dt>الصف</dt><dd>${classFull(v.classId)}</dd></div>
       <div><dt>اليوم</dt><dd>${dayName(v.date) || "—"}</dd></div><div><dt>التاريخ والحصة</dt><dd>${fmtDate(v.date)}${v.period ? " · الحصة " + ar(v.period) : ""}</dd></div>
@@ -1443,7 +1443,7 @@ async function openVisit(id) {
   const mine = v.teacher === ME.name;
   let html = `<button class="btn ghost sm" id="vis-back">→ رجوع</button><div class="minute">${visCardHtml(v)}</div>`;
   html += `<div class="card signbox"><h3>التواقيع</h3><div class="sig-pair">
-    <div><div class="sub">توقيع رئيس القسم</div>${v.headSig ? `<img class="sigimg" src="${v.headSig}" alt="توقيع رئيس القسم">` : "—"}</div>
+    <div><div class="sub">توقيع رئيس الشعبة</div>${v.headSig ? `<img class="sigimg" src="${v.headSig}" alt="توقيع رئيس الشعبة">` : "—"}</div>
     <div><div class="sub">توقيع المعلم</div>${v.teacherSig ? `<img class="sigimg" src="${v.teacherSig}" alt="توقيع المعلم"><div class="sub">${fmtStamp(v.teacherSignedAt)}</div>` : '<span class="pill late">لم يوقّع بعد</span>'}</div></div></div>`;
   if (mine && !v.teacherSignedAt) html += `<div class="card signbox"><h3>توقيعك على الزيارة</h3><div id="vs-pad"></div>
     <label class="check"><input type="checkbox" id="vs-ack"> اطّلعت على تقرير الزيارة وما ورد فيه من ملاحظات وتوصيات</label>
@@ -1483,13 +1483,13 @@ function buildVisitDoc(D, v, headSig, teacherSig) {
   const h = H(D), C = h.C, NAVY = h.NAVY;
   const M = { top: 20, bottom: 20, left: 70, right: 70 };
   const lc = (t, o = {}) => h.cell(t, { size: o.size || 18, bold: o.bold, align: o.align, fill: o.fill, w: o.w, color: o.color, m: M });
-  const header = h.formHeader("تقرير زيارة رئيس القسم");
+  const header = h.formHeader("تقرير زيارة رئيس الشعبة");
   const F = "EEF3F8", lab = t => lc(t, { bold: true, color: NAVY });
   const info = h.table([
     [lab("اليوم:"), lc(dayName(v.date)), lab("الصف:"), lc(classFull(v.classId)), lab("التاريخ والحصة:"), lc(fmtDate(v.date) + (v.period ? " · الحصة " + ar(v.period) : ""))],
     [lab("نوع الزيارة:"), lc(v.visitType || ""), lab("الموضوع:"), lc(v.topic || "", { size: 16 }), lab("المعلم:"), lc("أ. " + v.teacher)]
   ], [1250, 1700, 900, 2150, 1500, 2500], h.softBorders(F));
-  // جدول البنود: م | البنود | ممتاز | جيد جدًا | جيد | ضعيف | ملاحظات | تقرير رئيس القسم (عمود مدمج)
+  // جدول البنود: م | البنود | ممتاز | جيد جدًا | جيد | ضعيف | ملاحظات | تقرير رئيس الشعبة (عمود مدمج)
   const hd = (t, w) => h.cell(t, { size: 17, bold: true, color: "FFFFFF", fill: "1E3A5F", align: C, m: M, w });
   const pos = lines(v.positives), rec = lines(v.recommendations);
   const reportCell = new D.TableCell({ rowSpan: VIS_ITEMS.length, verticalAlign: D.VerticalAlign.TOP, margins: { top: 60, bottom: 60, left: 90, right: 90 },
@@ -1500,7 +1500,7 @@ function buildVisitDoc(D, v, headSig, teacherSig) {
       h.para([h.run(" ملاحظات وتوصيات ", { size: 17, bold: true, color: "A0601A" })], { before: 100, after: 40, line: 240, shade: "FBEEE0" }),
       ...(rec.length ? rec.map(x => h.para("• " + x, { size: 16, after: 20, line: 240 })) : [h.para("", { after: 0 })])
     ] });
-  const rows = [new D.TableRow({ tableHeader: true, children: [hd("م", 450), hd("البنود", 2600), hd("ممتاز", 650), hd("جيد جدًا", 700), hd("جيد", 600), hd("ضعيف", 650), hd("ملاحظات", 1850), hd("تقرير رئيس القسم", 2500)] })];
+  const rows = [new D.TableRow({ tableHeader: true, children: [hd("م", 450), hd("البنود", 2600), hd("ممتاز", 650), hd("جيد جدًا", 700), hd("جيد", 600), hd("ضعيف", 650), hd("ملاحظات", 1850), hd("تقرير رئيس الشعبة", 2500)] })];
   VIS_ITEMS.forEach((t, i) => {
     const r = v.ratings[i] || ["", ""], fill = i % 2 ? "F5F8FB" : undefined;
     const mark = lv => lc(r[0] === lv ? "✓" : "", { align: C, bold: true, size: 20, color: NAVY, fill });
@@ -1514,7 +1514,7 @@ function buildVisitDoc(D, v, headSig, teacherSig) {
     borders: h.softBorders("C9D6E3"), rows });
   const sigImg = s => s ? new D.Paragraph({ alignment: C, spacing: { after: 0 }, children: [h.img(s.data, Math.min(120, 38 * s.w / s.h), Math.min(38, 120 * s.h / s.w), "png")] }) : h.para("", { after: 0, line: 300 });
   const signs = h.table([[
-    h.cell([h.para("رئيس القسم", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), h.para(HEAD_SIGN, { size: 19, bold: true, align: C, after: 0 }), sigImg(headSig),
+    h.cell([h.para("رئيس الشعبة", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), h.para(HEAD_SIGN, { size: 19, bold: true, align: C, after: 0 }), sigImg(headSig),
       h.para("المعلم", { size: 20, bold: true, color: NAVY, align: C, before: 60, after: 0 }), h.para("أ. " + v.teacher, { size: 18, align: C, after: 0 }), sigImg(teacherSig),
       ...(v.teacherSignedAt ? [h.para("اطّلع ووقّع: " + fmtStamp(v.teacherSignedAt), { size: 14, color: h.MUTED, align: C, after: 0 })] : [])], { w: 5000 }),
     h.cell([h.para("مدير المعهد", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), h.para(PRINCIPAL, { size: 19, bold: true, align: C, after: 0 }), h.para("", { after: 0, line: 300 })], { w: 5000 })
@@ -1524,7 +1524,7 @@ function buildVisitDoc(D, v, headSig, teacherSig) {
     sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 560, bottom: 400, left: 850, right: 850, header: 300, footer: 200 }, borders: h.pageFrame } }, children }] });
 }
 
-// ================= ركن الاحتياط (رئيس القسم فقط) =================
+// ================= ركن الاحتياط (رئيس الشعبة فقط) =================
 // الجدول العام للقسم: لكل معلم [اليوم (0 الأحد … 4 الخميس)، الحصة، الفصل]. "R" = احتياط، "RF" = احتياط فنية. يطابق TIMETABLE في Code.gs
 const TIMETABLE = {
   "خليفة حمد خليفة القصار": [[3,2,"hd:11-1"],[4,5,"hd:11-1"]],
@@ -1562,11 +1562,11 @@ async function loadRes(force) {
   return RES;
 }
 
-// معلمون لا يُرشَّحون للاحتياط إلا إذا لم يوجد غيرهم متاح (قرار رئيس القسم)
+// معلمون لا يُرشَّحون للاحتياط إلا إذا لم يوجد غيرهم متاح (قرار رئيس الشعبة)
 const RES_LAST_RESORT = { "أحمد صلاح زيدان القناوي": "مكلّف بالإشراف" };
 // النصاب = عدد حصص المعلم الأسبوعية في الجدول (بدون حصص الاحتياط)
 function nisab(t) { return (TIMETABLE[t] || []).filter(isLesson).length; }
-// ترتيب المرشحين لتغطية حصة: المعلمون الذين ليس عندهم حصة في هذا الوقت فقط (رئيس القسم مستثنى)،
+// ترتيب المرشحين لتغطية حصة: المعلمون الذين ليس عندهم حصة في هذا الوقت فقط (رئيس الشعبة مستثنى)،
 // والأفضل = الأقل نصابًا هذا الأسبوع (حصصه في الجدول + ما أخذه من احتياط هذا الأسبوع)، ثم الأقل احتياطًا في الفصل كله
 // extra = احتياطات اختيرت في النموذج نفسه قبل الحفظ، حتى لا تتجمع حصص الغائب كلها على معلم واحد
 function candidates(date, day, period, cls, absent, absenceId, extra) {
@@ -1728,7 +1728,7 @@ function buildDailyReserveDoc(D, date) {
   covs.forEach((c, i) => rows.push([h.cell(ar(i + 1), { align: C, size: 19 }), h.cell(PERIOD_NAMES[c.period], { align: C, size: 19 }), h.cell(classLabel(c.classId), { align: C, size: 19 }), h.cell(subjOf(c.classId), { size: 19 }),
     h.cell("أ. " + c.absent, { size: 19 }), h.cell(c.status === COV_DONE ? "أ. " + c.substitute : "لم تُغطَّ", { size: 19, bold: true, color: c.status === COV_DONE ? undefined : "B4382B" }), h.cell("", {})]));
   return h.doc([...h.formHeader("كشف الاحتياط اليومي"), info, h.para("", { after: 100 }), h.table(rows, [500, 1100, 900, 1400, 2300, 2300, 1500], h.softBorders("C9D6E3")),
-    h.para("", { after: 300 }), h.signRow([["رئيس القسم", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000)]);
+    h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000)]);
 }
 function buildReserveReport(D, r) {
   const h = H(D), C = h.C, st = resStats(r);
@@ -1742,7 +1742,7 @@ function buildReserveReport(D, r) {
   const kids = [...h.formHeader("سجل الغياب والاحتياط"), h.para(r.label, { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
     h.heading("أولًا: عدّاد الغياب والاحتياط لكل معلم"), h.table(rows, [2600, 900, 950, 850, 950, 1000, 2750], h.softBorders("C9D6E3"))];
   kids.push(h.heading("ثانيًا: تفاصيل حصص الاحتياط"), det.length ? h.table(drows, [2300, 1300, 1000, 2700, 2700], h.softBorders("C9D6E3")) : h.para("لا توجد حصص احتياط في هذه الفترة.", { size: 20 }));
-  kids.push(h.para("", { after: 300 }), h.signRow([["رئيس القسم", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
+  kids.push(h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
   return h.doc(kids);
 }
 
@@ -1802,7 +1802,7 @@ function H(D) {
     rows: [new D.TableRow({ cantSplit: true, children: names.map(([role, n]) => cell([para(role, { align: C, bold: true, size: 20, color: NAVY, after: 0 }), para(n, { align: C, size: 19, bold: true, after: 0 }), para("", { after: 0, line: 560 })])) })] });
   const frameLine = { style: D.BorderStyle.DOUBLE, size: 6, color: NAVY, space: 18 };
   const pageFrame = { pageBorderTop: frameLine, pageBorderBottom: frameLine, pageBorderLeft: frameLine, pageBorderRight: frameLine, pageBorders: { display: "allPages", offsetFrom: "page" } };
-  const footer = () => new D.Footer({ children: [para(`${SCHOOL} · ${DEPT_TITLE} · رئيس القسم: أ. ${HEAD_SHORT} · مدير المعهد: ${PRINCIPAL}`, { size: 15, color: MUTED, align: C, after: 0 })] });
+  const footer = () => new D.Footer({ children: [para(`${SCHOOL} · ${DEPT_TITLE} · رئيس الشعبة: أ. ${HEAD_SHORT} · مدير المعهد: ${PRINCIPAL}`, { size: 15, color: MUTED, align: C, after: 0 })] });
   const doc = (children, o = {}) => new D.Document({ styles: { default: { document: { run: { font, rightToLeft: true } } } },
     sections: [{ properties: { page: { size: o.landscape ? { width: 11906, height: 16838, orientation: D.PageOrientation.LANDSCAPE } : { width: 11906, height: 16838 },
         margin: { top: 560, bottom: 700, left: o.landscape ? 1100 : 950, right: o.landscape ? 1100 : 950, header: 300, footer: 250 }, borders: pageFrame } },
@@ -1845,7 +1845,7 @@ function buildAchievementDoc(D, a, imgs) {
     }
     children.push(h.table(rows, [4850, 4850], h.noBorders));
   }
-  children.push(h.para("", { after: 160, keepNext: true }), h.signRow([["المعلم", "أ. " + a.teacher], ["رئيس القسم", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
+  children.push(h.para("", { after: 160, keepNext: true }), h.signRow([["المعلم", "أ. " + a.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
   return h.doc(children);
 }
 
@@ -1869,7 +1869,7 @@ function buildMinuteDoc(D, m, sigs) {
     rows.push([h.cell(ar(i + 1), { align: h.C }), h.cell(n), sigCell, h.cell(s ? fmtStamp(s.signedAt) : "—", { align: h.C, size: 18, color: h.MUTED })]);
   });
   children.push(h.table(rows, [600, 4500, 2900, 2000], h.softBorders("C9D6E3")));
-  children.push(h.para("", { after: 200 }), h.signRow([["رئيس القسم", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
+  children.push(h.para("", { after: 200 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
   return h.doc(children);
 }
 
