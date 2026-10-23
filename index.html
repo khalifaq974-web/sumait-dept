@@ -293,7 +293,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <button id="nav-ach" aria-selected="false"><b>الإنجازات</b><span>الأنشطة والفعاليات</span></button>
       <button id="nav-min" aria-selected="false"><b>محاضر الاجتماعات</b><span>الاطلاع والتوقيع</span></button>
       <button id="nav-vis" aria-selected="false"><b>الزيارات الصفية</b><span>بطاقات الزيارة</span></button>
-      <button id="nav-prm" aria-selected="false"><b>الاستئذان</b><span>إذن الخروج والسجل</span></button>
+      <button id="nav-prm" aria-selected="false"><b>الاستئذان</b><span>طلب الاستئذان والسجل</span></button>
       <button id="nav-res" aria-selected="false" class="head-only" hidden><b>الاحتياط</b><span>الغياب والبدلاء</span></button>
     </nav>
 
@@ -467,14 +467,14 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
     <!-- ركن الاستئذان (إذن خروج — نموذج ٥م) -->
     <section id="sec-prm" hidden>
       <nav class="tabs" role="tablist">
-        <button id="prmtab-new" role="tab" aria-selected="true">طلب إذن خروج</button>
+        <button id="prmtab-new" role="tab" aria-selected="true">طلب استئذان</button>
         <button id="prmtab-mine" role="tab" aria-selected="false">استئذاناتي</button>
         <button id="prmtab-req" role="tab" aria-selected="false" class="head-only" hidden>الطلبات الواردة</button>
         <button id="prmtab-log" role="tab" aria-selected="false" class="head-only" hidden>سجل الاستئذان</button>
       </nav>
       <section id="prm-new">
         <form id="prm-form" class="card">
-          <h2>إذن خروج</h2>
+          <h2>طلب استئذان</h2>
           <div class="sub">إخطار بمدة الاستئذان المصرح بها · نموذج رقم (٥م). يصل الطلب إلى رئيس الشعبة فور إرساله.</div>
           <details id="pf-prof" class="pf-prof">
             <summary>بياناتي الوظيفية <span class="sub" id="pf-prof-sum"></span></summary>
@@ -493,7 +493,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <div class="grid3">
             <div><label class="f" for="pf-date">بالاستئذان يوم <span class="sub" id="pf-day"></span></label><input type="date" id="pf-date"></div>
             <div><label class="f" for="pf-from">اعتبارًا من</label><input type="time" id="pf-from"></div>
-            <div><label class="f" for="pf-to">حتى</label><input type="time" id="pf-to"><label class="check"><input type="checkbox" id="pf-toend"> حتى نهاية الدوام</label></div>
+            <div><label class="f" for="pf-to">حتى</label><div class="chips"><label class="chip"><input type="radio" name="pf-tomode" id="pf-totime" checked><span>وقت محدد</span></label><label class="chip"><input type="radio" name="pf-tomode" id="pf-toend"><span>حتى نهاية الدوام</span></label></div><input type="time" id="pf-to"></div>
           </div>
           <label class="f">الحصص وقت الاستئذان</label>
           <div class="chips"><label class="chip"><input type="radio" name="pf-mode" value="متفرغ" checked><span>المعلم متفرغ</span></label><label class="chip"><input type="radio" name="pf-mode" value="بديل"><span>بديل المعلم</span></label></div>
@@ -1522,7 +1522,8 @@ async function prmForm() {
   $("pf-prof").open = !p.civil;
   $("pf-prof-sum").textContent = p.civil ? "(محفوظة)" : "(أكملها مرة واحدة)";
 }
-$("pf-toend").onchange = () => { $("pf-to").disabled = $("pf-toend").checked; if ($("pf-toend").checked) $("pf-to").value = ""; };
+const pfToMode = () => { const end = $("pf-toend").checked; $("pf-to").hidden = end; if (end) $("pf-to").value = ""; };
+$("pf-toend").onchange = pfToMode; $("pf-totime").onchange = pfToMode;
 $("pf-date").oninput = () => { const d = isoDay($("pf-date").value); $("pf-day").textContent = d >= 0 ? "(" + DAYS[d] + ")" : ""; };
 document.querySelectorAll('input[name="pf-mode"]').forEach(r => r.onchange = () => { $("pf-subbox").hidden = document.querySelector('input[name="pf-mode"]:checked').value !== "بديل"; });
 $("prm-form").addEventListener("submit", async e => {
@@ -1546,7 +1547,7 @@ $("prm-form").addEventListener("submit", async e => {
       mailed = await run("mailPermissionPdf", CODE, r.id, b64);
     } catch (e) { try { mailed = await run("mailPermissionPdf", CODE, r.id, ""); } catch (e2) {} }
     PRM_PROF = { job: body.job.trim(), civil: body.civil, dept: body.dept.trim() };
-    $("pf-reason").value = ""; $("pf-from").value = ""; $("pf-to").value = ""; $("pf-toend").checked = false; $("pf-to").disabled = false; $("pf-sub").value = ""; document.querySelector('input[name="pf-mode"][value="متفرغ"]').checked = true; $("pf-subbox").hidden = true;
+    $("pf-reason").value = ""; $("pf-from").value = ""; $("pf-to").value = ""; $("pf-totime").checked = true; pfToMode(); $("pf-sub").value = ""; document.querySelector('input[name="pf-mode"][value="متفرغ"]').checked = true; $("pf-subbox").hidden = true;
     PRM = null; await loadPerms(true); m.textContent = "";
     openPerm(r.id, `تم إرسال الطلب (المسلسل ${ar(r.serial)}) إلى رئيس الشعبة${mailed && mailed.attached ? "، ووصله النموذج PDF على الإيميل" : ""} ✓`);
   } catch (err) { m.textContent = cleanErr(err); }
@@ -1564,7 +1565,7 @@ async function openPerm(id, note) {
   const [fh, fm] = hm(p.from), [th, tm] = hm(p.to);
   box.innerHTML = `<div class="vis-head-row"><button class="btn ghost sm" type="button" id="pd-back">→ رجوع</button><span class="saved">${note || ""}</span></div>
   <div class="card minute" style="margin-top:10px">
-    <h2>إذن خروج · المسلسل ${ar(p.serial)} <span class="pill ${PERM_PILL[p.status] || "none"}">${esc(p.status)}</span></h2>
+    <h2>طلب استئذان · المسلسل ${ar(p.serial)} <span class="pill ${PERM_PILL[p.status] || "none"}">${esc(p.status)}</span></h2>
     <div class="sub">إخطار بمدة الاستئذان المصرح بها · ${esc(p.type)}</div>
     <dl class="meta-grid" style="margin-top:10px">
       <div><dt>الاسم</dt><dd>أ. ${esc(p.teacher)}</dd></div><div><dt>القسم</dt><dd>${esc(p.dept)}</dd></div>

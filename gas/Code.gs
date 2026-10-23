@@ -989,8 +989,8 @@ function submitPermission(code, p) {
 }
 function permMail_(me, q, pdf) {
   const toEnd = q.to === "نهاية الدوام";
-  notify_(me, `طلب إذن خروج من أ. ${me.name} (${q.date})`, `
-    <p>أرسل <b>أ. ${esc_(me.name)}</b> طلب إذن خروج${pdf ? "، والنموذج مرفق PDF جاهز للطباعة والتوقيع" : ""}. ويمكن اعتماده أيضًا من الموقع.</p>
+  notify_(me, `طلب استئذان من أ. ${me.name} (${q.date})`, `
+    <p>أرسل <b>أ. ${esc_(me.name)}</b> طلب استئذان${pdf ? "، والنموذج مرفق PDF جاهز للطباعة والتوقيع" : ""}. ويمكن اعتماده أيضًا من الموقع.</p>
     <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
       <tr><td style="background:#e8f1f8"><b>المسلسل</b></td><td>${esc_(q.serial)}</td></tr>
       <tr><td style="background:#e8f1f8"><b>النوع</b></td><td>${esc_(q.type)}</td></tr>
