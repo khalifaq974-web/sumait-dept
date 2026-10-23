@@ -13,6 +13,8 @@ const SHEET_SIG = "التواقيع";
 const SHEET_MYSIG = "توقيعات المعلمين";
 const SHEET_VIS = "الزيارات";
 const SHEET_MAIL = "سجل التنبيهات";
+const SHEET_ABS = "الغياب";
+const SHEET_COV = "الاحتياط";
 
 const ST_PENDING = "بانتظار الصياغة";
 const ST_READY = "جاهز";
@@ -54,7 +56,7 @@ function doGet() {
 // الصفحة المستضافة خارج جوجل ترسل الطلبات هنا، فلا يتأثر المعلم بتعدد حسابات جوجل في متصفحه.
 const API = { login, saveEntry, headData, submitAchievement, myAchievements, deleteAchievement, allAchievements, saveReport,
   getPhoto, listMinutes, getMinute, saveMinute, deleteMinute, signMinute, mySignature, saveFileToDrive, demoAccounts, demoAction,
-  saveVisit, listVisits, getVisit, signVisit, deleteVisit };
+  saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence };
 
 function doPost(e) {
   let out;
@@ -97,6 +99,8 @@ function setup() {
   sheet_(SHEET_VIS, ["المعرف", "المعلم", "الفصل", "القسم", "التاريخ", "الحصة", "نوع الزيارة", "الموضوع", "رقم الزيارة", "التقديرات",
     "الإيجابيات", "الملاحظات والتوصيات", "توقيع رئيس القسم", "تاريخ الإنشاء", "توقيع المعلم", "وقت توقيع المعلم"], true);
   sheet_(SHEET_MAIL, ["الوقت", "إلى", "الموضوع", "النتيجة"], true);
+  sheet_(SHEET_ABS, ["المعرف", "التاريخ", "المعلم الغائب", "ملاحظة", "تاريخ التسجيل", "آخر تعديل"], true);
+  sheet_(SHEET_COV, ["المعرف", "معرف الغياب", "التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل", "الحالة", "تاريخ التسجيل"], true);
   ensureDemoMinute_();
   folder_();
   const first = ss.getSheets()[0];
@@ -609,6 +613,100 @@ function deleteVisit(code, id) {
   return withLock_(() => {
     const sh = sh_(SHEET_VIS), row = findRow_(sh, 1, id);
     if (row > 0) sh.deleteRow(row);
+    return true;
+  });
+}
+
+// ======================= الاحتياط (لرئيس القسم فقط) =======================
+// الجدول العام للقسم: لكل معلم [اليوم (0 الأحد … 4 الخميس)، الحصة، الفصل]
+// الفصل "R" = حصة احتياط في الجدول، "RF" = احتياط فنية (المعلم متاح ومرشّح أول للتغطية)
+// يجب أن يطابق TIMETABLE في index.html
+const TIMETABLE = {
+  "خليفة حمد خليفة القصار": [[3,2,"hd:11-1"],[4,5,"hd:11-1"]],
+  "أحمد صادق أحمد أبوسعدة": [[0,1,"hd:11-4"],[0,2,"hd:11-5"],[1,3,"hd:11-3"],[1,6,"hd:11-2"],[2,2,"hd:11-3"],[2,5,"RF"],[2,6,"hd:11-5"],[3,4,"hd:11-2"],[3,6,"R"],[4,4,"RF"],[4,7,"hd:11-4"]],
+  "أحمد صلاح زيدان القناوي": [[0,1,"hd:9-1"],[1,2,"hd:9-5"],[1,5,"hd:9-1"],[2,6,"R"],[3,1,"hd:9-2"],[4,4,"hd:9-2"],[4,5,"hd:9-5"]],
+  "عماد صادق علي العايق": [[0,5,"hd:12-1"],[1,4,"hd:12-3"],[1,7,"hd:12-1"],[2,3,"hd:10-5"],[2,6,"hd:12-3"],[3,7,"hd:10-3"],[4,1,"hd:10-5"],[4,2,"hd:10-3"]],
+  "كرم عبدالحميد أبوزيد أحمد": [[0,2,"hd:12-4"],[0,4,"hd:12-5"],[1,2,"hd:10-1"],[2,5,"hd:12-4"],[2,7,"hd:10-2"],[3,1,"hd:10-1"],[3,4,"hd:10-4"],[3,7,"hd:12-5"],[4,3,"hd:10-2"],[4,6,"hd:10-4"]],
+  "منذر خالد مطلق الحربي": [[0,1,"qr:12-2"],[0,3,"qr:12-3"],[0,4,"hd:12-2"],[0,6,"qr:12-1"],[1,2,"qr:12-4"],[1,4,"hd:9-4"],[1,7,"qr:12-5"],[2,2,"qr:12-5"],[2,5,"qr:12-2"],[2,7,"hd:9-3"],[3,3,"hd:12-2"],[3,5,"hd:9-4"],[3,6,"qr:12-4"],[4,2,"qr:12-3"],[4,4,"qr:12-1"],[4,6,"hd:9-3"]],
+  "معاذ وليد مبارك الشطي": [[0,4,"qr:9-2"],[0,7,"qr:9-5"],[1,3,"qr:9-4"],[1,6,"qr:9-3"],[2,3,"qr:9-1"],[2,7,"qr:9-2"],[3,4,"qr:9-3"],[3,6,"qr:9-1"],[4,1,"qr:9-4"],[4,2,"qr:9-5"]],
+  "يوسف عدنان عبدالكريم الشطي": [[0,4,"qr:10-2"],[0,6,"qr:10-3"],[1,3,"qr:10-3"],[1,5,"qr:10-5"],[2,5,"qr:10-1"],[2,7,"qr:10-4"],[3,4,"qr:10-5"],[3,7,"qr:10-2"],[4,1,"qr:10-1"],[4,3,"qr:10-4"]],
+  "عبدالله أحمد عبدالمجد الماجد": [[0,2,"qr:11-2"],[0,4,"qr:11-1"],[1,5,"qr:11-3"],[1,6,"R"],[2,2,"qr:11-5"],[2,3,"qr:11-1"],[2,6,"RF"],[3,1,"qr:11-3"],[3,3,"qr:11-4"],[3,6,"qr:11-5"],[4,5,"qr:11-4"],[4,6,"qr:11-2"]]
+};
+const COV_DONE = "مغطاة", COV_NONE = "غير مغطاة", COV_PRESENT = "حضر المعلم";
+
+function dayOf_(iso) {
+  const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) throw new Error("التاريخ غير صحيح.");
+  return new Date(+m[1], +m[2] - 1, +m[3], 12).getDay(); // 0 الأحد … 6 السبت
+}
+function lessonAt_(teacher, day, period) {
+  return (TIMETABLE[teacher] || []).find(x => x[0] === day && x[1] === period) || null;
+}
+function absObj_(r) { return { id: r[0], date: r[1], teacher: r[2], note: r[3], createdAt: r[4], updatedAt: r[5] }; }
+function covObj_(r) { return { id: r[0], absenceId: r[1], date: r[2], period: Number(r[3]), classId: r[4], absent: r[5], substitute: r[6], status: r[7] }; }
+
+/** كل بيانات الغياب والاحتياط */
+function reserveData(code) {
+  head_(code);
+  return { absences: rows_(SHEET_ABS).slice(1).filter(r => r[0]).map(absObj_), covers: rows_(SHEET_COV).slice(1).filter(r => r[0]).map(covObj_) };
+}
+
+/** تسجيل غياب معلم (أو تعديله) مع توزيع حصصه على البدلاء */
+function saveAbsence(code, a) {
+  head_(code);
+  const teacher = String(a.teacher || ""), date = String(a.date || "").slice(0, 10);
+  if (!TIMETABLE[teacher]) throw new Error("اختر المعلم الغائب.");
+  const day = dayOf_(date);
+  if (day > 4) throw new Error("التاريخ يوم عطلة (جمعة أو سبت).");
+  const items = (Array.isArray(a.items) ? a.items : []).slice(0, 7);
+  return withLock_(() => {
+    const absSh = sh_(SHEET_ABS), covSh = sh_(SHEET_COV);
+    const absRows = absSh.getDataRange().getDisplayValues();
+    let rowIdx = -1, id = String(a.id || "");
+    for (let i = 1; i < absRows.length; i++) {
+      if (id ? absRows[i][0] === id : (absRows[i][1] === date && absRows[i][2] === teacher)) { rowIdx = i + 1; id = absRows[i][0]; break; }
+    }
+    if (a.id && rowIdx < 0) throw new Error("الغياب غير موجود.");
+    if (!id) id = newId_();
+    const absentToday = absRows.slice(1).filter(r => r[0] && r[1] === date && r[0] !== id).map(r => r[2]);
+    if (absentToday.indexOf(teacher) !== -1) throw new Error("هذا المعلم مسجّل غائبًا في هذا اليوم.");
+    const covRows = covSh.getDataRange().getDisplayValues();
+    const asSub = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && r[7] === COV_DONE && r[6] === teacher);
+    if (asSub.length) throw new Error("أ. " + teacher + " مسجّل بديلًا في هذا اليوم (الحصة " + asSub.map(r => r[3]).join("، ") + " بدلًا من أ. " + asSub[0][5] + "). غيّر البديل هناك أولًا.");
+    const busy = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && r[7] === COV_DONE).map(r => r[6] + "|" + r[3]);
+    const out = [], seen = {};
+    items.forEach(it => {
+      const period = Math.floor(Number(it.period));
+      const les = lessonAt_(teacher, day, period);
+      if (!les || les[2] === "R" || les[2] === "RF") throw new Error("الحصة " + period + " ليست من حصص المعلم في هذا اليوم.");
+      if (seen[period]) return; seen[period] = 1;
+      let status = [COV_DONE, COV_NONE, COV_PRESENT].indexOf(it.status) !== -1 ? it.status : COV_NONE;
+      let sub = String(it.substitute || "");
+      if (status === COV_DONE) {
+        if (!TIMETABLE[sub] || sub === teacher) throw new Error("اختر المعلم البديل للحصة " + period + ".");
+        const l2 = lessonAt_(sub, day, period);
+        if (l2 && l2[2] !== "R" && l2[2] !== "RF") throw new Error("أ. " + sub + " عنده حصة في الحصة " + period + ".");
+        if (absentToday.indexOf(sub) !== -1) throw new Error("أ. " + sub + " غائب في هذا اليوم.");
+        if (busy.indexOf(sub + "|" + period) !== -1) throw new Error("أ. " + sub + " مكلّف باحتياط آخر في الحصة " + period + ".");
+      } else sub = "";
+      out.push([newId_(), id, date, String(period), les[2], teacher, sub, status, nowText_()]);
+    });
+    const now = nowText_();
+    const absVals = [id, date, teacher, String(a.note || "").slice(0, 300), rowIdx > 0 ? absRows[rowIdx - 1][4] : now, now];
+    if (rowIdx > 0) writeRow_(absSh, rowIdx, absVals); else appendText_(absSh, absVals);
+    for (let i = covRows.length - 1; i >= 1; i--) if (covRows[i][1] === id) covSh.deleteRow(i + 1);
+    out.forEach(r => appendText_(covSh, r));
+    return { id };
+  });
+}
+
+function deleteAbsence(code, id) {
+  head_(code);
+  return withLock_(() => {
+    const absSh = sh_(SHEET_ABS), row = findRow_(absSh, 1, id);
+    if (row > 0) absSh.deleteRow(row);
+    const covSh = sh_(SHEET_COV), v = covSh.getDataRange().getDisplayValues();
+    for (let i = v.length - 1; i >= 1; i--) if (v[i][1] === id) covSh.deleteRow(i + 1);
     return true;
   });
 }

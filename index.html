@@ -194,6 +194,13 @@ tr.dept td { background: var(--accent); color: var(--accent-ink); font-weight: 7
 table.vis-table td.n { color: var(--muted); width: 32px; }
 .minute ul { margin: 0; padding-right: 22px; }
 .attlist .check .sub { font-size: 11.5px; }
+nav.sections.five { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 640px) { nav.sections.five { grid-template-columns: 1fr 1fr; } }
+.res-items { display: grid; gap: 10px; margin-top: 14px; }
+.res-row { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.res-row.muted-row { opacity: .75; }
+.res-p { display: grid; } .res-p .sub { font-size: 12.5px; }
+@media (max-width: 640px) { .res-row { grid-template-columns: 1fr; } }
 .empty { padding: 26px; text-align: center; color: var(--muted); }
 .foot { margin-top: 22px; font-size: 12.5px; color: var(--muted); }
 @media (max-width: 560px) { .summary { grid-template-columns: repeat(2, 1fr); } .brand h1 { font-size: 18px; } }
@@ -241,6 +248,7 @@ table.vis-table td.n { color: var(--muted); width: 32px; }
       <button id="nav-ach" aria-selected="false"><b>الإنجازات</b><span>الأنشطة والفعاليات</span></button>
       <button id="nav-min" aria-selected="false"><b>محاضر الاجتماعات</b><span>الاطلاع والتوقيع</span></button>
       <button id="nav-vis" aria-selected="false"><b>الزيارات الصفية</b><span>بطاقات الزيارة</span></button>
+      <button id="nav-res" aria-selected="false" class="head-only" hidden><b>الاحتياط</b><span>الغياب والبدلاء</span></button>
     </nav>
 
     <!-- ركن ما قطع من المنهج -->
@@ -341,6 +349,40 @@ table.vis-table td.n { color: var(--muted); width: 32px; }
         <div class="row-actions" style="margin-top:14px"><button class="btn" id="mf-save" type="submit">حفظ المحضر</button><button class="btn ghost" type="button" id="mf-cancel">إلغاء</button></div>
         <div class="saved" id="mf-msg"></div>
       </form>
+    </section>
+    <!-- ركن الاحتياط (رئيس القسم فقط) -->
+    <section id="sec-res" hidden>
+      <nav class="tabs" role="tablist">
+        <button id="restab-new" role="tab" aria-selected="true">تسجيل غياب</button>
+        <button id="restab-log" role="tab" aria-selected="false">سجل الاحتياط والعدادات</button>
+      </nav>
+      <section id="res-new">
+        <form id="res-form" class="card">
+          <h2 id="rf-heading">تسجيل غياب</h2>
+          <div class="sub">اختر المعلم الغائب، فتظهر حصصه في ذلك اليوم، ولكل حصة قائمة بالمعلمين المتاحين مرتبين من الأفضل.</div>
+          <div class="grid2">
+            <div><label class="f" for="rf-date">التاريخ <span class="sub" id="rf-day"></span></label><input type="date" id="rf-date" required></div>
+            <div><label class="f" for="rf-teacher">المعلم الغائب</label><select id="rf-teacher"></select></div>
+          </div>
+          <div id="res-items" class="res-items"></div>
+          <label class="f" for="rf-note">ملاحظة (اختياري)</label>
+          <input type="text" id="rf-note" maxlength="300" placeholder="مثال: إجازة مرضية، مهمة رسمية">
+          <div class="row-actions" style="margin-top:14px"><button class="btn" id="rf-save" type="submit">حفظ الغياب والاحتياط</button><button class="btn ghost" type="button" id="rf-delete" hidden>حذف الغياب</button></div>
+          <div class="saved" id="rf-msg"></div>
+        </form>
+        <div class="vis-head-row"><h3 id="res-day-title"></h3><button class="btn ghost sm" type="button" id="res-daily-word">تنزيل كشف الاحتياط اليومي وورد</button></div>
+        <div class="saved" id="res-dmsg"></div>
+        <div class="list" id="res-day"></div>
+      </section>
+      <section id="res-log" hidden>
+        <div class="toolbar">
+          <select id="res-range" aria-label="الفترة"><option value="week">هذا الأسبوع</option><option value="month">هذا الشهر</option><option value="all" selected>الفصل كله</option></select>
+          <button class="btn ghost" id="res-reload" type="button">تحديث</button>
+          <button class="btn" id="res-word" type="button">تنزيل تقرير الاحتياط وورد</button>
+        </div>
+        <div class="saved" id="res-lmsg"></div>
+        <div id="res-log-body"></div>
+      </section>
     </section>
     <!-- ركن الزيارات الصفية -->
     <section id="sec-vis" hidden>
@@ -767,6 +809,7 @@ async function doLogin(code, silent) {
     $("me-name").textContent = "أ. " + r.name;
     document.querySelectorAll(".head-only").forEach(el => el.hidden = !r.isHead);
     document.querySelectorAll(".teacher-only").forEach(el => el.hidden = r.isHead);
+    document.querySelector("nav.sections").classList.toggle("five", !!r.isHead);
     $("demo-note").hidden = !r.isDemo;
     if (r.isHead) $("demo-admin").ontoggle = () => { if ($("demo-admin").open) loadDemos(); };
     let last = "curr"; try { last = localStorage.getItem("section") || "curr"; } catch (e) {}
@@ -780,21 +823,22 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new";
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = "";
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
 };
 
-const SECTIONS = ["curr", "ach", "min", "vis"];
+const SECTIONS = ["curr", "ach", "min", "vis", "res"];
 function go(sec) {
-  if (SECTIONS.indexOf(sec) === -1) sec = "curr";
+  if (SECTIONS.indexOf(sec) === -1 || (sec === "res" && !ME.isHead)) sec = "curr";
   SECTIONS.forEach(s => { $("nav-" + s).setAttribute("aria-selected", s === sec); $("sec-" + s).hidden = s !== sec; });
   try { localStorage.setItem("section", sec); } catch (e) {}
   if (sec === "curr") setTab(ME.isHead && !$("view-head").hidden ? "head" : "teacher");
   if (sec === "ach") achTab(ME.isHead && achSub === "all" ? "all" : "mine");
   if (sec === "min") loadMinutes();
   if (sec === "vis") visTab(ME.isHead ? (visSub === "mine" ? "new" : visSub) : "mine");
+  if (sec === "res") resTab(resSub);
 }
 SECTIONS.forEach(s => $("nav-" + s).onclick = () => go(s));
 
@@ -1478,6 +1522,226 @@ function buildVisitDoc(D, v, headSig, teacherSig) {
   const children = [...header, info, h.para("", { after: 60, line: 120 }), body, h.para("", { after: 60, line: 160 }), signs];
   return new D.Document({ styles: { default: { document: { run: { font: "Arial", rightToLeft: true } } } },
     sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 560, bottom: 400, left: 850, right: 850, header: 300, footer: 200 }, borders: h.pageFrame } }, children }] });
+}
+
+// ================= ركن الاحتياط (رئيس القسم فقط) =================
+// الجدول العام للقسم: لكل معلم [اليوم (0 الأحد … 4 الخميس)، الحصة، الفصل]. "R" = احتياط، "RF" = احتياط فنية. يطابق TIMETABLE في Code.gs
+const TIMETABLE = {
+  "خليفة حمد خليفة القصار": [[3,2,"hd:11-1"],[4,5,"hd:11-1"]],
+  "أحمد صادق أحمد أبوسعدة": [[0,1,"hd:11-4"],[0,2,"hd:11-5"],[1,3,"hd:11-3"],[1,6,"hd:11-2"],[2,2,"hd:11-3"],[2,5,"RF"],[2,6,"hd:11-5"],[3,4,"hd:11-2"],[3,6,"R"],[4,4,"RF"],[4,7,"hd:11-4"]],
+  "أحمد صلاح زيدان القناوي": [[0,1,"hd:9-1"],[1,2,"hd:9-5"],[1,5,"hd:9-1"],[2,6,"R"],[3,1,"hd:9-2"],[4,4,"hd:9-2"],[4,5,"hd:9-5"]],
+  "عماد صادق علي العايق": [[0,5,"hd:12-1"],[1,4,"hd:12-3"],[1,7,"hd:12-1"],[2,3,"hd:10-5"],[2,6,"hd:12-3"],[3,7,"hd:10-3"],[4,1,"hd:10-5"],[4,2,"hd:10-3"]],
+  "كرم عبدالحميد أبوزيد أحمد": [[0,2,"hd:12-4"],[0,4,"hd:12-5"],[1,2,"hd:10-1"],[2,5,"hd:12-4"],[2,7,"hd:10-2"],[3,1,"hd:10-1"],[3,4,"hd:10-4"],[3,7,"hd:12-5"],[4,3,"hd:10-2"],[4,6,"hd:10-4"]],
+  "منذر خالد مطلق الحربي": [[0,1,"qr:12-2"],[0,3,"qr:12-3"],[0,4,"hd:12-2"],[0,6,"qr:12-1"],[1,2,"qr:12-4"],[1,4,"hd:9-4"],[1,7,"qr:12-5"],[2,2,"qr:12-5"],[2,5,"qr:12-2"],[2,7,"hd:9-3"],[3,3,"hd:12-2"],[3,5,"hd:9-4"],[3,6,"qr:12-4"],[4,2,"qr:12-3"],[4,4,"qr:12-1"],[4,6,"hd:9-3"]],
+  "معاذ وليد مبارك الشطي": [[0,4,"qr:9-2"],[0,7,"qr:9-5"],[1,3,"qr:9-4"],[1,6,"qr:9-3"],[2,3,"qr:9-1"],[2,7,"qr:9-2"],[3,4,"qr:9-3"],[3,6,"qr:9-1"],[4,1,"qr:9-4"],[4,2,"qr:9-5"]],
+  "يوسف عدنان عبدالكريم الشطي": [[0,4,"qr:10-2"],[0,6,"qr:10-3"],[1,3,"qr:10-3"],[1,5,"qr:10-5"],[2,5,"qr:10-1"],[2,7,"qr:10-4"],[3,4,"qr:10-5"],[3,7,"qr:10-2"],[4,1,"qr:10-1"],[4,3,"qr:10-4"]],
+  "عبدالله أحمد عبدالمجد الماجد": [[0,2,"qr:11-2"],[0,4,"qr:11-1"],[1,5,"qr:11-3"],[1,6,"R"],[2,2,"qr:11-5"],[2,3,"qr:11-1"],[2,6,"RF"],[3,1,"qr:11-3"],[3,3,"qr:11-4"],[3,6,"qr:11-5"],[4,5,"qr:11-4"],[4,6,"qr:11-2"]]
+};
+const COV_DONE = "مغطاة", COV_NONE = "غير مغطاة", COV_PRESENT = "حضر المعلم";
+const PERIOD_NAMES = ["", "الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة", "السادسة", "السابعة"];
+let RES = null, resSub = "new", resLogTeacher = "";
+
+function isoDay(iso) { const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? new Date(+m[1], +m[2] - 1, +m[3]).getDay() : -1; }
+function slotOf(t, day, p) { return (TIMETABLE[t] || []).find(x => x[0] === day && x[1] === p) || null; }
+function isLesson(s) { return s && s[2] !== "R" && s[2] !== "RF"; }
+function weekStartISO(iso) { const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/), d = new Date(+m[1], +m[2] - 1, +m[3]); d.setDate(d.getDate() - d.getDay()); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function addDaysISO(iso, n) { const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/), d = new Date(+m[1], +m[2] - 1, +m[3] + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function subjOf(cls) { return cls && cls.indexOf(":") > 0 ? SUBJECTS[cls.split(":")[0]] : ""; }
+
+function resTab(which) {
+  resSub = which;
+  ["new", "log"].forEach(k => { $("restab-" + k).setAttribute("aria-selected", k === which); $("res-" + k).hidden = k !== which; });
+  loadRes().then(() => which === "new" ? renderResForm() : renderResLog());
+}
+$("restab-new").onclick = () => resTab("new");
+$("restab-log").onclick = () => { resLogTeacher = ""; resTab("log"); };
+
+async function loadRes(force) {
+  if (RES && !force) return RES;
+  try { RES = await run("reserveData", CODE); } catch (e) { RES = { absences: [], covers: [], error: cleanErr(e) }; }
+  return RES;
+}
+
+// ترتيب المرشحين لتغطية حصة: المتاح فقط، والأفضل أولًا
+function candidates(date, day, period, cls, absent, absenceId) {
+  const absentToday = RES.absences.filter(a => a.date === date && a.id !== absenceId).map(a => a.teacher).concat([absent]);
+  const takenNow = RES.covers.filter(c => c.date === date && c.period === period && c.absenceId !== absenceId && c.status === COV_DONE).map(c => c.substitute);
+  const wk = weekStartISO(date), wkEnd = addDaysISO(wk, 6);
+  const dept = cls.split(":")[0], grp = cls.split(":")[1];
+  const list = [];
+  for (const t of Object.keys(TIMETABLE)) {
+    if (absentToday.indexOf(t) !== -1 || takenNow.indexOf(t) !== -1) continue;
+    const s = slotOf(t, day, period);
+    if (isLesson(s)) continue;
+    const weekCount = RES.covers.filter(c => c.substitute === t && c.status === COV_DONE && c.date >= wk && c.date <= wkEnd && c.absenceId !== absenceId).length;
+    const total = RES.covers.filter(c => c.substitute === t && c.status === COV_DONE && c.absenceId !== absenceId).length;
+    const todayLessons = (TIMETABLE[t] || []).filter(x => x[0] === day && isLesson(x)).length;
+    const sameDept = (TIMETABLE[t] || []).some(x => isLesson(x) && x[2].split(":")[0] === dept);
+    const knowsClass = (TIMETABLE[t] || []).some(x => isLesson(x) && x[2].split(":")[1] === grp);
+    let score = 0; const why = [];
+    if (s) { score += s[2] === "RF" ? 120 : 100; why.push(s[2] === "RF" ? "احتياط فنية في هذه الحصة" : "احتياط في هذه الحصة"); }
+    if (sameDept) { score += 20; why.push("من قسم " + SUBJECTS[dept]); }
+    if (knowsClass) { score += 10; why.push("يدرّس الفصل"); }
+    score -= weekCount * 6 + total + todayLessons * 2;
+    why.push(weekCount ? `أخذ ${ar(weekCount)} احتياط هذا الأسبوع` : "لم يأخذ احتياطًا هذا الأسبوع");
+    if (t === HEAD_NAME) { score -= 60; why.push("رئيس القسم"); }
+    list.push({ t, score, why, weekCount, total });
+  }
+  return list.sort((a, b) => b.score - a.score || a.total - b.total || a.t.localeCompare(b.t, "ar"));
+}
+
+let resEditId = "";
+function renderResForm() {
+  if (RES.error) { $("res-items").innerHTML = `<div class="empty">${esc(RES.error)}</div>`; return; }
+  if (!$("rf-teacher").options.length) {
+    $("rf-teacher").innerHTML = '<option value="">— اختر المعلم الغائب —</option>' + Object.keys(TIMETABLE).map(n => `<option>${esc(n)}</option>`).join("");
+    $("rf-date").value = todayISO();
+  }
+  renderResItems();
+  renderResDay();
+}
+function renderResItems() {
+  const date = $("rf-date").value, t = $("rf-teacher").value, day = isoDay(date), box = $("res-items");
+  $("rf-day").textContent = day >= 0 ? DAYS[day] : "";
+  $("rf-msg").textContent = "";
+  if (!t || !date) { box.innerHTML = '<div class="empty">اختر التاريخ والمعلم الغائب لتظهر حصصه.</div>'; $("rf-save").disabled = true; return; }
+  if (day > 4) { box.innerHTML = '<div class="empty">هذا اليوم عطلة.</div>'; $("rf-save").disabled = true; return; }
+  const existing = RES.absences.find(a => a.date === date && a.teacher === t);
+  resEditId = existing ? existing.id : "";
+  $("rf-note").value = existing ? existing.note : "";
+  $("rf-heading").textContent = existing ? "تعديل غياب مسجّل" : "تسجيل غياب";
+  $("rf-delete").hidden = !existing;
+  const saved = existing ? RES.covers.filter(c => c.absenceId === existing.id) : [];
+  const slots = (TIMETABLE[t] || []).filter(x => x[0] === day).sort((a, b) => a[1] - b[1]);
+  if (!slots.length) { box.innerHTML = `<div class="empty">ليس لـ أ. ${esc(t)} حصص يوم ${DAYS[day]}.</div>`; $("rf-save").disabled = true; return; }
+  $("rf-save").disabled = false;
+  box.innerHTML = slots.map(([d, p, cls]) => {
+    if (!isLesson([d, p, cls])) return `<div class="res-row muted-row"><div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${cls === "RF" ? "احتياط فنية" : "احتياط"} — لا تحتاج تغطية</span></div></div>`;
+    const cands = candidates(date, day, p, cls, t, resEditId);
+    const sv = saved.find(c => c.period === p);
+    const sel = sv ? (sv.status === COV_DONE ? sv.substitute : sv.status === COV_PRESENT ? "__present" : "__none") : (cands[0] ? cands[0].t : "__none");
+    const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 ? "★ الأفضل: " : ""}${esc(c.t)} — ${esc(c.why.join("، "))}</option>`).join("");
+    const keep = sv && sv.status === COV_DONE && !cands.some(c => c.t === sv.substitute) ? `<option value="${esc(sv.substitute)}" selected>${esc(sv.substitute)} (مسجّل سابقًا)</option>` : "";
+    return `<div class="res-row" data-p="${p}">
+      <div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)} · ${subjOf(cls)}</span></div>
+      <select aria-label="البديل في الحصة ${PERIOD_NAMES[p]}">${keep}${opts}
+        <option value="__none"${sel === "__none" ? " selected" : ""}>— لم تُغطَّ —</option>
+        <option value="__present"${sel === "__present" ? " selected" : ""}>حضر المعلم هذه الحصة</option></select>
+      ${cands.length ? "" : '<span class="sub">لا يوجد معلم متاح في هذه الحصة.</span>'}</div>`;
+  }).join("");
+}
+function renderResDay() {
+  const date = $("rf-date").value, box = $("res-day");
+  const abs = RES.absences.filter(a => a.date === date);
+  $("res-day-title").textContent = date ? `غياب يوم ${DAYS[isoDay(date)] || ""} ${fmtDate(date)}` : "";
+  if (!abs.length) { box.innerHTML = '<div class="empty">لا يوجد غياب مسجّل في هذا اليوم.</div>'; $("res-daily-word").disabled = true; return; }
+  $("res-daily-word").disabled = false;
+  box.innerHTML = abs.map(a => {
+    const cs = RES.covers.filter(c => c.absenceId === a.id).sort((x, y) => x.period - y.period);
+    return `<button class="li li-btn" data-t="${esc(a.teacher)}"><div class="li-main"><b>أ. ${esc(a.teacher)}</b>
+      <span class="sub">${cs.map(c => `${PERIOD_NAMES[c.period]}: ${c.status === COV_DONE ? esc(c.substitute) : c.status}`).join(" · ") || "—"}</span></div><span class="pill ${cs.some(c => c.status === COV_NONE) ? "late" : "ok"}">${cs.some(c => c.status === COV_NONE) ? "فيه حصص بلا تغطية" : "مغطى"}</span></button>`;
+  }).join("");
+  box.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { $("rf-teacher").value = b.dataset.t; renderResItems(); window.scrollTo({ top: $("res-form").offsetTop - 10, behavior: "smooth" }); });
+}
+$("rf-date").onchange = () => { renderResItems(); renderResDay(); };
+$("rf-teacher").onchange = renderResItems;
+$("res-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg = $("rf-msg"), btn = $("rf-save");
+  const items = [...document.querySelectorAll("#res-items .res-row[data-p]")].map(r => {
+    const v = r.querySelector("select").value;
+    return { period: +r.dataset.p, status: v === "__none" ? COV_NONE : v === "__present" ? COV_PRESENT : COV_DONE, substitute: v.startsWith("__") ? "" : v };
+  });
+  btn.disabled = true; msg.textContent = "جارٍ الحفظ…";
+  try {
+    await run("saveAbsence", CODE, { id: resEditId, date: $("rf-date").value, teacher: $("rf-teacher").value, note: $("rf-note").value, items });
+    await loadRes(true); renderResItems(); renderResDay(); msg.textContent = "تم الحفظ.";
+  } catch (x) { msg.textContent = cleanErr(x); } finally { btn.disabled = false; }
+});
+$("rf-delete").onclick = () => confirmInline($("rf-delete"), "اضغط مرة ثانية لحذف الغياب", async () => {
+  try { await run("deleteAbsence", CODE, resEditId); await loadRes(true); renderResItems(); renderResDay(); $("rf-msg").textContent = "حُذف الغياب."; } catch (e) { $("rf-msg").textContent = cleanErr(e); }
+});
+$("res-daily-word").onclick = async () => {
+  const m = $("res-dmsg"), date = $("rf-date").value; m.textContent = "جارٍ إنشاء الملف…";
+  try { await deliver(await window.docx.Packer.toBlob(buildDailyReserveDoc(window.docx, date)), `كشف الاحتياط ${date}.docx`, m); }
+  catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
+};
+
+// ---------- السجل والعدادات ----------
+function resRange() {
+  const k = $("res-range").value, today = todayISO();
+  if (k === "week") { const s = weekStartISO(today); return { from: s, to: addDaysISO(s, 6), label: `الأسبوع من ${fmtDate(s)} إلى ${fmtDate(addDaysISO(s, 4))}` }; }
+  if (k === "month") { const s = today.slice(0, 8) + "01"; return { from: s, to: today.slice(0, 8) + "31", label: "شهر " + ar(+today.slice(5, 7)) + "/" + ar(today.slice(0, 4)) }; }
+  return { from: "0000", to: "9999", label: "الفصل الدراسي الأول ٢٠٢٦/٢٠٢٧" };
+}
+function resStats(r) {
+  const covs = RES.covers.filter(c => c.date >= r.from && c.date <= r.to), abs = RES.absences.filter(a => a.date >= r.from && a.date <= r.to);
+  return Object.keys(TIMETABLE).map(t => {
+    const mine = covs.filter(c => c.absent === t && c.status !== COV_PRESENT);
+    const by = {}; mine.filter(c => c.status === COV_DONE).forEach(c => by[c.substitute] = (by[c.substitute] || 0) + 1);
+    return { t, days: new Set(abs.filter(a => a.teacher === t).map(a => a.date)).size, lessons: mine.length,
+      covered: mine.filter(c => c.status === COV_DONE).length, uncovered: mine.filter(c => c.status === COV_NONE).length,
+      given: covs.filter(c => c.substitute === t && c.status === COV_DONE).length, by };
+  });
+}
+function renderResLog() {
+  const box = $("res-log-body"), r = resRange();
+  if (RES.error) { box.innerHTML = `<div class="empty">${esc(RES.error)}</div>`; return; }
+  if (resLogTeacher) return renderResTeacher(r);
+  const st = resStats(r);
+  box.innerHTML = `<div class="sub" style="margin-top:8px">${r.label}</div><div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>أيام الغياب</th><th>حصص غيابه</th><th>غُطّيت</th><th>لم تُغطَّ</th><th>حصص احتياط أخذها</th></tr></thead><tbody>${st.map(s =>
+    `<tr data-t="${esc(s.t)}" tabindex="0"><td class="t">${esc(s.t)}</td><td>${ar(s.days)}</td><td>${ar(s.lessons)}</td><td>${ar(s.covered)}</td><td>${s.uncovered ? `<span class="pill late">${ar(s.uncovered)}</span>` : "٠"}</td><td>${ar(s.given)}</td></tr>`).join("")}</tbody></table></div>`;
+  box.querySelectorAll("tr[data-t]").forEach(tr => { const open = () => { resLogTeacher = tr.dataset.t; renderResLog(); }; tr.onclick = open; tr.onkeydown = e => { if (e.key === "Enter") open(); }; });
+}
+function renderResTeacher(r) {
+  const t = resLogTeacher, box = $("res-log-body"), s = resStats(r).find(x => x.t === t);
+  const abs = RES.absences.filter(a => a.teacher === t && a.date >= r.from && a.date <= r.to).sort((a, b) => b.date.localeCompare(a.date));
+  const given = RES.covers.filter(c => c.substitute === t && c.status === COV_DONE && c.date >= r.from && c.date <= r.to).sort((a, b) => b.date.localeCompare(a.date) || a.period - b.period);
+  box.innerHTML = `<div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="res-back">→ كل المعلمين</button><b>أ. ${esc(t)}</b></div>
+    <dl class="meta-grid" style="margin-top:10px"><div><dt>أيام الغياب</dt><dd>${ar(s.days)}</dd></div><div><dt>حصص غيابه</dt><dd>${ar(s.lessons)}</dd></div><div><dt>غُطّيت / لم تُغطَّ</dt><dd>${ar(s.covered)} / ${ar(s.uncovered)}</dd></div><div><dt>احتياط أخذه</dt><dd>${ar(s.given)}</dd></div></dl>
+    <h3 class="list-title">من دخل مكانه</h3>${Object.keys(s.by).length ? `<div class="list">${Object.entries(s.by).sort((a, b) => b[1] - a[1]).map(([n, k]) => `<div class="li"><span>أ. ${esc(n)}</span><span class="pill ok">${ar(k)} ${k === 1 ? "حصة" : "حصص"}</span></div>`).join("")}</div>` : '<div class="empty">—</div>'}
+    <h3 class="list-title">أيام غيابه</h3>${abs.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>البديل</th></tr></thead><tbody>${abs.map(a => RES.covers.filter(c => c.absenceId === a.id).sort((x, y) => x.period - y.period).map(c =>
+      `<tr><td>${fmtDate(a.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)}</td><td>${c.status === COV_DONE ? "أ. " + esc(c.substitute) : `<span class="pill ${c.status === COV_NONE ? "late" : "none"}">${c.status}</span>`}</td></tr>`).join("")).join("")}</tbody></table></div>` : '<div class="empty">لم يغب في هذه الفترة.</div>'}
+    <h3 class="list-title">حصص الاحتياط التي أخذها</h3>${given.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>بدلًا من</th></tr></thead><tbody>${given.map(c =>
+      `<tr><td>${fmtDate(c.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)}</td><td>أ. ${esc(c.absent)}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">لم يأخذ احتياطًا في هذه الفترة.</div>'}`;
+  $("res-back").onclick = () => { resLogTeacher = ""; renderResLog(); };
+}
+$("res-range").onchange = renderResLog;
+$("res-reload").onclick = async () => { await loadRes(true); renderResLog(); };
+$("res-word").onclick = async () => {
+  const m = $("res-lmsg"); m.textContent = "جارٍ إنشاء الملف…";
+  try { await deliver(await window.docx.Packer.toBlob(buildReserveReport(window.docx, resRange())), `تقرير الاحتياط - ${resRange().label}.docx`, m); }
+  catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
+};
+
+// ---------- ملفات الوورد (بالديباجة المعتمدة) ----------
+function buildDailyReserveDoc(D, date) {
+  const h = H(D), C = h.C, day = isoDay(date);
+  const abs = RES.absences.filter(a => a.date === date);
+  const covs = RES.covers.filter(c => c.date === date && c.status !== COV_PRESENT).sort((a, b) => a.period - b.period || a.absent.localeCompare(b.absent, "ar"));
+  const info = h.table([[h.lab("اليوم:", { w: 1600 }), h.cell(DAYS[day] || "", { w: 3400, size: 19 }), h.lab("التاريخ:", { w: 1600 }), h.cell(fmtDate(date), { w: 3400, size: 19 })],
+    [h.lab("الغائبون:"), new D.TableCell({ columnSpan: 3, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [h.para(abs.map(a => "أ. " + a.teacher).join("، ") || "—", { size: 19, after: 0 })] })]],
+    [1600, 3400, 1600, 3400], h.softBorders("C9D6E3"));
+  const rows = [[h.th("م", { w: 500 }), h.th("الحصة", { w: 1100 }), h.th("الفصل", { w: 900 }), h.th("المادة", { w: 1400 }), h.th("المعلم الغائب", { w: 2300 }), h.th("المعلم البديل", { w: 2300 }), h.th("توقيع البديل", { w: 1500 })]];
+  covs.forEach((c, i) => rows.push([h.cell(ar(i + 1), { align: C, size: 19 }), h.cell(PERIOD_NAMES[c.period], { align: C, size: 19 }), h.cell(classLabel(c.classId), { align: C, size: 19 }), h.cell(subjOf(c.classId), { size: 19 }),
+    h.cell("أ. " + c.absent, { size: 19 }), h.cell(c.status === COV_DONE ? "أ. " + c.substitute : "لم تُغطَّ", { size: 19, bold: true, color: c.status === COV_DONE ? undefined : "B4382B" }), h.cell("", {})]));
+  return h.doc([...h.formHeader("كشف الاحتياط اليومي"), info, h.para("", { after: 100 }), h.table(rows, [500, 1100, 900, 1400, 2300, 2300, 1500], h.softBorders("C9D6E3")),
+    h.para("", { after: 300 }), h.signRow([["رئيس القسم", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000)]);
+}
+function buildReserveReport(D, r) {
+  const h = H(D), C = h.C, st = resStats(r);
+  const head = ["المعلم", "أيام الغياب", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"].map(t => h.th(t));
+  const rows = [head, ...st.map(s => [h.cell("أ. " + s.t, { size: 18 }), ...[s.days, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => h.cell(ar(n), { align: C, size: 19, bold: i === 3 && n > 0, color: i === 3 && n > 0 ? "B4382B" : undefined })),
+    h.cell(Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—", { size: 16 })])];
+  const det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
+  const drows = [["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"].map(t => h.th(t)),
+    ...det.map(c => [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(PERIOD_NAMES[c.period], { align: C, size: 17 }), h.cell(classLabel(c.classId), { align: C, size: 17 }), h.cell("أ. " + c.absent, { size: 17 }),
+      h.cell(c.status === COV_DONE ? "أ. " + c.substitute : "لم تُغطَّ", { size: 17, bold: c.status !== COV_DONE, color: c.status === COV_DONE ? undefined : "B4382B" })])];
+  const kids = [...h.formHeader("تقرير الاحتياط"), h.para(r.label, { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
+    h.heading("أولًا: عدّاد الغياب والاحتياط لكل معلم"), h.table(rows, [2600, 900, 950, 850, 950, 1000, 2750], h.softBorders("C9D6E3"))];
+  kids.push(h.heading("ثانيًا: تفاصيل حصص الاحتياط"), det.length ? h.table(drows, [2300, 1300, 1000, 2700, 2700], h.softBorders("C9D6E3")) : h.para("لا توجد حصص احتياط في هذه الفترة.", { size: 20 }));
+  kids.push(h.para("", { after: 300 }), h.signRow([["رئيس القسم", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
+  return h.doc(kids);
 }
 
 // ================= ملفات الوورد =================
