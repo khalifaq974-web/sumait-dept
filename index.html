@@ -200,6 +200,7 @@ nav.sections.six { grid-template-columns: repeat(6, 1fr); }
 nav.sections.seven { grid-template-columns: repeat(7, 1fr); }
 nav.sections.eight { grid-template-columns: repeat(4, 1fr); }
 nav.sections.nine { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 640px) { nav.sections.nine { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) { nav.sections.eight, nav.sections.nine { grid-template-columns: 1fr 1fr 1fr; } }
 @media (max-width: 640px) { nav.sections.seven { grid-template-columns: 1fr 1fr 1fr; } }
 .pf-prof { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
@@ -308,6 +309,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <button id="nav-prm" aria-selected="false"><b>الاستئذان</b><span>طلب الاستئذان والسجل</span></button>
       <button id="nav-nsh" aria-selected="false"><b>سجل النشرات والتعاميم</b><span>الاطلاع والتوقيع</span></button>
       <button id="nav-res" aria-selected="false" class="head-only" hidden><b>الاحتياط</b><span>الغياب والبدلاء</span></button>
+      <button id="nav-mrp" aria-selected="false" class="head-only" hidden><b>إنجازات القسم</b><span>التقارير الشهرية</span></button>
     </nav>
 
     <!-- ركن ما قطع من المنهج -->
@@ -384,6 +386,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <form id="ach-form" class="card">
           <h2 id="ach-h2">إضافة نشاط</h2>
           <div class="sub" id="ach-intro">ارفع صور النشاط واكتب وصفًا مختصرًا، ويتولى رئيس الشعبة إعداد التقرير الرسمي.</div>
+          <div id="ach-deptbox"><label class="f" for="ach-dept">القسم</label><select id="ach-dept"><option value="hd">الحديث الشريف</option><option value="qr">القرآن الكريم</option></select></div>
           <div class="grid2">
             <div><label class="f" for="ach-type" id="ach-type-l">نوع النشاط</label><select id="ach-type"></select></div>
             <div><label class="f" for="ach-date">التاريخ</label><input type="date" id="ach-date" required></div>
@@ -446,6 +449,15 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="row-actions" style="margin-top:14px"><button class="btn" id="mf-save" type="submit">حفظ المحضر</button><button class="btn ghost" type="button" id="mf-cancel">إلغاء</button></div>
         <div class="saved" id="mf-msg"></div>
       </form>
+    </section>
+    <!-- إنجازات القسم: التقارير الشهرية (رئيس الشعبة) -->
+    <section id="sec-mrp" hidden>
+      <div id="mrp-listwrap">
+        <div class="card"><h2>إنجازات القسم</h2><div class="sub">يُعدّ Claude أول كل شهر تقريرين عن إنجازات الشهر السابق: تقرير لقسم الحديث الشريف وتقرير لقسم القرآن الكريم، من «التنمية المهنية وإنجاز الموظف» و«الأنشطة والمسابقات» مع صورها. يمكنك تعديل النص وتنزيله وورد و PDF بالديباجة.</div></div>
+        <div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="mrp-reload" type="button">تحديث</button></div>
+        <div class="list" id="mrp-list"></div>
+      </div>
+      <div class="card detail" id="mrp-detail" hidden></div>
     </section>
     <!-- سجل النشرات والتعاميم -->
     <section id="sec-nsh" hidden>
@@ -931,6 +943,11 @@ const ACH_UI = {
     descPh: "ماذا قدّمت؟ من شارك؟ ما الذي تميّز به النشاط؟", photosL: "صور النشاط", noun: "نشاط", nounDef: "النشاط", mine: "أنشطتي السابقة", box: "تقرير نشاط", photosH: "صور من النشاط" }
 };
 let ACH_KIND = "pd";
+// قسم الإنجاز: يُختار تلقائيًا لمن يدرّس مادة واحدة، ويختاره من يدرّس المادتين
+function setAchDept() {
+  const ds = [...new Set((ME.classes || []).map(c => c.split(":")[0]))];
+  if (ds.length === 1) { $("ach-dept").value = ds[0]; $("ach-deptbox").hidden = true; } else { $("ach-deptbox").hidden = false; }
+}
 function setAchKind(k) {
   const U = ACH_UI[k], changed = k !== ACH_KIND || !$("ach-type").options.length; ACH_KIND = k;
   if (!changed) return;
@@ -1029,21 +1046,22 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; CUR_PRM = null; prmSub = "new"; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; CUR_PRM = null; prmSub = "new"; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
 };
 
-const SECTIONS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res"];
+const SECTIONS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "mrp"];
 function go(sec) {
-  if (SECTIONS.indexOf(sec) === -1 || (sec === "res" && !ME.isHead)) sec = "curr";
+  if (SECTIONS.indexOf(sec) === -1 || ((sec === "res" || sec === "mrp") && !ME.isHead)) sec = "curr";
   const shown = sec === "act" ? "ach" : sec;
   SECTIONS.forEach(s => { $("nav-" + s).setAttribute("aria-selected", s === sec); const el = $("sec-" + s); if (el) el.hidden = s !== shown; });
   try { localStorage.setItem("section", sec); } catch (e) {}
   if (sec === "curr") setTab(ME.isHead && !$("view-head").hidden ? "head" : "teacher");
-  if (sec === "ach" || sec === "act") { setAchKind(sec === "act" ? "act" : "pd"); achTab(ME.isHead && achSub === "all" ? "all" : "mine"); }
+  if (sec === "ach" || sec === "act") { setAchDept(); setAchKind(sec === "act" ? "act" : "pd"); achTab(ME.isHead && achSub === "all" ? "all" : "mine"); }
   if (sec === "nsh") loadNsh();
+  if (sec === "mrp") loadMrp();
   if (sec === "cls") { if (!CUR_CLS && $("cls-rep").hidden) clsHome(); }
   if (sec === "prm") { if ($("prm-detail").hidden || !CUR_PRM) prmTab(prmSub); }
   if (sec === "min") loadMinutes();
@@ -2027,6 +2045,18 @@ function pdfNshLog(list) {
       list.map((c, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: c.kind, c: "c" }, { t: ar(c.number || "—"), c: "c" }, fmtDate(c.date, true), c.title, c.source || "—", c.audLabel, { t: `${ar(c.ackCount)} من ${ar(c.targets.length)}`, c: "c" }])))
       : P.p("لا توجد نشرات أو تعاميم بعد."), P.p(`المجموع: ${ar(list.length)}`, "b")] };
 }
+function pdfMonthly(r, photos) {
+  const title = (String(r.report || "").match(/^\s*العنوان\s*:\s*(.+)$/m) || [])[1] || r.title;
+  const blocks = [P.title(title), P.info([["القسم", SUBJECTS[r.dept]], ["الشهر", monthLabel(r.month)], ["عدد الإنجازات والأنشطة", ar(r.items.length)], ["رئيس الشعبة", HEAD_SIGN]])];
+  const used = new Set();
+  mrpParts(r.report).forEach(p => {
+    if (p.text != null) { if (p.text.trim()) blocks.push(P.text(p.text)); }
+    else { used.add(p.photos); const ph = photos[p.photos] || []; if (ph.length) blocks.push(`<div class="ph">${ph.map(src => `<img src="${src}">`).join("")}</div>`); }
+  });
+  const rest = r.items.filter(i => !used.has(i.id) && (photos[i.id] || []).length);
+  if (rest.length) { blocks.push(P.h("صور من الإنجازات")); rest.forEach(i => blocks.push(P.p(`${i.title} — أ. ${i.teacher}`, "b"), `<div class="ph">${photos[i.id].map(src => `<img src="${src}">`).join("")}</div>`)); }
+  return { box: "تقرير إنجازات القسم", blocks, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] };
+}
 function pdfPermLog(r) {
   const st = permStats(r);
   return { box: "سجل الاستئذان", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label, "c b"),
@@ -2089,7 +2119,7 @@ $("ach-form").addEventListener("submit", async e => {
   if (!PHOTOS.length) { msg.textContent = `أضف صورة واحدة على الأقل لل${U.noun}.`; return; }
   btn.disabled = true; msg.textContent = `جارٍ رفع ${U.nounDef} والصور…`;
   try {
-    await run("submitAchievement", CODE, { kind: ACH_KIND, type: $("ach-type").value, title: $("ach-title").value, date: $("ach-date").value, target: $("ach-target").value, desc: $("ach-desc").value, results: ACH_KIND === "act" ? $("ach-results").value : "", photos: PHOTOS });
+    await run("submitAchievement", CODE, { kind: ACH_KIND, dept: $("ach-dept").value, type: $("ach-type").value, title: $("ach-title").value, date: $("ach-date").value, target: $("ach-target").value, desc: $("ach-desc").value, results: ACH_KIND === "act" ? $("ach-results").value : "", photos: PHOTOS });
     PHOTOS = []; renderPreviews(); $("ach-title").value = ""; $("ach-target").value = ""; $("ach-desc").value = ""; $("ach-results").value = ""; $("ach-date").value = todayISO();
     msg.textContent = `تم رفع ${U.nounDef} في «${U.log}». سيُعدّ رئيس الشعبة التقرير الرسمي.`;
     ACH = null; ACH_ALL = null; loadMyAch();
@@ -2130,7 +2160,7 @@ async function loadAllAch(force) {
   const list = ALLK.filter(a => !achFilter || (achFilter === "ready" ? a.status === ST_READY : a.status !== ST_READY));
   if (!list.length) { box.innerHTML = `<div class="empty">${achFilter === "pending" ? "لا يوجد شيء بانتظار الصياغة في هذا السجل." : "لا يوجد شيء في هذا السجل بعد."}</div>`; return; }
   box.innerHTML = list.map(a => `<button class="li li-btn" data-open="${a.id}">
-      <div class="li-main"><b>${esc(a.title)}${a.demo ? ' <span class="pill none">تجريبي</span>' : ""}</b><span class="sub">أ. ${esc(a.teacher)} · ${esc(a.type)} · ${fmtDate(a.date)}</span></div>
+      <div class="li-main"><b>${esc(a.title)}${a.demo ? ' <span class="pill none">تجريبي</span>' : ""}</b><span class="sub">أ. ${esc(a.teacher)} · ${esc(SUBJECTS[a.dept] || "")} · ${esc(a.type)} · ${fmtDate(a.date)}</span></div>
       <span class="pill ${a.status === ST_READY ? "ok" : "late"}">${a.status === ST_READY ? "جاهز" : "بانتظار الصياغة"}</span></button>`).join("");
   box.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openAch(b.dataset.open));
 }
@@ -2189,6 +2219,47 @@ async function openAch(id) {
     try { await run("deleteAchievement", CODE, a.id); ACH_ALL = ACH_ALL.filter(x => x.id !== a.id); $("ach-back").click(); } catch (e) { $("ach-dmsg").textContent = cleanErr(e); }
   });
 }
+
+// ================= إنجازات القسم (التقارير الشهرية) =================
+const MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+function monthLabel(m) { const [y, mm] = String(m || "").split("-"); return mm ? `${MONTHS_AR[+mm - 1]} ${ar(y)}` : m; }
+let MRP = null;
+async function loadMrp(force) {
+  $("mrp-detail").hidden = true; $("mrp-listwrap").hidden = false;
+  const box = $("mrp-list");
+  if (!MRP || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { MRP = await run("listMonthlyReports", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
+  if (!MRP.length) { box.innerHTML = '<div class="empty">لا توجد تقارير شهرية بعد. أول تقرير يصل أول الشهر القادم.</div>'; return; }
+  let h = "", last = "";
+  MRP.forEach(r => { if (r.month !== last) { h += `<div class="vis-group">${monthLabel(r.month)}</div>`; last = r.month; }
+    h += `<button class="li li-btn" data-mrp="${esc(r.id)}"><div class="li-main"><b>${esc(r.title || "تقرير إنجازات قسم " + SUBJECTS[r.dept])}</b><span class="sub">قسم ${esc(SUBJECTS[r.dept] || "")} · ${ar(r.items.length)} إنجازًا ونشاطًا · أُعدّ ${fmtStamp(r.createdAt)}</span></div><span class="pill ok">جاهز</span></button>`; });
+  box.innerHTML = h;
+  box.querySelectorAll("[data-mrp]").forEach(b => b.onclick = () => openMrp(b.dataset.mrp));
+}
+$("mrp-reload").onclick = () => loadMrp(true);
+function openMrp(id) {
+  const r = MRP.find(x => x.id === id); if (!r) return;
+  $("mrp-listwrap").hidden = true; const d = $("mrp-detail"); d.hidden = false;
+  d.innerHTML = `<button class="btn ghost sm" id="mrp-back" type="button">→ رجوع للقائمة</button>
+    <h2 style="margin-top:10px">${esc(r.title)}</h2><div class="sub">قسم ${esc(SUBJECTS[r.dept])} · ${monthLabel(r.month)} · ${ar(r.items.length)} إنجازًا ونشاطًا${r.updatedAt ? " · آخر تعديل " + fmtStamp(r.updatedAt) : ""}</div>
+    ${r.items.length ? `<ul class="sub" style="margin:8px 0">${r.items.map(i => `<li>${esc(i.title)} — أ. ${esc(i.teacher)} (${fmtDate(i.date)}) · ${ar(i.photos.length)} صور</li>`).join("")}</ul>` : ""}
+    <h3>نص التقرير</h3><div class="sub">السطر «[[صور:…]]» يضع صور ذلك الإنجاز في مكانه عند التنزيل.</div>
+    <textarea id="mrp-text" rows="18">${esc(r.report || "")}</textarea>
+    <div class="row-actions" style="margin-top:10px"><button class="btn" id="mrp-save" type="button">حفظ التعديل</button><button class="btn" id="mrp-word" type="button">تنزيل وورد</button><button class="btn ghost" id="mrp-pdf" type="button">PDF</button><button class="btn ghost" id="mrp-del" type="button">حذف</button></div>
+    <div class="saved" id="mrp-msg"></div>`;
+  $("mrp-back").onclick = () => loadMrp();
+  const cur = () => ({ ...r, report: $("mrp-text").value }), fname = `${r.title || "تقرير إنجازات القسم"} - ${monthLabel(r.month)}`;
+  $("mrp-save").onclick = async () => { const m = $("mrp-msg"); m.textContent = "جارٍ الحفظ…"; try { const x = await run("saveMonthlyReport", CODE, r.id, $("mrp-text").value); r.report = $("mrp-text").value; r.updatedAt = x.updatedAt; m.textContent = "تم الحفظ."; } catch (e) { m.textContent = cleanErr(e); } };
+  const photosOf = async () => { const map = {}; for (const i of r.items) { map[i.id] = []; for (const p of i.photos) { try { map[i.id].push(await photo(p)); } catch (e) {} } } return map; };
+  $("mrp-pdf").onclick = () => deliverPdf(async () => pdfMonthly(cur(), await photosOf()), fname + ".pdf", $("mrp-msg"));
+  $("mrp-word").onclick = async () => {
+    const m = $("mrp-msg"); if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; } m.textContent = "جارٍ إنشاء الملف…";
+    try { const ph = await photosOf(), imgs = {}; for (const k in ph) { imgs[k] = []; for (const src of ph[k]) imgs[k].push({ data: b64ToBytes(src), ...(await imgSize(src)) }); }
+      await deliver(await window.docx.Packer.toBlob(buildMonthlyDoc(window.docx, cur(), imgs)), fname + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
+  };
+  $("mrp-del").onclick = () => confirmInline($("mrp-del"), "اضغط مرة ثانية للتأكيد", async () => { try { await run("deleteMonthlyReport", CODE, r.id); MRP = MRP.filter(x => x.id !== r.id); loadMrp(); } catch (e) { $("mrp-msg").textContent = cleanErr(e); } });
+}
+// يقسم نص التقرير إلى نصوص وأماكن صور: [[صور:معرف]]
+function mrpParts(text) { return String(text || "").split(/^\s*\[\[صور:\s*([^\]]+?)\s*\]\]\s*$/m).map((x, i) => i % 2 ? { photos: x.trim() } : { text: x }); }
 
 // ================= سجل النشرات والتعاميم =================
 const NSH_SOURCES = ["التوجيه الفني للعلوم الشرعية", "إدارة المعهد", "وزارة التربية", "رئيس الشعبة", "أخرى"];
@@ -3085,6 +3156,30 @@ function buildNshAckDoc(D, c, acks) {
   });
   return h.doc([...h.formHeader("كشف اطلاع"), h.para(`${c.kind}: ${c.title}`, { size: 28, bold: true, color: h.NAVY, align: h.C, after: 140 }), info, h.para("", { after: 120 }),
     h.table(rows, [600, 4500, 2900, 2000], h.softBorders("C9D6E3")), h.para("", { after: 200 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000)]);
+}
+function buildMonthlyDoc(D, r, imgs) {
+  const h = H(D);
+  const title = (String(r.report || "").match(/^\s*العنوان\s*:\s*(.+)$/m) || [])[1] || r.title;
+  const info = h.table([
+    [h.lab("القسم:", { w: 1900 }), h.cell(SUBJECTS[r.dept], { w: 3100, size: 19 }), h.lab("الشهر:", { w: 1900 }), h.cell(monthLabel(r.month), { w: 3100, size: 19 })],
+    [h.lab("عدد الإنجازات والأنشطة:"), h.cell(ar(r.items.length), { size: 19 }), h.lab("رئيس الشعبة:"), h.cell(HEAD_SIGN, { size: 19 })]
+  ], [1900, 3100, 1900, 3100], h.softBorders("C9D6E3"));
+  const kids = [...h.formHeader("تقرير إنجازات القسم"), h.para(title, { size: 30, bold: true, color: h.NAVY, align: h.C, after: 140 }), info, h.para("", { after: 100 })];
+  const gallery = list => { const rows = [];
+    for (let i = 0; i < list.length; i += 2) {
+      rows.push(list.slice(i, i + 2).map(im => { const w = 280, hh = Math.min(200, w * im.h / im.w), ww = hh * im.w / im.h; return h.cell([new D.Paragraph({ alignment: h.C, children: [h.img(im.data, ww, hh)] })], { w: 4850 }); }));
+      if (rows[rows.length - 1].length === 1) rows[rows.length - 1].push(h.cell("", { w: 4850 }));
+    }
+    return h.table(rows, [4850, 4850], h.noBorders); };
+  const used = new Set();
+  mrpParts(r.report).forEach(p => {
+    if (p.text != null) { if (p.text.trim()) kids.push(...reportBody(h, p.text)); }
+    else { used.add(p.photos); const im = imgs[p.photos] || []; if (im.length) kids.push(gallery(im)); }
+  });
+  const rest = r.items.filter(i => !used.has(i.id) && (imgs[i.id] || []).length);
+  if (rest.length) { kids.push(h.heading("صور من الإنجازات")); rest.forEach(i => kids.push(h.para(`${i.title} — أ. ${i.teacher}`, { bold: true, after: 60 }), gallery(imgs[i.id]))); }
+  kids.push(h.para("", { after: 200, keepNext: true }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
+  return h.doc(kids);
 }
 function buildMinuteDoc(D, m, sigs) {
   const h = H(D);

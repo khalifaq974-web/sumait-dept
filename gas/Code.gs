@@ -9,6 +9,7 @@ const SHEET_DATA = "الإدخالات";
 const SHEET_LOG = "السجل";
 const SHEET_ACH = "الإنجازات";
 const SHEET_NSH = "النشرات والتعاميم";
+const SHEET_MRP = "تقارير إنجازات القسم";
 const SHEET_NSHACK = "اطلاع النشرات";
 const SHEET_MIN = "المحاضر";
 const SHEET_SIG = "التواقيع";
@@ -61,7 +62,8 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, del
   saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, classesOverview, classSheet, saveGrades,
   listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport,
   myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
-  listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular };
+  listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
+  listMonthlyReports, saveMonthlyReport, deleteMonthlyReport };
 
 function doPost(e) {
   let out;
@@ -97,7 +99,7 @@ function setup() {
   codes.autoResizeColumns(1, 4);
   sheet_(SHEET_DATA, ["المفتاح", "الفصل", "القسم", "المعلم", "الحصص المنجزة", "آخر ما أُنجز", "ملاحظة", "آخر تحديث"], true);
   sheet_(SHEET_LOG, ["الوقت", "المعلم", "الفصل", "القسم", "الحصص المنجزة", "ملاحظة"], true);
-  sheet_(SHEET_ACH, ["المعرف", "المعلم", "التاريخ", "النوع", "العنوان", "الفئة المستهدفة", "وصف المعلم", "الصور", "الحالة", "التقرير", "تاريخ الرفع", "تاريخ الصياغة", "السجل", "النتائج والفائزون"], true);
+  sheet_(SHEET_ACH, ["المعرف", "المعلم", "التاريخ", "النوع", "العنوان", "الفئة المستهدفة", "وصف المعلم", "الصور", "الحالة", "التقرير", "تاريخ الرفع", "تاريخ الصياغة", "السجل", "النتائج والفائزون", "القسم"], true);
   sheet_(SHEET_MIN, ["المعرف", "العنوان", "التاريخ", "الوقت", "المكان", "الحضور", "جدول الأعمال", "ما دار في الاجتماع", "التوصيات", "تاريخ الإنشاء"], true);
   sheet_(SHEET_SIG, ["المحضر", "المعلم", "وقت التوقيع", "التوقيع"], true);
   sheet_(SHEET_MYSIG, ["المعلم", "التوقيع", "آخر تحديث"], true);
@@ -247,17 +249,19 @@ function headData(code) { head_(code); return readEntries_(); }
 // أعمدة ورقة الإنجازات:
 // 0 المعرف | 1 المعلم | 2 التاريخ | 3 النوع | 4 العنوان | 5 الفئة المستهدفة | 6 وصف المعلم
 // 7 الصور (معرفات Drive مفصولة بفاصلة) | 8 الحالة | 9 التقرير | 10 تاريخ الرفع | 11 تاريخ الصياغة
-// 12 السجل (pd = التنمية المهنية وإنجاز الموظف، act = الأنشطة والمسابقات) | 13 النتائج والفائزون
+// 12 السجل (pd = التنمية المهنية وإنجاز الموظف، act = الأنشطة والمسابقات) | 13 النتائج والفائزون | 14 القسم (hd/qr)
 const ACH_KINDS = { pd: "التنمية المهنية وإنجاز الموظف", act: "الأنشطة والمسابقات" };
 
 function achObj_(r, withReport) {
   const o = { id: r[0], teacher: r[1], date: r[2], type: r[3], title: r[4], target: r[5], desc: r[6],
     photos: r[7] ? r[7].split(",").filter(Boolean) : [], status: r[8] || ST_PENDING, createdAt: r[10], reportedAt: r[11],
-    kind: r[12] === "act" ? "act" : "pd", results: r[13] || "" };
+    kind: r[12] === "act" ? "act" : "pd", results: r[13] || "", dept: r[14] === "qr" || r[14] === "hd" ? r[14] : achDept_(r[1]) };
   if (withReport) o.report = r[9];
   return o;
 }
 
+/** قسم الإنجاز إن لم يُحدَّد: من مادة المعلم (إن كان يدرّس مادة واحدة)، وإلا الحديث الشريف */
+function achDept_(name) { const cl = classesOf_(name) || []; const d = cl.map(c => c.split(":")[0]); return d.length && d.every(x => x === "qr") ? "qr" : "hd"; }
 function submitAchievement(code, a) {
   const me = who_(code);
   const title = String(a.title || "").trim().slice(0, 150);
@@ -274,13 +278,15 @@ function submitAchievement(code, a) {
     return folder.createFile(blob).getId();
   });
   const kind = a.kind === "act" ? "act" : "pd", results = kind === "act" ? String(a.results || "").trim().slice(0, 1500) : "";
+  const dept = a.dept === "qr" || a.dept === "hd" ? a.dept : achDept_(me.name);
   const row = [id, me.name, String(a.date || "").slice(0, 10), String(a.type || "").slice(0, 60), title,
-    String(a.target || "").slice(0, 150), desc, ids.join(","), ST_PENDING, "", nowText_(), "", kind, results];
+    String(a.target || "").slice(0, 150), desc, ids.join(","), ST_PENDING, "", nowText_(), "", kind, results, dept];
   withLock_(() => appendText_(sh_(SHEET_ACH), row));
   notify_(me, `${kind === "act" ? "نشاط/مسابقة" : "تنمية مهنية"} من أ. ${me.name}: ${title}`, `
     <p>رفع <b>أ. ${esc_(me.name)}</b> ${kind === "act" ? "نشاطًا" : "إنجازًا"} جديدًا في سجل «${ACH_KINDS[kind]}»، وهو بانتظار الصياغة.</p>
     <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
       <tr><td style="background:#e8f1f8"><b>العنوان</b></td><td>${esc_(title)}</td></tr>
+      <tr><td style="background:#e8f1f8"><b>القسم</b></td><td>${esc_(SUBJ[dept])}</td></tr>
       <tr><td style="background:#e8f1f8"><b>النوع</b></td><td>${esc_(row[3])}</td></tr>
       <tr><td style="background:#e8f1f8"><b>التاريخ</b></td><td>${esc_(row[2])}</td></tr>
       <tr><td style="background:#e8f1f8"><b>الفئة المستهدفة</b></td><td>${esc_(row[5] || "—")}</td></tr>
@@ -1139,4 +1145,32 @@ function deleteCircular(code, id) {
     for (let i = v.length - 1; i >= 1; i--) if (v[i][0] === String(id)) ak.deleteRow(i + 1);
     return true;
   });
+}
+
+
+// ======================= إنجازات القسم (التقارير الشهرية) =======================
+// يُعدّها Claude أول كل شهر عن الشهر السابق: تقرير لقسم الحديث الشريف وتقرير لقسم القرآن الكريم.
+// الأعمدة: 0 المعرف | 1 الشهر (yyyy-MM) | 2 القسم (hd/qr) | 3 العنوان | 4 التقرير | 5 الإنجازات المشمولة (معرفات مفصولة بفاصلة) | 6 وقت الإعداد | 7 آخر تعديل
+// في نص التقرير: سطر «[[صور:معرف الإنجاز]]» يضع صور ذلك الإنجاز في مكانه.
+const MRP_HEAD = ["المعرف", "الشهر", "القسم", "العنوان", "التقرير", "الإنجازات المشمولة", "وقت الإعداد", "آخر تعديل"];
+function mrpSheet_() { return sheet_(SHEET_MRP, MRP_HEAD, true); }
+function listMonthlyReports(code) {
+  head_(code);
+  const ach = {}; rows_(SHEET_ACH).slice(1).filter(r => r[0]).forEach(r => ach[r[0]] = achObj_(r, false));
+  return mrpSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(r => ({ id: r[0], month: r[1], dept: r[2], title: r[3], report: r[4],
+    items: (r[5] || "").split(",").map(x => x.trim()).filter(x => ach[x]).map(x => ({ id: x, title: ach[x].title, teacher: ach[x].teacher, date: ach[x].date, type: ach[x].type, kind: ach[x].kind, photos: ach[x].photos })),
+    createdAt: r[6], updatedAt: r[7] })).sort((a, b) => (b.month + b.dept).localeCompare(a.month + a.dept));
+}
+function saveMonthlyReport(code, id, text) {
+  head_(code);
+  return withLock_(() => {
+    const sh = mrpSheet_(), row = findRow_(sh, 1, String(id)); if (row < 0) throw new Error("التقرير غير موجود.");
+    const at = nowText_();
+    sh.getRange(row, 5).setValue(String(text || "").slice(0, 45000)); sh.getRange(row, 8).setValue(at);
+    return { updatedAt: at };
+  });
+}
+function deleteMonthlyReport(code, id) {
+  head_(code);
+  return withLock_(() => { const sh = mrpSheet_(), row = findRow_(sh, 1, String(id)); if (row < 0) throw new Error("التقرير غير موجود."); sh.deleteRow(row); return true; });
 }
