@@ -1383,7 +1383,7 @@ function buildClassSheetDoc(D, r) {
     [1300, 2300, 1000, 1200, 1100, 3700, 1700, 2100], h.softBorders("C9D6E3"));
   const stats = `عدد المتعلمين ${ar(r.students.length)}، واكتمل الرصد لـ ${ar(full)}، ومتوسط المجموع ${full ? fmtN(sum / full) : "—"} من ٤٠، ودون ٥٠٪ (أقل من ٢٠) ${ar(low)}.`;
   return h.doc([...h.formHeader("كشف متابعة المتعلمين", 14400), info, h.para("", { after: 0, size: 8 }), grid,
-    h.para(stats, { size: 17, bold: true, color: NAVY, before: 60, after: 0 }),
+    h.para("", { size: 8, after: 0 }),
     h.signRow([["معلم المادة", "أ. " + r.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400)], { landscape: true });
 }
 
@@ -1995,8 +1995,7 @@ function pdfClassSheet(r) {
   });
   return { box: "كشف متابعة المتعلمين", landscape: true, signs: [["معلم المادة", "أ. " + r.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
     P.info([["المادة", SUBJECTS[ci.dept]], ["الصف", ci.label], ["المعلم", "أ. " + r.teacher], ["الفصل الدراسي", `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧`]], 4),
-    P.grid(head, rows, "xs"),
-    P.p(`عدد المتعلمين ${ar(r.students.length)}، واكتمل الرصد لـ ${ar(full)}، ومتوسط المجموع ${full ? fmtN(sum / full) : "—"} من ٤٠، ودون ٥٠٪ (أقل من ٢٠) ${ar(low)}.`, "b")] };
+    P.grid(head, rows, "xs")] };
 }
 function pdfStudentReport(r) {
   const k = SREP_KEY[r.type] || r.type, F = SREP[k], d = r.data || {}, dept = r.cls ? r.cls.split(":")[0] : (r.dept || "hd"), ci = r.cls ? classInfo(r.cls) : null;
