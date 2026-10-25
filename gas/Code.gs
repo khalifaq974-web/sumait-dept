@@ -268,7 +268,7 @@ function achDept_(name) { const cl = classesOf_(name) || []; const d = cl.map(c 
 function submitAchievement(code, a) {
   const me = who_(code);
   const title = String(a.title || "").trim().slice(0, 150);
-  const desc = String(a.desc || "").trim().slice(0, 3000);
+  const desc = String(a.desc || "").trim().slice(0, 6000);
   if (!title) throw new Error("اكتب عنوان النشاط.");
   if (desc.length < 10) throw new Error("اكتب وصفًا للنشاط ولو بسطرين.");
   const photos = (a.photos || []).slice(0, 4);
@@ -308,7 +308,7 @@ function myAchievements(code) {
 /** تعديل المعلم لما رفعه (النص والصور): يعود «بانتظار الاعتماد» ويصل رئيسَ الشعبة إشعار */
 function editAchievement(code, id, a) {
   const me = who_(code);
-  const title = String(a.title || "").trim().slice(0, 150), desc = String(a.desc || "").trim().slice(0, 3000);
+  const title = String(a.title || "").trim().slice(0, 150), desc = String(a.desc || "").trim().slice(0, 6000);
   if (!title) throw new Error("اكتب العنوان.");
   if (desc.length < 10) throw new Error("اكتب وصفًا ولو بسطرين.");
   const res = withLock_(() => {
@@ -328,13 +328,12 @@ function editAchievement(code, id, a) {
     r[2] = String(a.date || r[2]).slice(0, 10); r[3] = String(a.type || r[3]).slice(0, 60); r[4] = title; r[5] = String(a.target || "").slice(0, 150); r[6] = desc;
     r[7] = ids.join(","); r[13] = kind === "act" ? String(a.results || "").trim().slice(0, 1500) : "";
     if (a.dept === "hd" || a.dept === "qr") r[14] = a.dept;
-    if (!me.isHead) r[8] = ST_PENDING;
     writeRow_(sh, row, r);
     if (!me.isHead) sh.getRange(row, 16).setNumberFormat("@").setValue(nowText_());
     return { kind, photos: ids, status: r[8] };
   });
   if (!me.isHead) notify_(me, `تعديل ${res.kind === "act" ? "نشاط" : "إنجاز"} من أ. ${me.name}: ${title}`,
-    `<p>عدّل <b>أ. ${esc_(me.name)}</b> ${res.kind === "act" ? "نشاطه" : "إنجازه"} «${esc_(title)}» في سجل «${ACH_KINDS[res.kind]}»، وهو الآن بانتظار اعتمادك مرة أخرى من الموقع.</p>`);
+    `<p>عدّل <b>أ. ${esc_(me.name)}</b> ${res.kind === "act" ? "نشاطه" : "إنجازه"} «${esc_(title)}» في سجل «${ACH_KINDS[res.kind]}».</p>`);
   return res;
 }
 
@@ -344,7 +343,7 @@ function deleteAchievement(code, id) {
     const sh = sh_(SHEET_ACH), row = findRow_(sh, 1, id);
     if (row < 0) throw new Error("النشاط غير موجود.");
     const r = sh.getRange(row, 1, 1, 12).getDisplayValues()[0];
-    if (!me.isHead && (r[1] !== me.name || r[8] === ST_READY)) throw new Error("لا يمكن حذف هذا النشاط.");
+    if (!me.isHead && r[1] !== me.name) throw new Error("لا يمكن حذف هذا النشاط.");
     (r[7] || "").split(",").filter(Boolean).forEach(fid => { try { DriveApp.getFileById(fid).setTrashed(true); } catch (e) {} });
     sh.deleteRow(row);
     return true;
@@ -446,22 +445,22 @@ function deleteMinute(code, id) {
 
 function signMinute(code, id, image) {
   const me = who_(code);
-  image = String(image || "");
-  if (!validSig_(image)) throw new Error("التوقيع غير صالح، ارسمه مرة أخرى.");
+  image = String(image || ""); // التوقيع الإلكتروني أُلغي (قرار رئيس الشعبة ٢٥/١٠/٢٠٢٦): يكفي تأكيد الاطلاع، والتوقيع يدوي على الورق
+  if (image && !validSig_(image)) throw new Error("التوقيع غير صالح، ارسمه مرة أخرى.");
   const r = rows_(SHEET_MIN).slice(1).find(x => x[0] === id);
   if (!r || (me.isDemo !== (id === DEMO_MINUTE))) throw new Error("المحضر غير موجود.");
   if (minObj_(r).attendees.indexOf(me.name) === -1) throw new Error("اسمك ليس ضمن حضور هذا الاجتماع.");
   return withLock_(() => {
     const sh = sh_(SHEET_SIG), vals = sh.getDataRange().getDisplayValues();
-    for (let i = 1; i < vals.length; i++) if (vals[i][0] === id && vals[i][1] === me.name) throw new Error("وقّعت على هذا المحضر من قبل.");
+    for (let i = 1; i < vals.length; i++) if (vals[i][0] === id && vals[i][1] === me.name) throw new Error("أكّدت اطلاعك على هذا المحضر من قبل.");
     const at = nowText_();
     appendText_(sh, [id, me.name, at, image]);
-    saveMySig_(me.name, image, at);
+    if (image) saveMySig_(me.name, image, at);
     // عند اكتمال توقيع جميع الحضور يصل إيميل لرئيس الشعبة
     const m = minObj_(r), signed = vals.slice(1).filter(v => v[0] === id).map(v => [v[1], v[2]]).concat([[me.name, at]]);
     if (m.attendees.every(n => signed.some(x => x[0] === n))) {
-      notify_(me, `اكتمل التوقيع على محضر: ${m.title}`, `
-        <p>وقّع جميع الحضور (${m.attendees.length}) على محضر <b>${esc_(m.title)}</b> بتاريخ ${esc_(m.date)}.</p>
+      notify_(me, `اكتمل اطلاع الحضور على محضر: ${m.title}`, `
+        <p>اطّلع جميع الحضور (${m.attendees.length}) على محضر <b>${esc_(m.title)}</b> بتاريخ ${esc_(m.date)}.</p>
         <ul>${signed.map(x => `<li>${esc_(x[0])} — ${esc_(x[1])}</li>`).join("")}</ul>
         <p>يمكنك الآن تنزيل المحضر وورد بالتواقيع من ركن «محاضر الاجتماعات».</p>`);
     }
@@ -622,7 +621,7 @@ function saveVisit(code, v) {
     if (v.id) {
       if (row < 0) throw new Error("الزيارة غير موجودة.");
       old = sh.getRange(row, 1, 1, VIS_COLS).getDisplayValues()[0];
-      if (old[15]) throw new Error("وقّع المعلم على هذه الزيارة، فلا يمكن تعديلها.");
+      if (old[15]) throw new Error("اطّلع المعلم على هذه الزيارة، فلا يمكن تعديلها.");
     }
     const number = old && old[1] === teacher ? old[8] : String(visRows_().filter(r => r[1] === teacher).length + 1);
     const values = [old ? old[0] : newId_(), teacher, v.classId, SUBJ[dept] || "", String(v.date || "").slice(0, 10), String(v.period || "").slice(0, 10),
@@ -652,20 +651,20 @@ function getVisit(code, id) {
 function signVisit(code, id, image) {
   const me = who_(code);
   image = String(image || "");
-  if (!validSig_(image)) throw new Error("التوقيع غير صالح، ارسمه مرة أخرى.");
+  if (image && !validSig_(image)) throw new Error("التوقيع غير صالح، ارسمه مرة أخرى.");
   return withLock_(() => {
     const sh = sh_(SHEET_VIS), row = findRow_(sh, 1, id);
     if (row < 0) throw new Error("الزيارة غير موجودة.");
     const r = sh.getRange(row, 1, 1, VIS_COLS).getDisplayValues()[0];
     if (r[1] !== me.name) throw new Error("هذه الزيارة ليست لك.");
-    if (r[15]) throw new Error("وقّعت على هذه الزيارة من قبل.");
+    if (r[15]) throw new Error("أكّدت اطلاعك على هذه الزيارة من قبل.");
     const at = nowText_();
     r[14] = image; r[15] = at;
     writeRow_(sh, row, r);
-    saveMySig_(me.name, image, at);
-    notify_(me, `وقّع أ. ${me.name} على الزيارة الصفية رقم ${r[8]}`, `
-      <p>اطّلع <b>أ. ${esc_(me.name)}</b> على الزيارة الصفية رقم ${esc_(r[8])} (${esc_(r[3])}) بتاريخ ${esc_(r[4])}، ووقّع عليها في ${esc_(at)}.</p>
-      <p>يمكنك تنزيل تقرير الزيارة موقّعًا من ركن «الزيارات الصفية».</p>`);
+    if (image) saveMySig_(me.name, image, at);
+    notify_(me, `اطّلع أ. ${me.name} على الزيارة الصفية رقم ${r[8]}`, `
+      <p>اطّلع <b>أ. ${esc_(me.name)}</b> على الزيارة الصفية رقم ${esc_(r[8])} (${esc_(r[3])}) بتاريخ ${esc_(r[4])} في ${esc_(at)}.</p>
+      <p>يمكنك تنزيل تقرير الزيارة من ركن «الزيارات الصفية».</p>`);
     return { signedAt: at };
   });
 }
@@ -1023,7 +1022,7 @@ function submitPermission(code, p) {
   const mode = p.mode === "بديل" ? "بديل" : "متفرغ";
   const sub = mode === "بديل" ? String(p.substitute || "").trim().slice(0, 80) : "";
   if (mode === "بديل" && !sub) throw new Error("اكتب اسم المعلم البديل.");
-  if (!validSig_(p.sig)) throw new Error("وقّع على الطلب قبل الإرسال.");
+  p.sig = String(p.sig || ""); if (p.sig && !validSig_(p.sig)) throw new Error("التوقيع غير صالح.");
   if (p.id) {
     const ed = withLock_(() => {
       const sh = permSheet_(), row = findRow_(sh, 1, String(p.id));
@@ -1032,11 +1031,11 @@ function submitPermission(code, p) {
       if (r[2] !== me.name) throw new Error("ليس طلبك.");
       saveProfile_(me.name, prof);
       const now = nowText_();
-      writeRow_(sh, row, [r[0], r[1], r[2], type, prof.dept, prof.job, prof.civil, reason, date, p.from, p.to, mode, sub, p.sig, r[14], PERM_PENDING, "", "", "", now]);
-      saveMySig_(me.name, p.sig, now);
+      writeRow_(sh, row, [r[0], r[1], r[2], type, prof.dept, prof.job, prof.civil, reason, date, p.from, p.to, mode, sub, p.sig || r[13], r[14], r[15], r[16], r[17], r[18], now]);
+      if (p.sig) saveMySig_(me.name, p.sig, now);
       return r[1];
     });
-    notify_(me, `تعديل طلب استئذان من أ. ${me.name} (${date})`, `<p>عدّل <b>أ. ${esc_(me.name)}</b> طلب الاستئذان رقم ${esc_(ed)}، وهو الآن بانتظار اعتمادك مرة أخرى من الموقع.</p>
+    notify_(me, `تعديل طلب استئذان من أ. ${me.name} (${date})`, `<p>عدّل <b>أ. ${esc_(me.name)}</b> طلب الاستئذان رقم ${esc_(ed)}.</p>
       <p>${esc_(type)} · ${esc_(date)} · من ${esc_(p.from)} ${p.to === "نهاية الدوام" ? "حتى نهاية الدوام" : "إلى " + esc_(p.to)} · ${esc_(reason)}</p>`);
     return { id: String(p.id), serial: ed, edited: true };
   }
@@ -1047,7 +1046,7 @@ function submitPermission(code, p) {
     const n = rows.reduce((mx, r) => Math.max(mx, Number(String(r[1]).split("/")[0]) || 0), 0) + 1;
     const s = n + "/" + year;
     appendText_(permSheet_(), [id, s, me.name, type, prof.dept, prof.job, prof.civil, reason, date, p.from, p.to, mode, sub, p.sig, now, PERM_PENDING, "", "", ""]);
-    saveMySig_(me.name, p.sig, now);
+    if (p.sig) saveMySig_(me.name, p.sig, now);
     return s;
   });
   if (!p.deferMail) permMail_(me, { serial, type, date, from: p.from, to: p.to, reason, mode, sub }, null);
@@ -1056,7 +1055,7 @@ function submitPermission(code, p) {
 function permMail_(me, q, pdf) {
   const toEnd = q.to === "نهاية الدوام";
   notify_(me, `طلب استئذان من أ. ${me.name} (${q.date})`, `
-    <p>أرسل <b>أ. ${esc_(me.name)}</b> طلب استئذان${pdf ? "، والنموذج مرفق PDF جاهز للطباعة والتوقيع" : ""}. ويمكن اعتماده أيضًا من الموقع.</p>
+    <p>أرسل <b>أ. ${esc_(me.name)}</b> طلب استئذان${pdf ? "، والنموذج مرفق PDF جاهز للطباعة والتوقيع" : ""}.</p>
     <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
       <tr><td style="background:#e8f1f8"><b>المسلسل</b></td><td>${esc_(q.serial)}</td></tr>
       <tr><td style="background:#e8f1f8"><b>النوع</b></td><td>${esc_(q.type)}</td></tr>
@@ -1107,7 +1106,7 @@ function deletePermission(code, id) {
     if (row < 0) throw new Error("الاستئذان غير موجود.");
     const r = sh.getRange(row, 1, 1, PERM_HEAD.length).getDisplayValues()[0];
     const head = me.isHead && !me.isDemo;
-    if (!(head || (r[2] === me.name && r[15] === PERM_PENDING))) throw new Error("لا يمكن حذف هذا الاستئذان بعد اعتماده.");
+    if (!(head || r[2] === me.name)) throw new Error("لا يمكن حذف هذا الاستئذان.");
     sh.deleteRow(row);
     return true;
   });
@@ -1169,13 +1168,13 @@ function getCircularFile(code, id) {
 function ackCircular(code, id, sig) {
   const me = who_(code), r = nshRows_().find(x => x[0] === String(id));
   if (!r || me.isDemo || me.isHead || nshTargets_(r[6]).indexOf(me.name) === -1) throw new Error("النشرة غير موجودة.");
-  if (!validSig_(sig)) throw new Error("وقّع قبل تأكيد الاطلاع.");
+  sig = String(sig || ""); if (sig && !validSig_(sig)) throw new Error("التوقيع غير صالح.");
   return withLock_(() => {
     const old = nshAcks_().find(a => a[0] === r[0] && a[1] === me.name);
     if (old) return { at: old[2] };
     const at = nowText_();
     appendText_(nshAckSheet_(), [r[0], me.name, at, sig]);
-    saveMySig_(me.name, sig, at);
+    if (sig) saveMySig_(me.name, sig, at);
     return { at };
   });
 }
@@ -1243,12 +1242,12 @@ const ACT_LOG = {
   deleteStudentReport: () => ({ sec: "cls", text: "حذف تقرير متعلم" }),
   submitAchievement: a => ({ sec: a[1] && a[1].kind === "act" ? "act" : "ach", text: `${a[1] && a[1].kind === "act" ? "رفع نشاطًا في سجل الأنشطة والمسابقات" : "رفع إنجازًا في التنمية المهنية وإنجاز الموظف"}: ${a[1] && a[1].title || ""}` }),
   deleteAchievement: () => ({ sec: "ach", text: "حذف إنجازًا أو نشاطًا مرفوعًا" }),
-  editAchievement: (a, res) => ({ sec: res && res.kind === "act" ? "act" : "ach", text: `عدّل ${res && res.kind === "act" ? "نشاطًا" : "إنجازًا"} وينتظر اعتمادك: ${a[2] && a[2].title || ""}` }),
-  signMinute: a => ({ sec: "min", text: `وقّع على المحضر: ${rowTitle_(SHEET_MIN, a[1], 1)}` }),
-  signVisit: () => ({ sec: "vis", text: "اطّلع ووقّع على بطاقة الزيارة الصفية" }),
-  submitPermission: a => ({ sec: "prm", text: `${a[1] && a[1].id ? "عدّل طلب استئذان وينتظر اعتمادك" : "قدّم طلب استئذان"} (${a[1] && a[1].type || ""}) ليوم ${a[1] && a[1].date || ""}` }),
+  editAchievement: (a, res) => ({ sec: res && res.kind === "act" ? "act" : "ach", text: `عدّل ${res && res.kind === "act" ? "نشاطًا" : "إنجازًا"}: ${a[2] && a[2].title || ""}` }),
+  signMinute: a => ({ sec: "min", text: `اطّلع على المحضر: ${rowTitle_(SHEET_MIN, a[1], 1)}` }),
+  signVisit: () => ({ sec: "vis", text: "اطّلع على بطاقة الزيارة الصفية" }),
+  submitPermission: a => ({ sec: "prm", text: `${a[1] && a[1].id ? "عدّل طلب استئذان" : "قدّم طلب استئذان"} (${a[1] && a[1].type || ""}) ليوم ${a[1] && a[1].date || ""}` }),
   deletePermission: () => ({ sec: "prm", text: "حذف طلب استئذان" }),
-  ackCircular: a => { const r = nshRows_().find(x => x[0] === String(a[1])); return { sec: "nsh", text: `اطّلع ووقّع على ${r ? r[1] + ": " + r[4] : "نشرة"}` }; }
+  ackCircular: a => { const r = nshRows_().find(x => x[0] === String(a[1])); return { sec: "nsh", text: `اطّلع على ${r ? r[1] + ": " + r[4] : "نشرة"}` }; }
 };
 function logAct_(fn, args, result) {
   const me = who_(args[0]); if (me.isHead) return;

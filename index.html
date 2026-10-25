@@ -399,7 +399,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <section id="ach-mine">
         <form id="ach-form" class="card">
           <h2 id="ach-h2">إضافة نشاط</h2>
-          <div class="sub" id="ach-intro">ارفع صور النشاط واكتب وصفًا مختصرًا، ويتولى رئيس الشعبة إعداد التقرير الرسمي.</div>
+          <div class="sub" id="ach-intro"></div>
           <div id="ach-deptbox"><label class="f" for="ach-dept">القسم</label><select id="ach-dept"><option value="hd">الحديث الشريف</option><option value="qr">القرآن الكريم</option></select></div>
           <div class="grid2">
             <div><label class="f" for="ach-type" id="ach-type-l">نوع النشاط</label><select id="ach-type"></select></div>
@@ -409,8 +409,8 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <input type="text" id="ach-title" maxlength="150" placeholder="مثال: إذاعة مدرسية عن فضل العلم" required>
           <label class="f" for="ach-target" id="ach-target-l">الفئة المستهدفة (اختياري)</label>
           <input type="text" id="ach-target" maxlength="150" placeholder="مثال: طلاب ١١/٢، أو جميع طلاب المعهد">
-          <label class="f" for="ach-desc">الوصف</label>
-          <textarea id="ach-desc" rows="5" maxlength="3000" placeholder="ماذا قدّمت؟ من شارك؟ ما الذي تميّز به النشاط؟" required></textarea>
+          <label class="f" for="ach-desc">التقرير</label>
+          <textarea id="ach-desc" rows="10" maxlength="6000" placeholder="ماذا قدّمت؟ من شارك؟ ما الذي تميّز به النشاط؟" required></textarea>
           <div id="ach-resbox" hidden><label class="f" for="ach-results">النتائج والفائزون (اختياري)</label>
           <textarea id="ach-results" rows="3" maxlength="1500" placeholder="مثال: المركز الأول: … · المركز الثاني: … · عدد المشاركين: …"></textarea></div>
           <label class="f" for="ach-photos" id="ach-photos-l">صور النشاط</label>
@@ -573,8 +573,6 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <label class="f">الحصص وقت الاستئذان</label>
           <div class="chips"><label class="chip"><input type="radio" name="pf-mode" value="متفرغ" checked><span>المعلم متفرغ</span></label><label class="chip"><input type="radio" name="pf-mode" value="بديل"><span>بديل المعلم</span></label></div>
           <div id="pf-subbox" hidden><label class="f" for="pf-sub">اسم المعلم البديل</label><input type="text" id="pf-sub" maxlength="80"></div>
-          <label class="f">توقيع المعلم</label>
-          <div id="pf-sig"></div>
           <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="pf-send">إرسال الطلب إلى رئيس الشعبة</button></div>
           <div class="saved" id="pf-msg"></div>
         </form>
@@ -622,8 +620,6 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <textarea id="vf-pos" rows="4" maxlength="3000" placeholder="كل نقطة في سطر"></textarea>
           <label class="f" for="vf-rec">ملاحظات وتوصيات</label>
           <textarea id="vf-rec" rows="4" maxlength="3000" placeholder="كل نقطة في سطر"></textarea>
-          <label class="f">توقيع رئيس الشعبة</label>
-          <div id="vf-sig"></div>
           <div class="row-actions" style="margin-top:14px"><button class="btn" id="vf-save" type="submit">حفظ الزيارة</button></div>
           <div class="saved" id="vf-msg"></div>
         </form>
@@ -948,11 +944,11 @@ const ACT_TYPES = ["مسابقة", "إذاعة مدرسية", "نشاط صفي",
 // السجلّان يتشاركان الركن نفسه: pd = التنمية المهنية وإنجاز الموظف، act = الأنشطة والمسابقات
 const ACH_UI = {
   pd: { name: "التنمية المهنية وإنجاز الموظف", log: "سجل التنمية المهنية وإنجاز الموظف", h2: "إضافة إنجاز أو تنمية مهنية", types: ACH_TYPES, typeL: "نوع الإنجاز",
-    intro: "ارفع صورًا (شهادة الدورة، صور الورشة أو الزيارة…) واكتب وصفًا مختصرًا، ويتولى رئيس الشعبة إعداد التقرير الرسمي.",
+    intro: "ارفع صورًا (شهادة الدورة، صور الورشة أو الزيارة…) واكتب التقرير بأسلوبك. يصل رئيس الشعبة فور الرفع، وتقدر تنزّله PDF أو وورد من القائمة تحت.",
     titlePh: "مثال: دورة استراتيجيات التعلم النشط", targetL: "الجهة المنظمة أو المكان (اختياري)", targetPh: "مثال: التوجيه الفني للعلوم الشرعية", targetInfo: "الجهة المنظمة",
     descPh: "ما الذي حضرته أو قدّمته؟ ما أبرز ما استفدته أو أفدت به زملاءك؟", photosL: "الصور أو الشهادة", noun: "إنجاز", nounDef: "الإنجاز", mine: "إنجازاتي السابقة", box: "تقرير تنمية مهنية", photosH: "الصور والمرفقات" },
   act: { name: "الأنشطة والمسابقات", log: "سجل الأنشطة والمسابقات", h2: "إضافة نشاط أو مسابقة", types: ACT_TYPES, typeL: "نوع النشاط",
-    intro: "ارفع صور النشاط أو المسابقة واكتب وصفًا مختصرًا والنتائج إن وُجدت، ويتولى رئيس الشعبة إعداد التقرير الرسمي.",
+    intro: "ارفع صور النشاط أو المسابقة واكتب التقرير بأسلوبك والنتائج إن وُجدت. يصل رئيس الشعبة فور الرفع، وتقدر تنزّله PDF أو وورد من القائمة تحت.",
     titlePh: "مثال: مسابقة حفظ الأحاديث النبوية", targetL: "الفئة المستهدفة (اختياري)", targetPh: "مثال: طلاب ١١/٢، أو جميع طلاب المعهد", targetInfo: "الفئة المستهدفة",
     descPh: "ماذا قدّمت؟ من شارك؟ ما الذي تميّز به النشاط؟", photosL: "صور النشاط", noun: "نشاط", nounDef: "النشاط", mine: "أنشطتي السابقة", box: "تقرير نشاط", photosH: "صور من النشاط" }
 };
@@ -1605,7 +1601,9 @@ function buildStudentReportDoc(D, r) {
 
 // ================= ركن الاستئذان (إذن خروج — نموذج ٥م) =================
 const PERM_TYPES = ["بداية الدوام", "أثناء الدوام", "نهاية الدوام"];
-const PERM_PILL = { "بانتظار الاعتماد": "ahead", "معتمد": "ok", "مرفوض": "late" };
+const PERM_PILL = { "بانتظار الاعتماد": "ok", "معتمد": "ok", "مرفوض": "late" };
+// لا ينتظر الاستئذان اعتمادًا من الموقع (قرار ٢٥/١٠/٢٠٢٦): يصل رئيسَ الشعبة فور الإرسال، والتوقيع يدوي على الورقة
+const permStatus = st => st === "مرفوض" ? "مرفوض" : "وصل لرئيس الشعبة";
 let PRM = null, prmSub = "new", PRM_PROF = undefined, CUR_PRM = null, prmDelArmed = false;
 
 function defaultDept() {
@@ -1632,12 +1630,11 @@ function prmTab(which) {
 async function loadPerms(force) {
   if (PRM && !force) return PRM;
   try { PRM = await run("listPermissions", CODE); } catch (e) { ["prm-mine-msg", "prm-req-msg", "prm-lmsg"].forEach(id => $(id).textContent = cleanErr(e)); PRM = PRM || []; }
-  const pend = PRM.filter(p => p.status === "بانتظار الاعتماد" && p.teacher !== ME.name).length;
-  $("prmtab-req").textContent = "الطلبات الواردة" + (pend ? ` (${ar(pend)})` : "");
+  $("prmtab-req").textContent = "الطلبات الواردة";
   return PRM;
 }
 function permRow(p) {
-  return `<button type="button" class="li srep-li" data-prm="${esc(p.id)}"><span><b>${ME.isHead && p.teacher !== ME.name ? "أ. " + esc(p.teacher) + " · " : ""}${fmtDate(p.date, true)}</b> <span class="pill ${PERM_PILL[p.status] || "none"}">${esc(p.status)}</span><br>
+  return `<button type="button" class="li srep-li" data-prm="${esc(p.id)}"><span><b>${ME.isHead && p.teacher !== ME.name ? "أ. " + esc(p.teacher) + " · " : ""}${fmtDate(p.date, true)}</b> <span class="pill ${PERM_PILL[p.status] || "none"}">${esc(permStatus(p.status))}</span><br>
     <span class="sub">${esc(p.type)} · من ${fmtClock(p.from)} إلى ${fmtClock(p.to)} · ${esc(p.reason)} · المسلسل ${ar(p.serial)}</span></span><span class="sub">عرض ←</span></button>`;
 }
 function renderPerms() {
@@ -1646,9 +1643,7 @@ function renderPerms() {
   $("prm-mine-list").innerHTML = mine.map(permRow).join("") || `<div class="empty">لم ترسل أي طلب استئذان بعد.</div>`;
   if (ME.isHead) {
     const others = L.filter(p => p.teacher !== ME.name);
-    const pend = others.filter(p => p.status === "بانتظار الاعتماد"), done = others.filter(p => p.status !== "بانتظار الاعتماد");
-    $("prm-req-list").innerHTML = (pend.length ? `<div class="vis-group">بانتظار اعتمادك (${ar(pend.length)})</div>` + pend.map(permRow).join("") : `<div class="empty">لا توجد طلبات بانتظار الاعتماد.</div>`)
-      + (done.length ? `<div class="vis-group">آخر الطلبات</div>` + done.slice(0, 30).map(permRow).join("") : "");
+    $("prm-req-list").innerHTML = others.length ? others.slice(0, 60).map(permRow).join("") : `<div class="empty">لا توجد طلبات استئذان بعد.</div>`;
     renderPermLog();
   }
   document.querySelectorAll("[data-prm]").forEach(b => b.onclick = () => openPerm(b.dataset.prm));
@@ -1662,14 +1657,14 @@ async function startPermEdit(p) {
   $("pf-reason").value = p.reason; $("pf-date").value = p.date; $("pf-date").oninput(); $("pf-from").value = p.from;
   if (p.to === END_DAY) { $("pf-toend").checked = true; } else { $("pf-totime").checked = true; $("pf-to").value = p.to; } pfToMode();
   const md = document.querySelector(`input[name="pf-mode"][value="${p.mode === "بديل" ? "بديل" : "متفرغ"}"]`); md.checked = true; $("pf-subbox").hidden = p.mode !== "بديل"; $("pf-sub").value = p.substitute || "";
-  $("pf-send").textContent = "حفظ التعديل وإرساله لرئيس الشعبة"; $("pf-msg").textContent = `تعديل الطلب رقم ${ar(p.serial)}: عدّل ما تريد ثم وقّع من جديد.`;
+  $("pf-send").textContent = "حفظ التعديل"; $("pf-msg").textContent = `تعديل الطلب رقم ${ar(p.serial)}: عدّل ما تريد ثم احفظ.`;
   $("prm-form").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 async function prmForm() {
   $("pf-name").textContent = "أ. " + ME.name;
   $("pf-types").innerHTML = PERM_TYPES.map((t, i) => `<label class="chip"><input type="radio" name="pf-type" value="${t}"${i === 1 ? " checked" : ""}><span>${t}</span></label>`).join("");
   if (!$("pf-date").value) $("pf-date").value = todayISO();
-  $("pf-date").oninput(); setupVisPad("pf-sig", true);
+  $("pf-date").oninput();
   if (PRM_PROF === undefined) { try { PRM_PROF = await run("myProfile", CODE); } catch (e) { PRM_PROF = null; } }
   const p = PRM_PROF || {};
   $("pf-job").value = p.job || (ME.isHead ? "رئيس الشعبة" : "معلم"); $("pf-civil").value = p.civil || ""; $("pf-dept").value = p.dept || defaultDept();
@@ -1682,13 +1677,12 @@ $("pf-date").oninput = () => { const d = isoDay($("pf-date").value); $("pf-day")
 document.querySelectorAll('input[name="pf-mode"]').forEach(r => r.onchange = () => { $("pf-subbox").hidden = document.querySelector('input[name="pf-mode"]:checked').value !== "بديل"; });
 $("prm-form").addEventListener("submit", async e => {
   e.preventDefault();
-  const m = $("pf-msg"), sig = padImage("pf-sig");
+  const m = $("pf-msg"), sig = "";
   const body = { job: $("pf-job").value, civil: normNum($("pf-civil").value), dept: $("pf-dept").value,
     type: (document.querySelector('input[name="pf-type"]:checked') || {}).value, reason: $("pf-reason").value, date: $("pf-date").value,
     from: $("pf-from").value, to: $("pf-toend").checked ? END_DAY : $("pf-to").value, mode: document.querySelector('input[name="pf-mode"]:checked').value, substitute: $("pf-sub").value, sig };
   if (!/^\d{12}$/.test(body.civil)) { $("pf-prof").open = true; m.textContent = "الرقم المدني يتكون من ١٢ رقمًا."; $("pf-civil").focus(); return; }
   if (!body.from || !body.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)، أو اختر «حتى نهاية الدوام»."; return; }
-  if (!sig) { m.textContent = "وقّع على الطلب قبل الإرسال."; return; }
   $("pf-send").disabled = true; m.textContent = "جارٍ الإرسال…";
   if (PRM_EDIT) {
     try {
@@ -1696,7 +1690,7 @@ $("prm-form").addEventListener("submit", async e => {
       PRM_EDIT = null; $("pf-send").textContent = "إرسال الطلب إلى رئيس الشعبة";
       $("pf-reason").value = ""; $("pf-from").value = ""; $("pf-to").value = ""; $("pf-totime").checked = true; pfToMode(); $("pf-sub").value = "";
       PRM = null; await loadPerms(true); m.textContent = "";
-      openPerm(r.id, "تم حفظ التعديل، ورجع الطلب لرئيس الشعبة ليعتمده مرة أخرى ✓");
+      openPerm(r.id, "تم حفظ التعديل ووصل لرئيس الشعبة ✓");
     } catch (err) { m.textContent = cleanErr(err); }
     finally { $("pf-send").disabled = false; }
     return;
@@ -1726,11 +1720,11 @@ async function openPerm(id, note) {
   let p; try { p = await run("getPermission", CODE, id); } catch (e) { box.innerHTML = `<div class="saved">${esc(cleanErr(e))}</div>`; return; }
   CUR_PRM = p;
   const mine = p.teacher === ME.name, head = ME.isHead && !ME.isDemo, pending = p.status === "بانتظار الاعتماد";
-  const canDecide = ME.isHead && pending;
+  const canDecide = false; // أُلغي الاعتماد من الموقع
   const [fh, fm] = hm(p.from), [th, tm] = hm(p.to);
   box.innerHTML = `<div class="vis-head-row"><button class="btn ghost sm" type="button" id="pd-back">→ رجوع</button><span class="saved">${note || ""}</span></div>
   <div class="card minute" style="margin-top:10px">
-    <h2>طلب استئذان · المسلسل ${ar(p.serial)} <span class="pill ${PERM_PILL[p.status] || "none"}">${esc(p.status)}</span></h2>
+    <h2>طلب استئذان · المسلسل ${ar(p.serial)} <span class="pill ${PERM_PILL[p.status] || "none"}">${esc(permStatus(p.status))}</span></h2>
     <div class="sub">إخطار بمدة الاستئذان المصرح بها · ${esc(p.type)}</div>
     <dl class="meta-grid" style="margin-top:10px">
       <div><dt>الاسم</dt><dd>أ. ${esc(p.teacher)}</dd></div><div><dt>القسم</dt><dd>${esc(p.dept)}</dd></div>
@@ -1739,15 +1733,14 @@ async function openPerm(id, note) {
       <div class="wide"><dt>سبب التصريح</dt><dd>${esc(p.reason)}</dd></div>
       <div class="wide"><dt>الحصص</dt><dd>${p.mode === "بديل" ? "بديل المعلم: أ. " + esc(p.substitute) : "المعلم متفرغ"}</dd></div>
     </dl>
-    <div class="sig-pair" style="margin-top:12px"><div><div class="sub">توقيع المعلم</div>${p.teacherSig ? `<img class="sigimg" src="${p.teacherSig}" alt="توقيع المعلم">` : "—"}</div>
-      <div><div class="sub">توقيع رئيس الشعبة</div>${p.headSig ? `<img class="sigimg" src="${p.headSig}" alt="توقيع رئيس الشعبة">` : `<span class="sub">${pending ? "بانتظار الاعتماد" : "—"}</span>`}</div></div>
+    <div class="sig-pair" style="margin-top:12px"><div><div class="sub">توقيع المعلم</div>${p.teacherSig ? `<img class="sigimg" src="${p.teacherSig}" alt="توقيع المعلم">` : `<span class="sub">يدويًا على الورقة المطبوعة</span>`}</div>
+      <div><div class="sub">توقيع رئيس الشعبة</div>${p.headSig ? `<img class="sigimg" src="${p.headSig}" alt="توقيع رئيس الشعبة">` : `<span class="sub">يدويًا على الورقة المطبوعة</span>`}</div></div>
     ${p.headNote ? `<p><b>ملاحظة رئيس الشعبة:</b> ${esc(p.headNote)}</p>` : ""}
     ${canDecide ? `<div class="signbox"><h3>اعتماد الاستئذان</h3><div id="pd-sig"></div>
       <label class="f" for="pd-note">ملاحظة (اختياري)</label><input type="text" id="pd-note" maxlength="300">
       <div class="row-actions" style="margin-top:10px"><button class="btn" type="button" id="pd-ok">اعتماد وتوقيع</button><button class="btn ghost" type="button" id="pd-no">رفض</button></div></div>` : ""}
     <div class="row-actions" style="margin-top:14px"><button class="btn${canDecide ? " ghost" : ""}" type="button" id="pd-word">تنزيل النموذج وورد</button><button class="btn ghost" type="button" id="pd-pdf">PDF</button>
-      ${mine ? `<button class="btn ghost" type="button" id="pd-edit">تعديل الطلب</button>` : ""}${head || (mine && pending) ? `<button class="btn ghost" type="button" id="pd-del">حذف</button>` : ""}</div>
-    ${mine && !pending ? `<div class="sub">إذا عدّلت الطلب يرجع لرئيس الشعبة ليعتمده مرة أخرى.</div>` : ""}
+      ${mine ? `<button class="btn ghost" type="button" id="pd-edit">تعديل الطلب</button>` : ""}${head || mine ? `<button class="btn ghost" type="button" id="pd-del">حذف</button>` : ""}</div>
     <div class="sub">توقيع المدير المساعد ومدير المعهد وجزء التأخير يُعبّأ على الورقة المطبوعة.</div>
     <div class="saved" id="pd-msg"></div>
   </div>`;
@@ -2051,7 +2044,7 @@ function pdfVisit(v) {
   return { box: "تقرير زيارة رئيس الشعبة", guid: true, signs: [["رئيس الشعبة", HEAD_SIGN, v.headSig], ["المعلم", "أ. " + v.teacher, v.teacherSig], ["مدير المعهد", PRINCIPAL]], blocks: [
     visInfo(v),
     `<table class="grid vis" style="table-layout:fixed"><colgroup><col style="width:4%"><col style="width:23%"><col style="width:7%"><col style="width:8.5%"><col style="width:6%"><col style="width:6.5%"><col style="width:15%"><col style="width:30%"></colgroup><thead>${P.th(["م", "البنود", "ممتاز", "جيد جدًا", "جيد", "ضعيف", "ملاحظات", "تقرير رئيس الشعبة"])}</thead><tbody>${rows.join("")}</tbody></table>`,
-    v.teacherSignedAt ? P.p("اطّلع المعلم ووقّع: " + fmtStamp(v.teacherSignedAt), "mut c") : ""] };
+    ""] };
 }
 function pdfDailyReserve(date) {
   const abs = RES.absences.filter(a => a.date === date), covs = RES.covers.filter(c => c.date === date && c.status !== COV_PRESENT).sort((a, b) => a.period - b.period || a.absent.localeCompare(b.absent, "ar"));
@@ -2124,8 +2117,8 @@ function pdfAchLog(kind, list) {
 }
 function pdfNshAck(c, acks) {
   return { box: "كشف اطلاع", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.title(`${c.kind}: ${c.title}`),
-    P.info([["النوع", c.kind], ["الرقم", ar(c.number || "—")], ["التاريخ", fmtDate(c.date, true)], ["جهة الإصدار", c.source || "—"], ["المعنيون", c.audLabel], ["عدد المطّلعين", `${ar(acks.filter(a => a.at).length)} من ${ar(acks.length)}`]]),
-    P.grid(P.th(["م", "المعلم", "التوقيع", "وقت الاطلاع"]), acks.map((a, i) => P.tr([{ t: ar(i + 1), c: "c" }, "أ. " + a.teacher, { html: a.sig ? P.img(a.sig) : "", c: "c" }, { t: a.at ? fmtStamp(a.at) : "لم يطّلع", c: "c" }])))] };
+    P.info([["النوع", c.kind], ["الرقم", ar(c.number || "—")], ["التاريخ", fmtDate(c.date, true)], ["جهة الإصدار", c.source || "—"], ["المعنيون", c.audLabel]], 3),
+    P.grid(P.th(["م", "المعلم", "التوقيع", "وقت الاطلاع"]), acks.map((a, i) => P.tr([{ t: ar(i + 1), c: "c" }, "أ. " + a.teacher, { html: a.sig ? P.img(a.sig) : "", c: "c" }, { t: a.at ? fmtStamp(a.at) : "", c: "c" }])))] };
 }
 function pdfNshLog(list) {
   return { box: "سجل النشرات والتعاميم", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
@@ -2209,7 +2202,7 @@ function startAchEdit(a) {
   $("ach-date").value = a.date; $("ach-title").value = a.title; $("ach-target").value = a.target || ""; $("ach-desc").value = a.desc || ""; $("ach-results").value = a.results || "";
   $("ach-h2").textContent = "تعديل: " + a.title; $("ach-submit").textContent = "حفظ التعديل";
   if (!$("ach-cancel")) { const c = document.createElement("button"); c.type = "button"; c.className = "btn ghost"; c.id = "ach-cancel"; c.textContent = "إلغاء التعديل"; $("ach-submit").after(c); c.onclick = endAchEdit; }
-  $("ach-cancel").hidden = false; $("ach-msg").textContent = ME.isHead ? "" : "بعد حفظ التعديل يرجع لرئيس الشعبة ليعتمده مرة أخرى.";
+  $("ach-cancel").hidden = false; $("ach-msg").textContent = "";
   renderPreviews();
   KEEP.forEach(k => photo(k.id).then(src => { k.src = src; const im = document.querySelector(`[data-keep="${k.id}"]`); if (im) im.src = src; }).catch(() => {}));
   $("ach-form").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2233,7 +2226,7 @@ $("ach-form").addEventListener("submit", async e => {
     try {
       await run("editAchievement", CODE, EDIT_ACH.id, { kind: ACH_KIND, dept: $("ach-dept").value, type: $("ach-type").value, title: $("ach-title").value, date: $("ach-date").value, target: $("ach-target").value, desc: $("ach-desc").value, results: ACH_KIND === "act" ? $("ach-results").value : "", keep: KEEP.map(k => k.id), photos: PHOTOS });
       endAchEdit(); ACH = null; ACH_ALL = null; loadMyAch();
-      msg.textContent = ME.isHead ? "تم حفظ التعديل." : "تم حفظ التعديل، ورجع لرئيس الشعبة ليعتمده مرة أخرى.";
+      msg.textContent = ME.isHead ? "تم حفظ التعديل." : "تم حفظ التعديل ووصل لرئيس الشعبة.";
     } catch (x) { msg.textContent = cleanErr(x); }
     finally { btn.disabled = false; }
     return;
@@ -2242,7 +2235,7 @@ $("ach-form").addEventListener("submit", async e => {
   try {
     await run("submitAchievement", CODE, { kind: ACH_KIND, dept: $("ach-dept").value, type: $("ach-type").value, title: $("ach-title").value, date: $("ach-date").value, target: $("ach-target").value, desc: $("ach-desc").value, results: ACH_KIND === "act" ? $("ach-results").value : "", photos: PHOTOS });
     PHOTOS = []; renderPreviews(); $("ach-title").value = ""; $("ach-target").value = ""; $("ach-desc").value = ""; $("ach-results").value = ""; $("ach-date").value = todayISO();
-    msg.textContent = ME.isHead ? `تم رفع ${U.nounDef} واعتماده في «${U.log}»، وسيُصاغ تقريره الرسمي تلقائيًا.` : `تم رفع ${U.nounDef} في «${U.log}». سيُعدّ رئيس الشعبة التقرير الرسمي.`;
+    msg.textContent = ME.isHead ? `تم رفع ${U.nounDef} في «${U.log}»، وسيُصاغ تقريره الرسمي تلقائيًا.` : `تم رفع ${U.nounDef} ووصل لرئيس الشعبة. تقدر تنزّله PDF أو وورد من القائمة تحت.`;
     ACH = null; ACH_ALL = null; loadMyAch();
   } catch (x) { msg.textContent = cleanErr(x); }
   finally { btn.disabled = false; }
@@ -2255,9 +2248,18 @@ async function loadMyAch() {
   if (!mine.length) { box.innerHTML = `<div class="empty">لم ترفع شيئًا في «${U.log}» بعد. استخدم النموذج أعلاه.</div>`; return; }
   box.innerHTML = mine.map(a => `<div class="li">
       <div class="li-main"><b>${esc(a.title)}</b><span class="sub">${esc(a.type)} · ${fmtDate(a.date)}${a.photos.length ? " · " + ar(a.photos.length) + " صور" : ""}</span></div>
-      <div class="row-actions">${ME.isHead ? `<span class="pill ok">معتمد</span>` : `<span class="pill ${a.status === ST_READY ? "ok" : "none"}">${a.status === ST_READY ? "تمت المراجعة" : a.editedAt ? "معدّل · بانتظار الاعتماد" : "قيد المراجعة"}</span>`}
-      ${ME.isHead ? `<button class="btn sm" data-view="${a.id}">عرض</button>` : ""}<button class="btn ghost sm" data-edit="${a.id}">تعديل</button>
-      ${a.status === ST_READY && !ME.isHead ? "" : `<button class="btn ghost sm" data-del="${a.id}">حذف</button>`}</div></div>`).join("");
+      <div class="row-actions">${ME.isHead ? `<span class="pill ok">معتمد</span>` : `<span class="pill ok">وصل لرئيس الشعبة</span>`}
+      ${ME.isHead ? `<button class="btn sm" data-view="${a.id}">عرض</button>` : `<button class="btn sm" data-mpdf="${a.id}">PDF</button><button class="btn ghost sm" data-mword="${a.id}">وورد</button>`}<button class="btn ghost sm" data-edit="${a.id}">تعديل</button>
+      <button class="btn ghost sm" data-del="${a.id}">حذف</button></div></div>`).join("") + `<div class="saved" id="ach-mmsg"></div>`;
+  // المعلم ينزّل ما رفعه بتقريره هو (بأسلوبه) بالديباجة المعتمدة
+  const asReport = a => ({ ...a, report: "العنوان: " + a.title + "\n" + (a.desc || "") });
+  box.querySelectorAll("[data-mpdf]").forEach(b => b.onclick = () => { const a = mine.find(x => x.id === b.dataset.mpdf);
+    deliverPdf(async () => { const ph = []; for (const x of a.photos) ph.push(await photo(x)); if (ph.length > 1) ph.splice(0, ph.length, await collage(ph)); return pdfAchievement(asReport(a), ph); }, `تقرير ${a.title}.pdf`, $("ach-mmsg")); });
+  box.querySelectorAll("[data-mword]").forEach(b => b.onclick = async () => { const a = mine.find(x => x.id === b.dataset.mword), m = $("ach-mmsg");
+    if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
+    m.textContent = "جارٍ إنشاء الملف…";
+    try { const imgs = [], srcs = []; for (const p of a.photos) srcs.push(await photo(p)); if (srcs.length) { const src = await collage(srcs); imgs.push({ data: b64ToBytes(src), ...(await imgSize(src)) }); }
+      await deliver(await window.docx.Packer.toBlob(buildAchievementDoc(window.docx, asReport(a), imgs)), `تقرير ${a.title}.docx`, m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); } });
   box.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => startAchEdit(mine.find(a => a.id === b.dataset.edit)));
   box.querySelectorAll("[data-view]").forEach(b => b.onclick = async () => {
     b.disabled = true; b.textContent = "جارٍ الفتح…";
@@ -2318,7 +2320,7 @@ async function openAch(id) {
     <h3>التقرير الرسمي</h3>
     ${a.status !== ST_READY && a.editedAt && a.report ? `<div class="notice">عدّل المعلم هذا في ${fmtStamp(a.editedAt)}. راجع الوصف والصور، وعدّل التقرير إن لزم، ثم اضغط «اعتماد».</div>` : ""}
     <div class="sub">${a.status === ST_READY ? "صيغ في " + fmtStamp(a.reportedAt) + ". يمكنك تعديل النص ثم الحفظ." : a.report ? "بانتظار اعتمادك." : "لم يُصغ بعد. اطلب من Claude: «صغ الإنجازات الجديدة»، أو اكتب التقرير بنفسك هنا."}</div>
-    <textarea id="ach-report" rows="14" placeholder="## مقدمة&#10;نص الفقرة…&#10;## تفاصيل النشاط&#10;- نقطة&#10;- نقطة">${esc(a.report || "")}</textarea>
+    <textarea id="ach-report" rows="14" placeholder="## مقدمة&#10;نص الفقرة…&#10;## تفاصيل النشاط&#10;- نقطة&#10;- نقطة">${esc(a.report || (a.desc ? "العنوان: " + a.title + "\n" + a.desc : ""))}</textarea>
     <div class="row-actions" style="margin-top:10px">
       <button class="btn" id="ach-save">${a.status !== ST_READY && a.report ? "اعتماد" : "حفظ التقرير"}</button>
       <button class="btn" id="ach-word" ${a.report ? "" : "disabled"}>تنزيل وورد</button><button class="btn ghost" id="ach-pdf" type="button" ${a.report ? "" : "disabled"}>PDF</button>
@@ -2493,12 +2495,11 @@ async function openNsh(id) {
   };
   const act = $("nsh-act");
   if (!ME.isHead) {
-    if (c.myAckAt) { act.innerHTML = `<div class="saved" style="margin-top:12px">✓ اطّلعت ووقّعت في ${fmtStamp(c.myAckAt)}.</div>`; return; }
-    act.innerHTML = `<h3>الاطلاع والتوقيع</h3><div class="sub">اقرأ ${esc(c.kind)} ثم وقّع لتأكيد اطلاعك.</div><div id="nsh-sig"></div>
-      <div class="row-actions" style="margin-top:10px"><button class="btn" id="nsh-ack" type="button">اطّلعت ووقّعت</button></div><div class="saved" id="nsh-amsg"></div>`;
-    setupVisPad("nsh-sig", true);
+    if (c.myAckAt) { act.innerHTML = `<div class="saved" style="margin-top:12px">✓ اطّلعت في ${fmtStamp(c.myAckAt)}.</div>`; return; }
+    act.innerHTML = `<h3>الاطلاع</h3><div class="sub">اقرأ ${esc(c.kind)} ثم اضغط «اطّلعت». التوقيع يكون يدويًا على الكشف المطبوع.</div>
+      <div class="row-actions" style="margin-top:10px"><button class="btn" id="nsh-ack" type="button">اطّلعت</button></div><div class="saved" id="nsh-amsg"></div>`;
     $("nsh-ack").onclick = async () => {
-      const m = $("nsh-amsg"), sig = padImage("nsh-sig"); if (!sig) { m.textContent = "وقّع داخل المربع أولًا."; return; }
+      const m = $("nsh-amsg"), sig = "";
       $("nsh-ack").disabled = true; m.textContent = "جارٍ الحفظ…";
       try { const r = await run("ackCircular", CODE, c.id, sig); c.myAckAt = r.at; openNsh(c.id); } catch (e) { m.textContent = cleanErr(e); $("nsh-ack").disabled = false; }
     };
@@ -2539,8 +2540,8 @@ async function loadMinutes(force) {
   if (!MIN.length) { box.innerHTML = `<div class="empty">${ME.isHead ? "لا توجد محاضر بعد. اضغط «محضر جديد» لكتابة أول محضر." : "لا توجد محاضر بعد."}</div>`; return; }
   box.innerHTML = MIN.map(m => {
     const attendee = m.attendees.indexOf(ME.name) !== -1;
-    const pill = ME.isHead ? `<span class="pill ${m.signedCount >= m.attendees.length ? "ok" : "none"}">وقّع ${ar(m.signedCount)} من ${ar(m.attendees.length)}</span>`
-      : !attendee ? `<span class="pill none">لست ضمن الحضور</span>` : m.mySignedAt ? `<span class="pill ok">وقّعت</span>` : `<span class="pill late">بانتظار توقيعك</span>`;
+    const pill = ME.isHead ? `<span class="pill ${m.signedCount >= m.attendees.length ? "ok" : "none"}">اطّلع ${ar(m.signedCount)} من ${ar(m.attendees.length)}</span>`
+      : !attendee ? `<span class="pill none">لست ضمن الحضور</span>` : m.mySignedAt ? `<span class="pill ok">اطّلعت</span>` : `<span class="pill late">بانتظار اطلاعك</span>`;
     return `<button class="li li-btn" data-open="${m.id}"><div class="li-main"><b>${esc(m.title)}</b><span class="sub">${fmtDate(m.date, true)}</span></div>${pill}</button>`;
   }).join("");
   box.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openMinute(b.dataset.open));
@@ -2565,22 +2566,25 @@ async function openMinute(id) {
   const signed = Object.fromEntries(m.signatures.map(s => [s.teacher, s]));
   const mine = signed[ME.name], attendee = m.attendees.indexOf(ME.name) !== -1;
   let html = `<button class="btn ghost sm" id="min-back">→ رجوع للمحاضر</button><div class="minute">${minuteHtml(m)}</div>`;
-  if (attendee && mine) html += `<div class="card signbox"><h3>توقيعك</h3><img class="sigimg" src="${mine.image}" alt="توقيعك"><div class="sub">وقّعت في ${fmtStamp(mine.signedAt)}</div></div>`;
-  else if (attendee) html += `<div class="card signbox"><h3>التوقيع على المحضر</h3>
-      <div id="sig-saved" hidden><div class="sub">توقيعك المحفوظ:</div><img class="sigimg" id="sig-saved-img" alt="توقيعك المحفوظ"><div class="row-actions"><button class="btn ghost sm" type="button" id="sig-redraw">ارسم توقيعًا جديدًا</button></div></div>
-      <div id="sig-draw"><div class="sub">ارسم توقيعك بإصبعك أو بالفأرة داخل المربع.</div><canvas id="sig-pad" width="600" height="220" aria-label="مربع التوقيع"></canvas>
-      <div class="row-actions"><button class="btn ghost sm" type="button" id="sig-clear">مسح</button></div></div>
+  if (attendee && mine) html += `<div class="card signbox"><div class="saved">✓ اطّلعت على المحضر في ${fmtStamp(mine.signedAt)}.</div></div>`;
+  else if (attendee) html += `<div class="card signbox"><h3>الاطلاع على المحضر</h3><div class="sub">التوقيع يكون يدويًا على المحضر المطبوع.</div>
       <label class="check"><input type="checkbox" id="sig-ack"> اطّلعت على المحضر وأوافق على ما ورد فيه</label>
-      <div class="row-actions" style="margin-top:10px"><button class="btn" id="sig-submit">توقيع</button><span class="saved" id="sig-msg"></span></div></div>`;
+      <div class="row-actions" style="margin-top:10px"><button class="btn" id="sig-submit">اطّلعت</button><span class="saved" id="sig-msg"></span></div></div>`;
   if (ME.isHead) {
-    html += `<div class="card"><h3>حالة التوقيع (${ar(m.signatures.length)} من ${ar(m.attendees.length)})</h3>
-      ${m.attendees.map(n => `<div class="acct"><span>${esc(n)}</span>${signed[n] ? `<span class="pill ok">وقّع ${fmtStamp(signed[n].signedAt)}</span>` : `<span class="pill late">لم يوقّع</span>`}</div>`).join("")}
+    html += `<div class="card"><h3>الاطلاع (${ar(m.signatures.length)} من ${ar(m.attendees.length)})</h3>
+      ${m.attendees.map(n => `<div class="acct"><span>${esc(n)}</span>${signed[n] ? `<span class="pill ok">اطّلع ${fmtStamp(signed[n].signedAt)}</span>` : `<span class="pill none">لم يطّلع بعد</span>`}</div>`).join("")}
       <div class="row-actions" style="margin-top:12px"><button class="btn" id="min-word">تنزيل المحضر وورد</button><button class="btn ghost" id="min-pdf" type="button">PDF</button><button class="btn ghost" id="min-edit">تعديل</button><button class="btn ghost" id="min-del">حذف</button></div>
       <div class="saved" id="min-dmsg"></div></div>`;
   }
   d.innerHTML = html;
   $("min-back").onclick = () => loadMinutes(true);
-  if (attendee && !mine) setupPad();
+  if (attendee && !mine) $("sig-submit").onclick = async () => {
+    const msg = $("sig-msg");
+    if (!$("sig-ack").checked) { msg.textContent = "أكّد اطلاعك على المحضر أولًا."; return; }
+    $("sig-submit").disabled = true; msg.textContent = "جارٍ الحفظ…";
+    try { await run("signMinute", CODE, CUR_MIN.id, ""); MIN = null; openMinute(CUR_MIN.id); }
+    catch (e) { msg.textContent = cleanErr(e); $("sig-submit").disabled = false; }
+  };
   if (ME.isHead) {
     $("min-edit").onclick = () => editMinute(m);
     $("min-del").onclick = () => confirmInline($("min-del"), "اضغط مرة ثانية لحذف المحضر وتواقيعه", async () => {
@@ -2739,7 +2743,6 @@ function initVisForm(v) {
   $("vf-heading").textContent = v ? `تعديل الزيارة رقم ${ar(v.number)}` : "زيارة جديدة";
   $("vf-msg").textContent = "";
   renderVisItems(v ? v.ratings : null);
-  setupVisPad("vf-sig", true);
 }
 function fillVisClasses(sel) {
   const cls = teacherClasses($("vf-teacher").value);
@@ -2800,8 +2803,7 @@ $("vis-form").addEventListener("submit", async e => {
   if (!$("vf-teacher").value || !$("vf-class").value) { msg.textContent = "اختر المعلم والفصل."; return; }
   const ratings = VIS_ITEMS.map((t, i) => { const r = document.querySelector(`input[name="lv${i}"]:checked`); return [r ? r.value : "", $("nt" + i).value.trim()]; });
   const missing = ratings.filter(r => !r[0]).length;
-  const sig = padImage("vf-sig");
-  if (!sig) { msg.textContent = "وقّع على التقرير قبل الحفظ."; return; }
+  const sig = "";
   btn.disabled = true; msg.textContent = missing ? `جارٍ الحفظ… (${ar(missing)} بنود بدون تقدير، تبقى فارغة في التقرير)` : "جارٍ الحفظ…";
   try {
     const r = await run("saveVisit", CODE, { id: $("vf-id").value, teacher: $("vf-teacher").value, classId: $("vf-class").value,
@@ -2841,7 +2843,7 @@ async function loadVisits(which, force) {
   box.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openVisit(b.dataset.open));
 }
 function visLi(v) {
-  const pill = v.teacherSignedAt ? '<span class="pill ok">وقّع المعلم</span>' : (ME.isHead ? '<span class="pill late">بانتظار توقيع المعلم</span>' : '<span class="pill late">بانتظار توقيعك</span>');
+  const pill = v.teacherSignedAt ? '<span class="pill ok">اطّلع المعلم</span>' : (ME.isHead ? '<span class="pill none">لم يطّلع بعد</span>' : '<span class="pill late">بانتظار اطلاعك</span>');
   return `<button class="li li-btn" data-open="${v.id}"><div class="li-main"><b>الزيارة رقم ${ar(v.number)}${v.topic ? " · " + esc(v.topic) : ""}</b>
     <span class="sub">${ME.isHead ? "أ. " + esc(v.teacher) + " · " : ""}${classFull(v.classId)} · ${fmtDate(v.date, true)}</span></div>${pill}</button>`;
 }
@@ -2871,21 +2873,20 @@ async function openVisit(id) {
   let html = `<button class="btn ghost sm" id="vis-back">→ رجوع</button><div class="minute">${visCardHtml(v)}</div>`;
   html += `<div class="card signbox"><h3>التواقيع</h3><div class="sig-pair">
     <div><div class="sub">توقيع رئيس الشعبة</div>${v.headSig ? `<img class="sigimg" src="${v.headSig}" alt="توقيع رئيس الشعبة">` : "—"}</div>
-    <div><div class="sub">توقيع المعلم</div>${v.teacherSig ? `<img class="sigimg" src="${v.teacherSig}" alt="توقيع المعلم"><div class="sub">${fmtStamp(v.teacherSignedAt)}</div>` : '<span class="pill late">لم يوقّع بعد</span>'}</div></div></div>`;
-  if (mine && !v.teacherSignedAt) html += `<div class="card signbox"><h3>توقيعك على الزيارة</h3><div id="vs-pad"></div>
+    <div><div class="sub">توقيع المعلم</div>${v.teacherSig ? `<img class="sigimg" src="${v.teacherSig}" alt="توقيع المعلم"><div class="sub">${fmtStamp(v.teacherSignedAt)}</div>` : '<span class="pill none">لم يطّلع بعد</span>'}</div></div></div>`;
+  if (mine && !v.teacherSignedAt) html += `<div class="card signbox"><h3>الاطلاع على الزيارة</h3><div class="sub">التوقيع يكون يدويًا على التقرير المطبوع.</div>
     <label class="check"><input type="checkbox" id="vs-ack"> اطّلعت على تقرير الزيارة وما ورد فيه من ملاحظات وتوصيات</label>
-    <div class="row-actions" style="margin-top:10px"><button class="btn" id="vs-submit">توقيع</button><span class="saved" id="vs-msg"></span></div></div>`;
+    <div class="row-actions" style="margin-top:10px"><button class="btn" id="vs-submit">اطّلعت</button><span class="saved" id="vs-msg"></span></div></div>`;
   if (ME.isHead) html += `<div class="row-actions" style="margin-top:12px"><button class="btn" id="vis-word">تنزيل التقرير وورد</button><button class="btn ghost" id="vis-pdf" type="button">PDF</button>
     ${v.teacherSignedAt ? "" : '<button class="btn ghost" id="vis-edit">تعديل</button>'}<button class="btn ghost" id="vis-del">حذف</button></div><div class="saved" id="vis-dmsg"></div>`;
   d.innerHTML = html;
   $("vis-back").onclick = () => { d.hidden = true; visTab(ME.isHead ? (visSub === "new" ? "log" : visSub) : "mine"); };
   if (mine && !v.teacherSignedAt) {
-    setupVisPad("vs-pad", true);
     $("vs-submit").onclick = async () => {
       const msg = $("vs-msg");
       if (!$("vs-ack").checked) { msg.textContent = "أكّد اطلاعك على التقرير أولًا."; return; }
-      const img = padImage("vs-pad"); if (!img) { msg.textContent = "ارسم توقيعك داخل المربع."; return; }
-      $("vs-submit").disabled = true; msg.textContent = "جارٍ التوقيع…";
+      const img = "";
+      $("vs-submit").disabled = true; msg.textContent = "جارٍ الحفظ…";
       try { await run("signVisit", CODE, v.id, img); VIS = null; openVisit(v.id); } catch (e) { msg.textContent = cleanErr(e); $("vs-submit").disabled = false; }
     };
   }
@@ -2944,7 +2945,7 @@ function buildVisitDoc(D, v, headSig, teacherSig) {
   const signs = h.table([[
     h.cell([h.para("رئيس الشعبة", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), h.para(HEAD_SIGN, { size: 19, bold: true, align: C, after: 0 }), sigImg(headSig),
       h.para("المعلم", { size: 20, bold: true, color: NAVY, align: C, before: 60, after: 0 }), h.para("أ. " + v.teacher, { size: 18, align: C, after: 0 }), sigImg(teacherSig),
-      ...(v.teacherSignedAt ? [h.para("اطّلع ووقّع: " + fmtStamp(v.teacherSignedAt), { size: 14, color: h.MUTED, align: C, after: 0 })] : [])], { w: 5000 }),
+      ...[]], { w: 5000 }),
     h.cell([h.para("مدير المعهد", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), h.para(PRINCIPAL, { size: 19, bold: true, align: C, after: 0 }), h.para("", { after: 0, line: 300 })], { w: 5000 })
   ]], [5000, 5000], h.noBorders);
   const children = [...header, info, h.para("", { after: 60, line: 120 }), body, h.para("", { after: 60, line: 160 }), signs];
@@ -3308,13 +3309,13 @@ function buildNshAckDoc(D, c, acks) {
   const info = h.table([
     [h.lab("النوع:", { w: 1600 }), h.cell(c.kind, { w: 3400, size: 19 }), h.lab("الرقم:", { w: 1600 }), h.cell(ar(c.number || "—"), { w: 3400, size: 19 })],
     [h.lab("التاريخ:"), h.cell(fmtDate(c.date, true), { size: 19 }), h.lab("جهة الإصدار:"), h.cell(c.source || "—", { size: 19 })],
-    [h.lab("المعنيون:"), h.cell(c.audLabel, { size: 19 }), h.lab("عدد المطّلعين:"), h.cell(`${ar(acks.filter(a => a.at).length)} من ${ar(acks.length)}`, { size: 19 })]
+    [h.lab("المعنيون:"), h.cell(c.audLabel, { size: 19 }), h.lab(""), h.cell("", { size: 19 })]
   ], [1600, 3400, 1600, 3400], h.softBorders("C9D6E3"));
   const rows = [[h.th("م"), h.th("المعلم"), h.th("التوقيع"), h.th("وقت الاطلاع")]];
   acks.forEach((a, i) => {
     const s = a.img;
     const sigCell = s ? h.cell([new D.Paragraph({ alignment: h.C, children: [h.img(s.data, Math.min(110, 36 * s.w / s.h), Math.min(36, 110 * s.h / s.w), "png")] })]) : h.cell("", {});
-    rows.push([h.cell(ar(i + 1), { align: h.C }), h.cell("أ. " + a.teacher), sigCell, h.cell(a.at ? fmtStamp(a.at) : "لم يطّلع", { align: h.C, size: 18, color: h.MUTED })]);
+    rows.push([h.cell(ar(i + 1), { align: h.C }), h.cell("أ. " + a.teacher), sigCell, h.cell(a.at ? fmtStamp(a.at) : "", { align: h.C, size: 18, color: h.MUTED })]);
   });
   return h.doc([...h.formHeader("كشف اطلاع"), h.para(`${c.kind}: ${c.title}`, { size: 28, bold: true, color: h.NAVY, align: h.C, after: 140 }), info, h.para("", { after: 120 }),
     h.table(rows, [600, 4500, 2900, 2000], h.softBorders("C9D6E3")), h.para("", { after: 200 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000)]);
