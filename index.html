@@ -1005,6 +1005,18 @@ function fmtStamp(s) { const m = String(s || "").match(/^(\d{4}-\d{2}-\d{2}) (\d
 function todayISO() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
 function b64ToBytes(b64) { const s = atob(String(b64).replace(/^data:[^,]+,/, "")); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
 function blobToDataURL(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); }); }
+// يجمع الصور في صورة واحدة صغيرة (صف واحد بارتفاع موحّد)
+async function collage(srcs, W = 1400, maxH = 420) {
+  if (srcs.length < 2) return srcs[0];
+  const ims = await Promise.all(srcs.map(src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; })));
+  const ok = ims.filter(Boolean), gap = 8;
+  const H = Math.round(Math.min(maxH, (W - gap * (ok.length - 1)) / ok.reduce((t, i) => t + i.naturalWidth / i.naturalHeight, 0)));
+  const ws = ok.map(i => Math.round(i.naturalWidth * H / i.naturalHeight)), cw = ws.reduce((a, b) => a + b, 0) + gap * (ok.length - 1);
+  const c = document.createElement("canvas"); c.width = cw; c.height = H; const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, cw, H);
+  let x = 0; ok.forEach((i, k) => { g.drawImage(i, x, 0, ws[k], H); x += ws[k] + gap; });
+  return c.toDataURL("image/jpeg", 0.88);
+}
 function imgSize(src) { return new Promise(res => { const i = new Image(); i.onload = () => res({ w: i.naturalWidth, h: i.naturalHeight }); i.onerror = () => res({ w: 4, h: 3 }); i.src = src; }); }
 function lines(t) { return String(t || "").split(/\n+/).map(s => s.replace(/^\s*[-•*\d٠-٩]+[.)\-–]?\s+/, "").trim()).filter(Boolean); }
 function classLabel(id) { try { return classInfo(id).label; } catch (e) { return id; } }
@@ -1860,7 +1872,7 @@ const PDF_CSS = `
 .pp .late{color:#B4382B;font-weight:700}.pp .ok{color:#2F7D4F;font-weight:700}.pp .ahead{color:#6B4FB5;font-weight:700}.pp .none{color:#7D8892}
 .pp .sg{display:grid;text-align:center;font-size:13.5px;margin-top:8px}
 .pp .sg b{display:block;color:#1E3A5F}.pp .sg .n{font-weight:700}.pp .sg .sp{height:38px}.pp .sg img{height:42px;max-width:150px;object-fit:contain;display:block;margin:2px auto}
-.pp.tight .bd{zoom:.88}.pp .ph{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pp .ph img{width:100%;height:190px;object-fit:contain;background:#F4F7FA;border:1px solid #C9D6E3;border-radius:6px}.pp .ph img:only-child{grid-column:1/-1;height:215px}.pp .ph:has(img:nth-child(3)){grid-template-columns:repeat(3,1fr)}.pp .ph:has(img:nth-child(3)) img{height:300px}
+.pp.tight .bd{zoom:.88}.pp .ph{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pp .ph img{width:100%;height:190px;object-fit:contain;background:#F4F7FA;border:1px solid #C9D6E3;border-radius:6px}.pp .ph img:only-child{grid-column:1/-1;height:165px}.pp .ph:has(img:nth-child(3)){grid-template-columns:repeat(3,1fr)}.pp .ph:has(img:nth-child(3)) img{height:300px}
 .pp .tbx{display:inline-block;min-width:64px;border:1px solid #C9D6E3;text-align:center;font-weight:700;margin-left:4px;vertical-align:middle}.pp .tbx i{display:block;font-style:normal;background:#1E3A5F;color:#fff;font-size:11px;padding:1px 0}
 .pp table.plain{table-layout:auto}.pp table.plain td{vertical-align:middle}
 .pp.land .hd{grid-template-columns:120px 1fr 120px}.pp.land .hd .moe{width:80px}.pp.land .hd .ins{width:84px}.pp.land .mid .g{width:26px}.pp.land .mid .t{font-size:14px;margin:2px 0 4px}.pp.land .box{font-size:16px;padding:3px 36px}.pp.land .sg{margin-top:4px;font-size:12.5px}.pp.land .sg .sp{height:26px}.pp.land .bd p{margin:0 0 2px}.pp.land .fr{padding:12px 22px 10px}.pp.land .rule{margin:6px 0 8px}
@@ -1885,7 +1897,16 @@ const P = {
 function pdfHeader(box, guid) {
   return `<div class="hd"><img class="moe" src="data:image/png;base64,${MOE_B64}"><div class="mid">${guid ? `<img class="g" src="data:image/png;base64,${GUID_B64}">` : ""}<div class="t">${guid ? "التوجيه الفني للعلوم الشرعية" : "قسم الحديث الشريف والقرآن الكريم"}</div><span class="box">${PE(box)}</span></div><img class="ins" src="data:image/png;base64,${LOGO_B64}"></div><div class="rule"></div>`;
 }
+// إذا كان صاحب السجل رئيس الشعبة نفسه فلا يتكرر اسمه: يبقى توقيع «رئيس الشعبة» فقط
+function dedupeSigns(signs) {
+  if (!signs || !signs.some(x => x[0] === "رئيس الشعبة")) return signs;
+  const mine = x => x[0] !== "رئيس الشعبة" && (x[1] === "أ. " + HEAD_NAME || x[1] === HEAD_NAME || x[1] === HEAD_SIGN);
+  const own = signs.find(mine), out = signs.filter(x => !mine(x));
+  if (own && own[2]) out.forEach(x => { if (x[0] === "رئيس الشعبة" && !x[2]) x[2] = own[2]; });
+  return out;
+}
 function pdfSigns(signs) {
+  signs = dedupeSigns(signs);
   if (!signs || !signs.length) return "";
   return `<div class="sg" style="grid-template-columns:repeat(${signs.length},1fr)">${signs.map(([r, n, img]) => `<div><b>${PE(r)}</b><div class="n">${PE(n)}</div>${img ? `<img src="${img}">` : `<div class="sp"></div>`}</div>`).join("")}</div>`;
 }
@@ -1970,11 +1991,14 @@ function pdfCurr(rows, week, now, counts, deptFilter) {
 function pdfAchievement(a, photos) {
   const title = (String(a.report || "").match(/^\s*العنوان\s*:\s*(.+)$/m) || [])[1] || a.title;
   const U = ACH_UI[a.kind === "act" ? "act" : "pd"];
-  const blocks = [P.title(title), P.info([["المعلم", "أ. " + a.teacher], ["التاريخ", fmtDate(a.date, true)], [U.typeL, a.type], [U.targetInfo, a.target || (a.kind === "act" ? "طلاب المعهد" : "—")]]), P.text(a.report)];
+  const blocks = [P.title(title), P.info([achWho(a), ["التاريخ", fmtDate(a.date, true)], [U.typeL, a.type], [U.targetInfo, a.target || (a.kind === "act" ? "طلاب المعهد" : "—")]]), P.text(a.report)];
   if (a.results) blocks.push(P.h("النتائج والفائزون"), lines(a.results).map(x => P.p(x)).join(""));
   if (photos.length) blocks.push(`<div>${P.h(U.photosH)}<div class="ph">${photos.map(src => `<img src="${src}">`).join("")}</div></div>`);
-  return { box: U.box, blocks, signs: [["المعلم", "أ. " + a.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] };
+  return { box: U.box, blocks, signs: achSigns(a) };
 }
+// ما يرفعه رئيس الشعبة نفسه: يُكتب «رئيس الشعبة» بدل «المعلم» بلا تكرار في التواقيع
+function achWho(a) { return a.teacher === HEAD_NAME ? ["رئيس الشعبة", HEAD_SIGN] : ["المعلم", "أ. " + a.teacher]; }
+function achSigns(a) { return a.teacher === HEAD_NAME ? [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] : [["المعلم", "أ. " + a.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]]; }
 function pdfMinute(m) {
   const sig = {}; (m.signatures || []).forEach(s => sig[s.teacher] = s);
   const ag = lines(m.agenda), dec = lines(m.decisions), blocks = [P.title(m.title),
@@ -2244,12 +2268,12 @@ async function openAch(id) {
     try { const r = await run("saveReport", CODE, a.id, t); a.report = t; a.status = r.status; a.reportedAt = r.reportedAt; $("ach-word").disabled = $("ach-pdf").disabled = !t.trim(); m.textContent = "تم الحفظ."; }
     catch (e) { m.textContent = cleanErr(e); } finally { $("ach-save").disabled = false; }
   };
-  $("ach-pdf").onclick = () => deliverPdf(async () => { const ph = []; for (const x of a.photos) ph.push(await photo(x)); return pdfAchievement({ ...a, report: $("ach-report").value }, ph); }, `تقرير ${a.title} - ${a.teacher}.pdf`, $("ach-dmsg"));
+  $("ach-pdf").onclick = () => deliverPdf(async () => { const ph = []; for (const x of a.photos) ph.push(await photo(x)); if (ph.length > 1) ph.splice(0, ph.length, await collage(ph)); return pdfAchievement({ ...a, report: $("ach-report").value }, ph); }, `تقرير ${a.title} - ${a.teacher}.pdf`, $("ach-dmsg"));
   $("ach-word").onclick = async () => {
     const m = $("ach-dmsg"); m.textContent = "جارٍ إنشاء الملف…";
     try {
       const imgs = [];
-      for (const p of a.photos) { const src = await photo(p); imgs.push({ data: b64ToBytes(src), ...(await imgSize(src)) }); }
+      const srcs = []; for (const p of a.photos) srcs.push(await photo(p)); if (srcs.length) { const src = await collage(srcs); imgs.push({ data: b64ToBytes(src), ...(await imgSize(src)) }); }
       const blob = await window.docx.Packer.toBlob(buildAchievementDoc(window.docx, { ...a, report: $("ach-report").value }, imgs));
       await deliver(blob, `تقرير ${a.title} - ${a.teacher}.docx`, m);
     } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
@@ -3136,9 +3160,9 @@ function H(D) {
     ]], [side, mid, side], noBorders);
   };
   // التواقيع بتصميم نموذج الزيارة: الصفة كحلية، الاسم عريض، ومساحة للتوقيع
-  const signRow = (names, total = 9600) => new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: names.map(() => Math.floor(total / names.length)),
+  const signRow = (names, total = 9600) => (names = dedupeSigns(names), new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: names.map(() => Math.floor(total / names.length)),
     width: { size: total, type: D.WidthType.DXA }, borders: noBorders,
-    rows: [new D.TableRow({ cantSplit: true, children: names.map(([role, n]) => cell([para(role, { align: C, bold: true, size: 20, color: NAVY, after: 0 }), para(n, { align: C, size: 19, bold: true, after: 0 }), para("", { after: 0, line: 560 })])) })] });
+    rows: [new D.TableRow({ cantSplit: true, children: names.map(([role, n]) => cell([para(role, { align: C, bold: true, size: 20, color: NAVY, after: 0 }), para(n, { align: C, size: 19, bold: true, after: 0 }), para("", { after: 0, line: 560 })])) })] }));
   const frameLine = { style: D.BorderStyle.DOUBLE, size: 6, color: NAVY, space: 18 };
   const pageFrame = { pageBorderTop: frameLine, pageBorderBottom: frameLine, pageBorderLeft: frameLine, pageBorderRight: frameLine, pageBorders: { display: "allPages", offsetFrom: "page" } };
   const footer = () => new D.Footer({ children: [para(`${SCHOOL} · ${DEPT_TITLE} · رئيس الشعبة: أ. ${HEAD_SHORT} · مدير المعهد: ${PRINCIPAL}`, { size: 15, color: MUTED, align: C, after: 0 })] });
@@ -3169,7 +3193,7 @@ function buildAchievementDoc(D, a, imgs) {
   const U = ACH_UI[a.kind === "act" ? "act" : "pd"];
   const titleLine = (String(a.report || "").match(/^\s*العنوان\s*:\s*(.+)$/m) || [])[1] || a.title;
   const info = h.table([
-    [h.lab("المعلم:", { w: 1600 }), h.cell("أ. " + a.teacher, { w: 3400, size: 19 }), h.lab("التاريخ:", { w: 1600 }), h.cell(fmtDate(a.date, true), { w: 3400, size: 19 })],
+    [h.lab(achWho(a)[0] + ":", { w: 1600 }), h.cell(achWho(a)[1], { w: 3400, size: 19 }), h.lab("التاريخ:", { w: 1600 }), h.cell(fmtDate(a.date, true), { w: 3400, size: 19 })],
     [h.lab(U.typeL + ":"), h.cell(a.type, { size: 19 }), h.lab(U.targetInfo + ":"), h.cell(a.target || (a.kind === "act" ? "طلاب المعهد" : "—"), { size: 19 })]
   ], [1600, 3400, 1600, 3400], h.softBorders("C9D6E3"));
   const children = [...h.formHeader(U.box),
@@ -3178,15 +3202,15 @@ function buildAchievementDoc(D, a, imgs) {
   if (a.results) { children.push(h.heading("النتائج والفائزون")); lines(a.results).forEach(x => children.push(h.para(x, { after: 60 }))); }
   if (imgs.length) {
     children.push(h.heading(U.photosH));
-    const rows = [];
-    for (let i = 0; i < imgs.length; i += 2) {
-      rows.push(imgs.slice(i, i + 2).map(im => { const w = 280, hh = Math.min(200, w * im.h / im.w), ww = hh * im.w / im.h;
-        return h.cell([new D.Paragraph({ alignment: h.C, children: [h.img(im.data, ww, hh)] })], { w: 4850 }); }));
-      if (rows[rows.length - 1].length === 1) rows[rows.length - 1].push(h.cell("", { w: 4850 }));
+    const one = imgs.length === 1, cw = one ? 9700 : 4850, rows = [];
+    for (let i = 0; i < imgs.length; i += one ? 1 : 2) {
+      rows.push(imgs.slice(i, i + (one ? 1 : 2)).map(im => { const w = one ? 560 : 280, hh = Math.min(one ? 125 : 200, w * im.h / im.w), ww = hh * im.w / im.h;
+        return h.cell([new D.Paragraph({ alignment: h.C, children: [h.img(im.data, ww, hh)] })], { w: cw }); }));
+      if (!one && rows[rows.length - 1].length === 1) rows[rows.length - 1].push(h.cell("", { w: cw }));
     }
-    children.push(h.table(rows, [4850, 4850], h.noBorders));
+    children.push(h.table(rows, one ? [9700] : [4850, 4850], h.noBorders));
   }
-  children.push(h.para("", { after: 160, keepNext: true }), h.signRow([["المعلم", "أ. " + a.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
+  children.push(h.para("", { after: imgs.length === 1 ? 40 : 160, keepNext: true }), h.signRow(achSigns(a), 10000));
   return h.doc(children);
 }
 
