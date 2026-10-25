@@ -2153,7 +2153,7 @@ $("ach-form").addEventListener("submit", async e => {
   try {
     await run("submitAchievement", CODE, { kind: ACH_KIND, dept: $("ach-dept").value, type: $("ach-type").value, title: $("ach-title").value, date: $("ach-date").value, target: $("ach-target").value, desc: $("ach-desc").value, results: ACH_KIND === "act" ? $("ach-results").value : "", photos: PHOTOS });
     PHOTOS = []; renderPreviews(); $("ach-title").value = ""; $("ach-target").value = ""; $("ach-desc").value = ""; $("ach-results").value = ""; $("ach-date").value = todayISO();
-    msg.textContent = `تم رفع ${U.nounDef} في «${U.log}». سيُعدّ رئيس الشعبة التقرير الرسمي.`;
+    msg.textContent = ME.isHead ? `تم رفع ${U.nounDef} واعتماده في «${U.log}»، وسيُصاغ تقريره الرسمي تلقائيًا.` : `تم رفع ${U.nounDef} في «${U.log}». سيُعدّ رئيس الشعبة التقرير الرسمي.`;
     ACH = null; ACH_ALL = null; loadMyAch();
   } catch (x) { msg.textContent = cleanErr(x); }
   finally { btn.disabled = false; }
@@ -2166,8 +2166,8 @@ async function loadMyAch() {
   if (!mine.length) { box.innerHTML = `<div class="empty">لم ترفع شيئًا في «${U.log}» بعد. استخدم النموذج أعلاه.</div>`; return; }
   box.innerHTML = mine.map(a => `<div class="li">
       <div class="li-main"><b>${esc(a.title)}</b><span class="sub">${esc(a.type)} · ${fmtDate(a.date)}${a.photos.length ? " · " + ar(a.photos.length) + " صور" : ""}</span></div>
-      <div class="row-actions"><span class="pill ${a.status === ST_READY ? "ok" : "none"}">${a.status === ST_READY ? "تمت المراجعة" : "قيد المراجعة"}</span>
-      ${a.status === ST_READY ? "" : `<button class="btn ghost sm" data-del="${a.id}">حذف</button>`}</div></div>`).join("");
+      <div class="row-actions">${ME.isHead ? `<span class="pill ok">معتمد</span>` : `<span class="pill ${a.status === ST_READY ? "ok" : "none"}">${a.status === ST_READY ? "تمت المراجعة" : "قيد المراجعة"}</span>`}
+      ${a.status === ST_READY && !ME.isHead ? "" : `<button class="btn ghost sm" data-del="${a.id}">حذف</button>`}</div></div>`).join("");
   box.querySelectorAll("[data-del]").forEach(b => b.onclick = () => confirmInline(b, "تأكيد الحذف", async () => {
     try { await run("deleteAchievement", CODE, b.dataset.del); ACH = ACH.filter(a => a.id !== b.dataset.del); loadMyAch(); } catch (e) { b.textContent = cleanErr(e); }
   }));
