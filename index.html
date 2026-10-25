@@ -183,6 +183,44 @@ canvas.pad { width: 100%; height: auto; aspect-ratio: 600 / 220; background: #ff
 table.vis-table { min-width: 560px; }
 table.vis-table td.lv { font-weight: 700; color: var(--accent); white-space: nowrap; }
 table.vis-sum { min-width: 520px; }
+.vstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0; }
+.vstats > div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; text-align: center; }
+.vstats b { display: block; font-family: var(--f-display); font-size: 22px; color: var(--accent); }
+.vstats b small { font-size: 13px; color: var(--muted); font-weight: 400; }
+.vstats span { font-size: 12.5px; color: var(--muted); }
+.vstats .warn b { color: var(--late); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: none; padding: 7px 14px; font: inherit; font-size: 13.5px; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.vt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.vt-card { text-align: right; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+.vt-card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.vt-card.todo { border-inline-start: 4px solid var(--late); }
+.vt-top { display: flex; align-items: center; gap: 8px; }
+.vt-top b { flex: 1; font-size: 15px; }
+.vt-count { font-family: var(--f-display); font-size: 20px; font-weight: 700; color: var(--accent); line-height: 1; text-align: center; }
+.vt-count small { display: block; font-size: 10.5px; color: var(--muted); font-weight: 400; }
+.vt-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.vt-row b { color: var(--ink); }
+.vt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 10px; }
+.vt-head > div:first-child { flex: 1; min-width: 200px; }
+.vt-head h2 { margin: 0 0 2px; }
+.vt-head-stats { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13.5px; color: var(--muted); align-items: center; }
+.vt-head-stats b { color: var(--accent); font-size: 17px; }
+.vv-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.vv-card { display: flex; align-items: stretch; gap: 12px; text-align: right; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; cursor: pointer; }
+.vv-card:hover { border-color: var(--accent); }
+.vv-date { min-width: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 6px; font-size: 11.5px; }
+.vv-date b { font-family: var(--f-display); font-size: 22px; line-height: 1.1; }
+.vv-main { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.vv-topic { font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vv-dist { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.vv-dist i { font-style: normal; font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--none-soft); color: var(--muted); }
+.vv-dist i.l4, .vv-dist i.l3 { background: var(--ok-soft); color: var(--ok); }
+.vv-dist i.l2 { background: var(--ahead-soft); color: var(--ahead); }
+.vv-dist i.l1 { background: var(--late-soft); color: var(--late); }
+.vv-side { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; justify-content: center; }
+@media (max-width: 600px) { .vstats { grid-template-columns: repeat(2, 1fr); } .vv-card { flex-wrap: wrap; padding: 8px; gap: 8px; } .vv-main { flex-basis: calc(100% - 80px); } .vv-side { flex-direction: row; flex-wrap: wrap; width: 100%; justify-content: flex-start; } }
 table.vis-sum tr[data-t] { cursor: pointer; }
 table.vis-sum tr[data-t]:hover td { background: var(--accent-soft); }
 .meta-grid .wide { grid-column: 1 / -1; }
@@ -2815,37 +2853,74 @@ $("vis-form").addEventListener("submit", async e => {
 });
 
 // ---------- السجل والعرض ----------
+// ---- سجل الزيارات (ترتيب ٢٥/١٠/٢٠٢٦): ملخص، وبطاقات المعلمين حسب القسم (الأحوج للزيارة أولًا)، ثم صفحة لكل معلم
+const VIS_SCORE = { "ممتاز": 4, "جيد جدًا": 3, "جيد": 2, "ضعيف": 1 };
+let visDept = "";
+function visLevel(vs) {
+  const sc = []; vs.forEach(v => (v.ratings || []).forEach(r => { if (VIS_SCORE[r[0]]) sc.push(VIS_SCORE[r[0]]); }));
+  if (!sc.length) return null;
+  const a = sc.reduce((x, y) => x + y, 0) / sc.length;
+  return a >= 3.5 ? ["ممتاز", "ok"] : a >= 2.75 ? ["جيد جدًا", "ok"] : a >= 2 ? ["جيد", "ahead"] : ["ضعيف", "late"];
+}
+function daysAgo(iso) { const d = Math.round((new Date(todayISO()) - new Date(iso)) / 864e5); return d <= 0 ? "اليوم" : d === 1 ? "أمس" : d === 2 ? "قبل يومين" : d <= 10 ? `قبل ${ar(d)} أيام` : `قبل ${ar(d)} يومًا`; }
 async function loadVisits(which, force) {
   const box = $(which === "mine" ? "vis-mine-list" : "vis-log-list");
   if (!VIS || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { VIS = await run("listVisits", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
+  VIS.sort((a, b) => (b.date || "").localeCompare(a.date || "") || (+b.number || 0) - (+a.number || 0));
   if (which === "mine") {
-    box.innerHTML = VIS.length ? VIS.map(visLi).join("") : '<div class="empty">لا توجد زيارات صفية مسجلة لك بعد.</div>';
+    box.innerHTML = VIS.length ? `<div class="vv-list">${VIS.map(visLi).join("")}</div>` : '<div class="empty">لا توجد زيارات صفية مسجلة لك بعد.</div>';
   } else if (!visTeacherFilter) {
     $("vis-log-head").innerHTML = "";
-    const row = n => {
-      const vs = VIS.filter(v => v.teacher === n), last = vs[0];
-      const pend = vs.filter(v => !v.teacherSignedAt).length;
-      return `<tr data-t="${esc(n)}" tabindex="0"><td class="t">${esc(n)}${DEMO_CLASSES[n] ? ' <span class="pill none">تجريبي</span>' : ""}</td><td>${ar(vs.length)}</td><td>${last ? fmtDate(last.date) : '<span class="pill late">لم يُزر</span>'}</td><td>${pend ? `<span class="pill late">${ar(pend)}</span>` : "—"}</td></tr>`;
+    const names = visTeachers(), real = names.filter(n => !DEMO_CLASSES[n]), realVis = VIS.filter(v => !v.demo);
+    const visited = real.filter(n => realVis.some(v => v.teacher === n)), notYet = real.length - visited.length;
+    const unread = realVis.filter(v => !v.teacherSignedAt).length;
+    const card = n => {
+      const vs = VIS.filter(v => v.teacher === n), last = vs[0], lv = visLevel(vs), pend = vs.filter(v => !v.teacherSignedAt).length;
+      const subj = [...new Set(teacherClasses(n).map(c => c.split(":")[0]))].map(d => SUBJECTS[d]).join(" · ");
+      return `<button type="button" class="vt-card${vs.length ? "" : " todo"}" data-t="${esc(n)}">
+        <div class="vt-top"><b>أ. ${esc(n)}</b>${DEMO_CLASSES[n] ? ' <span class="pill none">تجريبي</span>' : ""}<span class="vt-count">${ar(vs.length)}<small>${vs.length === 1 ? "زيارة" : "زيارات"}</small></span></div>
+        <div class="sub">${esc(subj)}</div>
+        <div class="vt-row">${last ? `<span>آخر زيارة: <b>${fmtDate(last.date)}</b> · ${daysAgo(last.date)}</span>` : '<span class="pill late">لم يُزر بعد</span>'}
+          ${lv ? `<span class="pill ${lv[1]}">${lv[0]}</span>` : ""}${pend ? `<span class="pill none">لم يطّلع على ${ar(pend)}</span>` : ""}</div></button>`;
     };
-    const group = (title, names) => names.length ? `<tr class="dept"><td colspan="4">${title}</td></tr>` + names.map(row).join("") : "";
-    const names = visTeachers(), real = names.filter(n => !DEMO_CLASSES[n]);
+    const order = list => list.slice().sort((a, b) => { const la = (VIS.find(v => v.teacher === a) || {}).date || "", lb = (VIS.find(v => v.teacher === b) || {}).date || ""; return la.localeCompare(lb) || a.localeCompare(b, "ar"); });
+    const group = (title, list) => list.length ? `<div class="vis-group">${title} <span class="sub">(${ar(list.length)})</span></div><div class="vt-grid">${order(list).map(card).join("")}</div>` : "";
     const hd = real.filter(n => DEPT_OF[n][0] === "hd"), qr = real.filter(n => DEPT_OF[n][0] === "qr");
-    box.innerHTML = `<div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>عدد الزيارات</th><th>آخر زيارة</th><th>بانتظار توقيع المعلم</th></tr></thead><tbody>
-      ${group("قسم الحديث الشريف", hd)}${group("قسم القرآن الكريم", qr)}${group("الحسابات التجريبية", names.filter(n => DEMO_CLASSES[n]))}</tbody></table></div>`;
-    box.querySelectorAll("tr[data-t]").forEach(tr => { const open = () => { visTeacherFilter = tr.dataset.t; loadVisits("log"); }; tr.onclick = open; tr.onkeydown = e => { if (e.key === "Enter") open(); }; });
+    box.innerHTML = `<div class="vstats">
+        <div><b>${ar(realVis.length)}</b><span>زيارة مسجلة</span></div>
+        <div><b>${ar(visited.length)}<small> من ${ar(real.length)}</small></b><span>معلمًا تمت زيارتهم</span></div>
+        <div class="${notYet ? "warn" : ""}"><b>${ar(notYet)}</b><span>لم يُزر بعد</span></div>
+        <div><b>${ar(unread)}</b><span>لم يطّلع عليها المعلم</span></div></div>
+      <div class="seg" role="group" aria-label="القسم">${[["", "الكل"], ["hd", "الحديث الشريف"], ["qr", "القرآن الكريم"]].map(([k, t]) => `<button type="button" data-d="${k}" aria-pressed="${visDept === k}">${t}</button>`).join("")}</div>
+      <div class="sub" style="margin-top:6px">مرتبة من الأحوج للزيارة: من لم يُزر، ثم الأقدم زيارة.</div>
+      ${visDept !== "qr" ? group("قسم الحديث الشريف", hd) : ""}${visDept !== "hd" ? group("قسم القرآن الكريم", qr) : ""}${!visDept ? group("الحسابات التجريبية", names.filter(n => DEMO_CLASSES[n])) : ""}`;
+    box.querySelectorAll(".seg button").forEach(b => b.onclick = () => { visDept = b.dataset.d; loadVisits("log"); });
+    box.querySelectorAll(".vt-card").forEach(c => c.onclick = () => { visTeacherFilter = c.dataset.t; loadVisits("log"); window.scrollTo({ top: $("sec-vis").offsetTop - 10 }); });
     return;
   } else {
-    $("vis-log-head").innerHTML = `<button class="btn ghost sm" type="button" id="vis-back-sum">→ كل المعلمين</button> <b>أ. ${esc(visTeacherFilter)}</b>`;
+    const n = visTeacherFilter, vs = VIS.filter(v => v.teacher === n), lv = visLevel(vs);
+    const subj = [...new Set(teacherClasses(n).map(c => c.split(":")[0]))].map(d => SUBJECTS[d]).join(" · ");
+    $("vis-log-head").innerHTML = `<button class="btn ghost sm" type="button" id="vis-back-sum">→ كل المعلمين</button>`;
     $("vis-back-sum").onclick = () => { visTeacherFilter = ""; loadVisits("log"); };
-    const vs = VIS.filter(v => v.teacher === visTeacherFilter);
-    box.innerHTML = vs.length ? vs.map(visLi).join("") : '<div class="empty">لا توجد زيارات لهذا المعلم بعد.</div>';
+    box.innerHTML = `<div class="card vt-head"><div><h2>أ. ${esc(n)}</h2><div class="sub">${esc(subj)} · ${teacherClasses(n).map(classLabel).join("، ")}</div></div>
+        <div class="vt-head-stats"><span><b>${ar(vs.length)}</b> ${vs.length === 1 ? "زيارة" : "زيارات"}</span>${lv ? `<span>المستوى العام <span class="pill ${lv[1]}">${lv[0]}</span></span>` : ""}${vs[0] ? `<span>آخر زيارة ${fmtDate(vs[0].date)}</span>` : ""}</div>
+        <button class="btn sm" type="button" id="vis-new-for">+ زيارة جديدة له</button></div>
+      ${vs.length ? `<div class="vv-list">${vs.map(visLi).join("")}</div>` : '<div class="empty">لا توجد زيارات لهذا المعلم بعد.</div>'}`;
+    $("vis-new-for").onclick = () => { visTab("new"); initVisForm(); $("vf-teacher").value = n; fillVisClasses(""); };
   }
   box.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openVisit(b.dataset.open));
 }
 function visLi(v) {
   const pill = v.teacherSignedAt ? '<span class="pill ok">اطّلع المعلم</span>' : (ME.isHead ? '<span class="pill none">لم يطّلع بعد</span>' : '<span class="pill late">بانتظار اطلاعك</span>');
-  return `<button class="li li-btn" data-open="${v.id}"><div class="li-main"><b>الزيارة رقم ${ar(v.number)}${v.topic ? " · " + esc(v.topic) : ""}</b>
-    <span class="sub">${ME.isHead ? "أ. " + esc(v.teacher) + " · " : ""}${classFull(v.classId)} · ${fmtDate(v.date, true)}</span></div>${pill}</button>`;
+  const cnt = {}; (v.ratings || []).forEach(r => { if (r[0]) cnt[r[0]] = (cnt[r[0]] || 0) + 1; });
+  const lv = visLevel([v]), m = String(v.date || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return `<button class="vv-card" data-open="${v.id}">
+    <div class="vv-date"><span>${dayName(v.date) || ""}</span><b>${m ? ar(+m[3]) : ""}</b><span>${m ? ar(+m[2]) + "/" + ar(m[1]) : ""}</span></div>
+    <div class="vv-main"><b>الزيارة رقم ${ar(v.number)}${v.visitType ? " · " + esc(v.visitType) : ""}</b>
+      <span class="sub">${ME.isHead && !visTeacherFilter ? "أ. " + esc(v.teacher) + " · " : ""}${classFull(v.classId)}${v.period ? " · الحصة " + ar(v.period) : ""}</span>
+      ${v.topic ? `<span class="vv-topic">${esc(v.topic)}</span>` : ""}
+      <span class="vv-dist">${["ممتاز", "جيد جدًا", "جيد", "ضعيف"].filter(k => cnt[k]).map(k => `<i class="l${VIS_SCORE[k]}">${k} ${ar(cnt[k])}</i>`).join("")}</span></div>
+    <div class="vv-side">${lv ? `<span class="pill ${lv[1]}">${lv[0]}</span>` : ""}${pill}</div></button>`;
 }
 $("vis-reload").onclick = () => loadVisits("log", true);
 $("vis-mine-reload").onclick = () => loadVisits("mine", true);
