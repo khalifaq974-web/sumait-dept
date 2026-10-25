@@ -1073,6 +1073,15 @@ function go(sec) {
   const shown = sec === "act" ? "ach" : sec;
   SECTIONS.forEach(s => { $("nav-" + s).setAttribute("aria-selected", s === sec); const el = $("sec-" + s); if (el) el.hidden = s !== shown; });
   try { localStorage.setItem("section", sec); } catch (e) {}
+  // كل دخول للركن يجلب أحدث البيانات من الخادم (حتى تظهر الطلبات والرفوعات الجديدة بدون إعادة تحميل الصفحة)
+  if (sec === "prm") PRM = null;
+  if (sec === "ach" || sec === "act") { ACH = null; ACH_ALL = null; }
+  if (sec === "min") MIN = null;
+  if (sec === "nsh") NSH = null;
+  if (sec === "mrp") MRP = null;
+  if (sec === "vis") VIS = null;
+  if (sec === "cls" && !CUR_CLS && $("cls-rep").hidden) { CLS = null; SREPS = null; }
+  if (sec === "curr" && ME.isHead) run("headData", CODE).then(d => { ALL = d; if (!$("view-head").hidden) renderHead(); }).catch(() => {});
   if (sec === "curr") setTab(ME.isHead && !$("view-head").hidden ? "head" : "teacher");
   if (sec === "ach" || sec === "act") { setAchDept(); setAchKind(sec === "act" ? "act" : "pd"); achTab(ME.isHead && achSub === "all" ? "all" : "mine"); }
   if (sec === "nsh") loadNsh();
@@ -1593,7 +1602,7 @@ function prmTab(which) {
   if (!ME.isHead && (which === "req" || which === "log")) which = "new";
   prmSub = which; $("prm-detail").hidden = true; CUR_PRM = null;
   ["new", "mine", "req", "log"].forEach(t => { $("prmtab-" + t).setAttribute("aria-selected", t === which); $("prm-" + t).hidden = t !== which; });
-  if (which === "new") prmForm(); else loadPerms().then(renderPerms);
+  if (which === "new") prmForm(); else loadPerms(true).then(renderPerms);
 }
 ["new", "mine", "req", "log"].forEach(t => $("prmtab-" + t).onclick = () => prmTab(t));
 
