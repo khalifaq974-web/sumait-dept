@@ -111,8 +111,9 @@ function setup() {
   sheet_(SHEET_MAIL, ["الوقت", "إلى", "الموضوع", "النتيجة"], true);
   sheet_(SHEET_ABS, ["المعرف", "التاريخ", "المعلم الغائب", "ملاحظة", "تاريخ التسجيل", "آخر تعديل"], true);
   sheet_(SHEET_COV, ["المعرف", "معرف الغياب", "التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل", "الحالة", "تاريخ التسجيل"], true);
-  sheet_(SHEET_STU, ["الصف", "م", "اسم الطالب", "ملاحظة"], true);
+  sheet_(SHEET_STU, ["الصف", "م", "(بلا أسماء)", "ملاحظة"], true);
   gradesSheet_();
+  anonymizeStudents_();
   srepSheet_();
   profSheet_();
   permSheet_();
@@ -773,28 +774,73 @@ function deleteAbsence(code, id) {
 }
 
 // ======================= كشوف متابعة المتعلمين (الدرجات) =======================
-// قوائم الطلاب في ورقة «الطلاب» (الصف-الشعبة، م، الاسم، ملاحظة) بلا أرقام مدنية، والدرجات في ورقة «الدرجات».
+// قوائم الطلاب في ورقة «الطلاب» (الصف-الشعبة، م، —، ملاحظة) بالأرقام فقط، والدرجات في ورقة «الدرجات».
+// قرار رئيس الشعبة (٢٥/١٠/٢٠٢٦): لا تُحفظ أسماء المتعلمين في الموقع ولا في البيانات، للخصوصية والتزامًا بلوائح وزارة التربية؛ المتعلم يُعرَّف برقمه في كشف الصف.
 // توزيع الدرجات حسب خطة التوجيه الفني ٢٠٢٦/٢٠٢٧ (واحد للحديث والقرآن):
 // السلوك ٣+٣ · المشاركة ٣+٣ · الواجبات ٣+٣ · المشروع ٣٫٥+٣٫٥ (الفترة الأولى + الفترة الثانية) · اختبار قصير ١٥ = المجموع ٤٠
 // قرار رئيس الشعبة: لا يُرصد في الكشف غير هذه البنود (لا امتحان نهائي)
 const SHEET_STU = "الطلاب";
 const SHEET_GRD = "الدرجات";
 const GRD_MAX = [3, 3, 3, 3, 3, 3, 3.5, 3.5, 15];
-const GRD_HEAD = ["المفتاح", "القسم", "الصف", "الفصل الدراسي", "م", "اسم المتعلم", "السلوك ق١", "السلوك ق٢", "المشاركة ق١", "المشاركة ق٢",
+const GRD_HEAD = ["المفتاح", "القسم", "الصف", "الفصل الدراسي", "م", "(بلا أسماء)", "السلوك ق١", "السلوك ق٢", "المشاركة ق١", "المشاركة ق٢",
   "الواجبات ق١", "الواجبات ق٢", "المشروع ق١", "المشروع ق٢", "الاختبار القصير", "المجموع (٤٠)", "المعلم", "آخر تحديث"];
-const DEMO_STUDENTS = ["متعلم تجريبي ١", "متعلم تجريبي ٢", "متعلم تجريبي ٣", "متعلم تجريبي ٤", "متعلم تجريبي ٥", "متعلم تجريبي ٦",
-  "متعلم تجريبي ٧", "متعلم تجريبي ٨", "متعلم تجريبي ٩", "متعلم تجريبي ١٠", "متعلم تجريبي ١١", "متعلم تجريبي ١٢"];
+const DEMO_STUDENTS = 12;
 
 function teacherOf_(cls) { const t = TEACHERS.find(x => x[1].indexOf(cls) !== -1); return t ? t[0] : ""; }
 function canSeeClass_(me, cls) { return me.isHead && !me.isDemo ? !!teacherOf_(cls) : me.classes.indexOf(cls) !== -1; }
 function gradesSheet_() { return sheet_(SHEET_GRD, GRD_HEAD, true); }
 function studentsOf_(me, cls) {
-  if (me.isDemo) return DEMO_STUDENTS.map((name, i) => ({ n: i + 1, name, note: "" }));
+  if (me.isDemo) return Array.from({ length: DEMO_STUDENTS }, (_, i) => ({ n: i + 1, note: "" }));
   const sec = String(cls).split(":")[1];
   const sh = sh_(SHEET_STU);
   if (!sh) return [];
-  return sh.getDataRange().getDisplayValues().slice(1).filter(r => r[0] === sec)
-    .map(r => ({ n: Number(r[1]), name: String(r[2]).trim(), note: String(r[3] || "") })).sort((a, b) => a.n - b.n);
+  return sh.getDataRange().getDisplayValues().slice(1).filter(r => r[0] === sec && Number(r[1]) > 0)
+    .map(r => ({ n: Number(r[1]), note: String(r[3] || "") })).sort((a, b) => a.n - b.n);
+}
+
+/** حذف أسماء المتعلمين من البيانات (مرة واحدة، ثم لا يعمل): الطلاب، الدرجات، تقارير المتعلمين، الإشعارات.
+ *  الدرجات تُربط برقم المتعلم بدل اسمه، والتقارير تحمل رقمه. لا تُحذف أي درجة. */
+function anonymizeStudents_() {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty("anonStudents") === "1") return;
+  withLock_(() => {
+    if (props.getProperty("anonStudents") === "1") return;
+    const num = {}, byName = {};
+    const stu = sh_(SHEET_STU);
+    if (stu && stu.getLastRow() > 1) {
+      const v = stu.getRange(2, 1, stu.getLastRow() - 1, 4).getDisplayValues();
+      v.forEach(r => { const nm = String(r[2]).trim(); if (nm && r[0]) { num[r[0] + "|" + nm] = r[1]; if (!byName[nm]) byName[nm] = r[1]; } });
+      stu.getRange(2, 3, v.length, 1).clearContent();
+      stu.getRange(1, 3).setValue("(بلا أسماء)");
+    }
+    const grd = sh_(SHEET_GRD);
+    if (grd && grd.getLastRow() > 1) {
+      const n = grd.getLastRow() - 1, v = grd.getRange(2, 1, n, 6).getDisplayValues();
+      const keys = v.map(r => { const k = String(r[0]); if (!k || !r[4]) return [k]; return [k.slice(0, k.lastIndexOf("|") + 1) + r[4]]; });
+      grd.getRange(2, 1, n, 1).setNumberFormat("@").setValues(keys);
+      grd.getRange(2, 6, n, 1).clearContent();
+      grd.getRange(1, 6).setValue("(بلا أسماء)");
+    }
+    const srp = sh_(SHEET_SREP);
+    if (srp && srp.getLastRow() > 1) {
+      const n = srp.getLastRow() - 1, v = srp.getRange(2, 1, n, 7).getDisplayValues();
+      srp.getRange(2, 7, n, 1).setNumberFormat("@").setValues(v.map(r => {
+        const nm = String(r[6]).trim(); if (/^\d+$/.test(nm)) return [nm];
+        return [num[String(r[3]).split(":")[1] + "|" + nm] || ""];
+      }));
+      srp.getRange(1, 7).setValue("رقم المتعلم");
+    }
+    const act = sh_(SHEET_ACTLOG);
+    if (act && act.getLastRow() > 1) {
+      const n = act.getLastRow() - 1, rg = act.getRange(2, 4, n, 1), v = rg.getDisplayValues();
+      let changed = false;
+      const out = v.map(([t]) => { const m = String(t).match(/^((?:أرسل|عدّل) تقرير [^:]+): (.+) \((.+)\)$/);
+        if (!m || /^المتعلم رقم/.test(m[2])) return [t]; changed = true;
+        return [`${m[1]}: المتعلم رقم ${arNum_(byName[m[2].trim()] || "؟")} (${m[3]})`]; });
+      if (changed) rg.setNumberFormat("@").setValues(out);
+    }
+    props.setProperty("anonStudents", "1");
+  });
 }
 function sum_(vals) { return Math.round(vals.reduce((a, v) => a + Number(v), 0) * 100) / 100; }
 function totals_(v) { return [v.every(x => x !== "") ? String(sum_(v)) : ""]; }
@@ -804,8 +850,9 @@ function classesOverview(code) {
   const me = who_(code);
   const list = me.isHead && !me.isDemo ? TEACHERS.reduce((a, t) => a.concat(t[1]), []) : me.classes;
   const counts = {};
-  if (me.isDemo) list.forEach(c => counts[c.split(":")[1]] = DEMO_STUDENTS.length);
-  else if (sh_(SHEET_STU)) rows_(SHEET_STU).slice(1).forEach(r => { if (r[0]) counts[r[0]] = (counts[r[0]] || 0) + 1; });
+  anonymizeStudents_();
+  if (me.isDemo) list.forEach(c => counts[c.split(":")[1]] = DEMO_STUDENTS);
+  else if (sh_(SHEET_STU)) rows_(SHEET_STU).slice(1).forEach(r => { if (r[0] && Number(r[1]) > 0) counts[r[0]] = (counts[r[0]] || 0) + 1; });
   const pre = demoPrefix_(me), stat = {};
   if (sh_(SHEET_GRD)) rows_(SHEET_GRD).slice(1).forEach(r => {
     const k = String(r[0] || "");
@@ -825,6 +872,7 @@ function classSheet(code, cls, term) {
   const me = who_(code);
   cls = String(cls || ""); term = Number(term) === 2 ? 2 : 1;
   if (!canSeeClass_(me, cls)) throw new Error("هذا الصف ليس من صفوفك.");
+  anonymizeStudents_();
   const pre = demoPrefix_(me) + cls + "|" + term + "|";
   const grades = {}; let updatedAt = "";
   if (sh_(SHEET_GRD)) rows_(SHEET_GRD).slice(1).forEach(r => {
@@ -835,7 +883,7 @@ function classSheet(code, cls, term) {
   return { cls, term, teacher: me.isDemo ? me.name : teacherOf_(cls), students: studentsOf_(me, cls), grades, updatedAt };
 }
 
-/** حفظ درجات صف: data = { "اسم المتعلم": [١٠ قيم نصية أو فارغة] } */
+/** حفظ درجات صف: data = { "رقم المتعلم": [٩ قيم نصية أو فارغة] } */
 function saveGrades(code, cls, term, data) {
   const me = who_(code);
   cls = String(cls || ""); term = Number(term) === 2 ? 2 : 1;
@@ -846,14 +894,14 @@ function saveGrades(code, cls, term, data) {
   const pre = demoPrefix_(me) + cls + "|" + term + "|", now = nowText_();
   const rows = [];
   studs.forEach(s => {
-    const v = (data && data[s.name]) || [];
+    const v = (data && data[String(s.n)]) || [];
     const vals = GRD_MAX.map((mx, i) => {
       const x = String(v[i] == null ? "" : v[i]).trim();
       if (x === "") return "";
-      if (!/^\d{1,2}(\.\d{1,2})?$/.test(x) || Number(x) > mx) throw new Error(`درجة غير صحيحة للمتعلم ${s.name}: «${x}» (العظمى ${mx}).`);
+      if (!/^\d{1,2}(\.\d{1,2})?$/.test(x) || Number(x) > mx) throw new Error(`درجة غير صحيحة للمتعلم رقم ${s.n}: «${x}» (العظمى ${mx}).`);
       return String(Number(x));
     });
-    rows.push([pre + s.name, dept, p[1], term === 1 ? "الأول" : "الثاني", String(s.n), s.name].concat(vals, totals_(vals), [teacher, now]));
+    rows.push([pre + s.n, dept, p[1], term === 1 ? "الأول" : "الثاني", String(s.n), ""].concat(vals, totals_(vals), [teacher, now]));
   });
   return withLock_(() => {
     const sh = gradesSheet_();
@@ -877,7 +925,7 @@ function GRD_COLS_() { return GRD_HEAD.length; }
 // يرسلها المعلم لمتعلم من صفوفه، فتصل رئيس الشعبة بالإيميل وتظهر عنده في ركن الصفوف
 const SHEET_SREP = "تقارير المتعلمين";
 const SREP_TYPES = { excel: "متعلم فائق", weak: "متعلم متعثر" };
-const SREP_HEAD = ["المعرف", "النوع", "المعلم", "الصف", "القسم", "الفصل الدراسي", "اسم المتعلم", "المجموع في الكشف", "البيانات", "تاريخ الإرسال", "اطّلع رئيس الشعبة", "آخر تعديل"];
+const SREP_HEAD = ["المعرف", "النوع", "المعلم", "الصف", "القسم", "الفصل الدراسي", "رقم المتعلم", "المجموع في الكشف", "البيانات", "تاريخ الإرسال", "اطّلع رئيس الشعبة", "آخر تعديل"];
 function srepSheet_() { return sheet_(SHEET_SREP, SREP_HEAD, true); }
 function srepObj_(r) {
   let data = {}; try { data = JSON.parse(r[8] || "{}"); } catch (e) {}
@@ -887,6 +935,7 @@ function cleanList_(a) { return (Array.isArray(a) ? a : []).slice(0, 20).map(x =
 
 function listStudentReports(code) {
   const me = who_(code);
+  anonymizeStudents_();
   const sh = sh_(SHEET_SREP);
   if (!sh) return [];
   return sh.getDataRange().getDisplayValues().slice(1).filter(r => r[0])
@@ -900,7 +949,7 @@ function saveStudentReport(code, rep) {
   if (!canSeeClass_(me, cls)) throw new Error("هذا الصف ليس من صفوفك.");
   if (!SREP_TYPES[rep.type]) throw new Error("نوع التقرير غير معروف.");
   const student = String(rep.student || "").trim();
-  if (!studentsOf_(me, cls).some(s => s.name === student)) throw new Error("اختر المتعلم من قائمة الصف.");
+  if (!studentsOf_(me, cls).some(s => String(s.n) === student)) throw new Error("اختر رقم المتعلم من قائمة الصف.");
   const d = rep.data || {};
   const data = { a: cleanList_(d.a), b: cleanList_(d.b), c: cleanList_(d.c),
     desc: String(d.desc || "").trim().slice(0, 2000), need: String(d.need || "").trim().slice(0, 1000),
@@ -923,8 +972,8 @@ function saveStudentReport(code, rep) {
   withLock_(() => { if (row > 0) writeRow_(sh, row, vals); else appendText_(sh, vals); });
   const li = a => a.length ? "<ul>" + a.map(x => "<li>" + esc_(x) + "</li>").join("") + "</ul>" : "—";
   const t = rep.type === "excel";
-  notify_(me, `${row > 0 ? "عدّل" : "أرسل"} أ. ${me.name} تقرير ${SREP_TYPES[rep.type]} (${SUBJ[p[0]]}): ${student}`, `
-    <p>${row > 0 ? "عدّل" : "أرسل"} <b>أ. ${esc_(me.name)}</b> تقرير <b>${SREP_TYPES[rep.type]}</b> في <b>${SUBJ[p[0]]}</b> عن المتعلم <b>${esc_(student)}</b>.</p>
+  notify_(me, `${row > 0 ? "عدّل" : "أرسل"} أ. ${me.name} تقرير ${SREP_TYPES[rep.type]} (${SUBJ[p[0]]}): المتعلم رقم ${arNum_(student)}`, `
+    <p>${row > 0 ? "عدّل" : "أرسل"} <b>أ. ${esc_(me.name)}</b> تقرير <b>${SREP_TYPES[rep.type]}</b> في <b>${SUBJ[p[0]]}</b> عن <b>المتعلم رقم ${arNum_(student)}</b>.</p>
     <table cellpadding="6" style="border-collapse:collapse;border:1px solid #d6e2ec">
       <tr><td style="background:#e8f1f8"><b>الصف</b></td><td>${esc_(p[1].replace("-", "/"))} · ${esc_(SUBJ[p[0]])}</td></tr>
       <tr><td style="background:#e8f1f8"><b>الفصل الدراسي</b></td><td>${term === 1 ? "الأول" : "الثاني"}</td></tr>
@@ -1238,7 +1287,7 @@ function rowTitle_(sheet, id, col) { const r = rows_(sheet).slice(1).find(x => x
 const ACT_LOG = {
   saveEntry: a => ({ sec: "curr", text: `حدّث ما قطع من المنهج: ${clsName_(a[2] + ":" + a[1])}${a[5] ? " — " + a[5] : ""}`, key: "curr|" + a[2] + a[1] }),
   saveGrades: a => ({ sec: "cls", text: `رصد درجات كشف متابعة المتعلمين: ${clsName_(a[1])} (الفصل الدراسي ${a[2] == 2 ? "الثاني" : "الأول"})`, key: "grd|" + a[1] + "|" + a[2] }),
-  saveStudentReport: a => ({ sec: "cls", text: `${a[1] && a[1].id ? "عدّل" : "أرسل"} تقرير ${SREP_TYPES[a[1] && a[1].type] || "متعلم"}: ${a[1] && a[1].student || ""} (${clsName_(a[1] && a[1].cls)})` }),
+  saveStudentReport: a => ({ sec: "cls", text: `${a[1] && a[1].id ? "عدّل" : "أرسل"} تقرير ${SREP_TYPES[a[1] && a[1].type] || "متعلم"}: المتعلم رقم ${arNum_(a[1] && a[1].student || "")} (${clsName_(a[1] && a[1].cls)})` }),
   deleteStudentReport: () => ({ sec: "cls", text: "حذف تقرير متعلم" }),
   submitAchievement: a => ({ sec: a[1] && a[1].kind === "act" ? "act" : "ach", text: `${a[1] && a[1].kind === "act" ? "رفع نشاطًا في سجل الأنشطة والمسابقات" : "رفع إنجازًا في التنمية المهنية وإنجاز الموظف"}: ${a[1] && a[1].title || ""}` }),
   deleteAchievement: () => ({ sec: "ach", text: "حذف إنجازًا أو نشاطًا مرفوعًا" }),
