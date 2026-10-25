@@ -1231,6 +1231,15 @@ function gradeOk(x, i) { return x === "" || (/^\d{1,2}(\.\d{1,2})?$/.test(x) && 
 // ترتيب العرض: الفترة الأولى (البنود الأربعة + مجموعها ١٢٫٥) ثم الفترة الثانية كذلك ثم الاختبار القصير ثم المجموع الكلي.
 // البيانات محفوظة بترتيبها: [سلوك ق١، سلوك ق٢، مشاركة ق١، مشاركة ق٢، واجبات ق١، واجبات ق٢، مشروع ق١، مشروع ق٢، اختبار قصير]
 const SEC_IDX = [[0, 2, 4, 6], [1, 3, 5, 7]], SEC_NAMES = ["الفترة الأولى", "الفترة الثانية"], SEC_MAX = 12.5;
+// الكشف يعرض الاسمين الأولين فقط للخصوصية (الاسم الكامل يبقى في البيانات). «عبد» و«أبو» تُضم لما بعدها: عبد الله = اسم واحد
+// إذا تشابه اسمان في الصف نفسه يُعرض الاسم الثالث لهما فقط
+function shortName(n, list, k = 2) {
+  const t = String(n || "").trim().split(/\s+/), out = [];
+  for (let i = 0; i < t.length && out.length < k; i++) { let w = t[i]; if (/^(عبد|ابو|أبو|ابن|بن)$/.test(w) && t[i + 1]) w += " " + t[++i]; out.push(w); }
+  const sn = out.join(" ");
+  if (list && k < 4 && list.some(o => (o.name || o) !== n && shortName(o.name || o, null, k) === sn)) return shortName(n, list, k + 1);
+  return sn;
+}
 function rowTotals(v) {
   const sumOf = ix => ix.every(i => v[i] !== "" && v[i] != null) ? Math.round(ix.reduce((a, i) => a + Number(v[i]), 0) * 100) / 100 : "";
   const form = sumOf([0, 1, 2, 3, 4, 5, 6, 7, 8]);
@@ -1308,7 +1317,7 @@ function renderSheet() {
   h += `</tr></thead><tbody>`;
   const inp = (k, i, s) => `<td class="in"><input inputmode="decimal" autocomplete="off" data-k="${k}" data-i="${i}" value="${esc(fmtN((r.grades[s.name] || [])[i] ?? ""))}" aria-label="${esc(s.name)}: ${i < 8 ? partName(i >> 1, ci.dept) + " – " + SEC_NAMES[i % 2] : "الاختبار القصير"}"></td>`;
   r.students.forEach((s, k) => {
-    h += `<tr data-k="${k}"><td class="n">${ar(s.n)}</td><td class="nm">${esc(s.name)}</td>`;
+    h += `<tr data-k="${k}"><td class="n">${ar(s.n)}</td><td class="nm">${esc(shortName(s.name, r.students))}</td>`;
     SEC_IDX.forEach((ix, q) => { ix.forEach(i => h += inp(k, i, s)); h += `<td class="calc sec" id="cs${q}-${k}"></td>`; });
     h += inp(k, 8, s) + `<td class="calc form" id="cf-${k}"></td><td class="note">${esc(s.note)}</td></tr>`;
   });
@@ -1397,7 +1406,7 @@ function buildClassSheetDoc(D, r) {
     const isLow = t.form !== "" && t.form < 20;
     if (t.form !== "") { full++; sum += t.form; if (isLow) low++; }
     const g = i => dc(fmtN(v[i] || ""));
-    return new D.TableRow({ cantSplit: true, children: [dc(ar(s.n)), dc(s.name, { align: h.R }), ...SEC_IDX.flatMap((ix, q) => [...ix.map(g), dc(fmtN(t.sec[q]), { bold: true, fill: "F4F7FA" })]), g(8),
+    return new D.TableRow({ cantSplit: true, children: [dc(ar(s.n)), dc(shortName(s.name, r.students), { align: h.R }), ...SEC_IDX.flatMap((ix, q) => [...ix.map(g), dc(fmtN(t.sec[q]), { bold: true, fill: "F4F7FA" })]), g(8),
       dc(fmtN(t.form), { bold: true, fill: "EEF3F8", color: isLow ? "B4382B" : undefined }), dc(s.note || "", { size: 15 })] });
   });
   const grid = new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: W, width: { size: W.reduce((a, b) => a + b, 0), type: D.WidthType.DXA },
@@ -2015,7 +2024,7 @@ function pdfClassSheet(r) {
     const v = (r.grades[s.name] || []).map(x => x ?? ""), t = rowTotals(Array.from({ length: 9 }, (_, i) => v[i] || "")), isLow = t.form !== "" && t.form < 20;
     if (t.form !== "") { full++; sum += t.form; if (isLow) low++; }
     const g = i => ({ t: fmtN(v[i] || ""), c: "c" });
-    return P.tr([{ t: ar(s.n), c: "c" }, s.name, ...SEC_IDX.flatMap((ix, q) => [...ix.map(g), { t: fmtN(t.sec[q]), c: "f" }]), g(8), { t: fmtN(t.form), c: "f" + (isLow ? " late" : "") }, s.note || ""]);
+    return P.tr([{ t: ar(s.n), c: "c" }, shortName(s.name, r.students), ...SEC_IDX.flatMap((ix, q) => [...ix.map(g), { t: fmtN(t.sec[q]), c: "f" }]), g(8), { t: fmtN(t.form), c: "f" + (isLow ? " late" : "") }, s.note || ""]);
   });
   return { box: "كشف متابعة المتعلمين", guid: true, landscape: true, signs: [["معلم المادة", "أ. " + r.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
     P.info([["المادة", SUBJECTS[ci.dept]], ["الصف", ci.label], ["المعلم", "أ. " + r.teacher], ["الفصل الدراسي", `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧`]], 4),
