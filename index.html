@@ -1436,8 +1436,9 @@ function buildClassSheetDoc(D, r) {
     shading: { type: D.ShadingType.CLEAR, fill: o.fill || NAVY, color: "auto" }, children: [h.para(t, { size: o.size || 16, bold: true, color: o.color || "FFFFFF", align: C, after: 0, line: 240 })] });
   const dc = (t, o = {}) => new D.TableCell({ verticalAlign: D.VerticalAlign.CENTER, margins: mg, shading: o.fill ? { type: D.ShadingType.CLEAR, fill: o.fill, color: "auto" } : undefined,
     children: [h.para(t, { size: o.size || 16, bold: o.bold, color: o.color, align: o.align || C, after: 0, line: few ? 180 : 240 })] });
-  const W = [900, ...[0, 1].flatMap(() => [800, 800, 800, 800, 900]), 1000, 1100, 3180];
-  const r1 = [hc("رقم المتعلم", { rows: 2 }), ...SEC_NAMES.map(sn => hc(sn, { span: 5 })),
+  // خانة «اسم المتعلم» تُطبع فارغة ليكتب المعلم الاسم يدويًا (الأسماء لا تُحفظ في الموقع)
+  const W = [700, 3100, ...[0, 1].flatMap(() => [690, 690, 690, 690, 780]), 900, 1000, 1400];
+  const r1 = [hc("رقم المتعلم", { rows: 2 }), hc("اسم المتعلم (يُكتب يدويًا)", { rows: 2 }), ...SEC_NAMES.map(sn => hc(sn, { span: 5 })),
     hc("الاختبار القصير (١٥)", { rows: 2 }), hc("المجموع الكلي (٤٠)", { rows: 2 }), hc("ملاحظات", { rows: 2 })];
   const r2 = SEC_IDX.flatMap(ix => [...ix.map(i => hc(`${partName(i >> 1, ci.dept)} (${fmtN(GRD_MAX[i])})`, { fill: "EEF3F8", color: NAVY, size: 12 })), hc(`المجموع (${fmtN(SEC_MAX)})`, { fill: "DDE7F1", color: NAVY, size: 12 })]);
   let full = 0, low = 0, sum = 0;
@@ -1446,7 +1447,7 @@ function buildClassSheetDoc(D, r) {
     const isLow = t.form !== "" && t.form < 20;
     if (t.form !== "") { full++; sum += t.form; if (isLow) low++; }
     const g = i => dc(fmtN(v[i] || ""));
-    return new D.TableRow({ cantSplit: true, children: [dc(ar(s.n), { bold: true }), ...SEC_IDX.flatMap((ix, q) => [...ix.map(g), dc(fmtN(t.sec[q]), { bold: true, fill: "F4F7FA" })]), g(8),
+    return new D.TableRow({ cantSplit: true, children: [dc(ar(s.n), { bold: true }), dc(""), ...SEC_IDX.flatMap((ix, q) => [...ix.map(g), dc(fmtN(t.sec[q]), { bold: true, fill: "F4F7FA" })]), g(8),
       dc(fmtN(t.form), { bold: true, fill: "EEF3F8", color: isLow ? "B4382B" : undefined }), dc(s.note || "", { size: 15 })] });
   });
   const grid = new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: W, width: { size: W.reduce((a, b) => a + b, 0), type: D.WidthType.DXA },
@@ -2098,13 +2099,13 @@ function pdfReserveReport(r) {
 function pdfClassSheet(r) {
   const ci = classInfo(r.cls);
   let full = 0, low = 0, sum = 0;
-  const head = `<tr><th rowspan="2" style="width:52px">رقم المتعلم</th>${SEC_NAMES.map(sn => `<th colspan="5">${sn}</th>`).join("")}<th rowspan="2" style="width:52px">الاختبار القصير (١٥)</th><th rowspan="2" style="width:52px">المجموع الكلي (٤٠)</th><th rowspan="2" style="width:230px">ملاحظات</th></tr>
+  const head = `<tr><th rowspan="2" style="width:40px">رقم المتعلم</th><th rowspan="2" style="width:205px">اسم المتعلم (يُكتب يدويًا)</th>${SEC_NAMES.map(sn => `<th colspan="5">${sn}</th>`).join("")}<th rowspan="2" style="width:52px">الاختبار القصير (١٥)</th><th rowspan="2" style="width:52px">المجموع الكلي (٤٠)</th><th rowspan="2" style="width:118px">ملاحظات</th></tr>
     <tr>${SEC_IDX.map(ix => ix.map(i => `<th class="sub">${PE(partName(i >> 1, ci.dept))} (${fmtN(GRD_MAX[i])})</th>`).join("") + `<th class="sub">المجموع (${fmtN(SEC_MAX)})</th>`).join("")}</tr>`;
   const rows = r.students.map(s => {
     const v = (r.grades[s.n] || []).map(x => x ?? ""), t = rowTotals(Array.from({ length: 9 }, (_, i) => v[i] || "")), isLow = t.form !== "" && t.form < 20;
     if (t.form !== "") { full++; sum += t.form; if (isLow) low++; }
     const g = i => ({ t: fmtN(v[i] || ""), c: "c" });
-    return P.tr([{ t: ar(s.n), c: "c" }, ...SEC_IDX.flatMap((ix, q) => [...ix.map(g), { t: fmtN(t.sec[q]), c: "f" }]), g(8), { t: fmtN(t.form), c: "f" + (isLow ? " late" : "") }, s.note || ""]);
+    return P.tr([{ t: ar(s.n), c: "c" }, "", ...SEC_IDX.flatMap((ix, q) => [...ix.map(g), { t: fmtN(t.sec[q]), c: "f" }]), g(8), { t: fmtN(t.form), c: "f" + (isLow ? " late" : "") }, s.note || ""]);
   });
   return { box: "كشف متابعة المتعلمين", guid: true, landscape: true, signs: [["معلم المادة", "أ. " + r.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
     P.info([["المادة", SUBJECTS[ci.dept]], ["الصف", ci.label], ["المعلم", "أ. " + r.teacher], ["الفصل الدراسي", `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧`]], 4),
