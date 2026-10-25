@@ -1972,7 +1972,7 @@ function pdfAchievement(a, photos) {
   const U = ACH_UI[a.kind === "act" ? "act" : "pd"];
   const blocks = [P.title(title), P.info([["المعلم", "أ. " + a.teacher], ["التاريخ", fmtDate(a.date, true)], [U.typeL, a.type], [U.targetInfo, a.target || (a.kind === "act" ? "طلاب المعهد" : "—")]]), P.text(a.report)];
   if (a.results) blocks.push(P.h("النتائج والفائزون"), lines(a.results).map(x => P.p(x)).join(""));
-  if (photos.length) blocks.push(P.h(U.photosH), `<div class="ph">${photos.map(src => `<img src="${src}">`).join("")}</div>`);
+  if (photos.length) blocks.push(`<div>${P.h(U.photosH)}<div class="ph">${photos.map(src => `<img src="${src}">`).join("")}</div></div>`);
   return { box: U.box, blocks, signs: [["المعلم", "أ. " + a.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] };
 }
 function pdfMinute(m) {
