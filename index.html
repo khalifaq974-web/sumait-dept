@@ -230,6 +230,15 @@ table.grades th small { color: var(--muted); font-weight: 500; }
 .doc-hd .t { font-family: var(--f-display); font-weight: 700; color: #1E3A5F; font-size: 15px; }
 .doc-hd .box { background: #1E3A5F; color: #fff; padding: 4px 16px; border-radius: 8px; font-family: var(--f-display); font-weight: 700; font-size: 15px; }
 @media (max-width: 640px) { .doc-hd img.moe, .doc-hd img.ins { height: 44px; } .doc-hd .t, .doc-hd .box { font-size: 13px; } }
+.who-actions { display: flex; gap: 8px; align-items: center; }
+.bell { position: relative; }
+.bell-n { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--late); color: #fff; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; }
+.act-panel { margin-top: 10px; max-height: 70vh; overflow: auto; }
+.act-item { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; width: 100%; text-align: right; font: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--ink); margin-top: 6px; }
+.act-item.unread { border-color: var(--accent); background: var(--accent-soft); }
+.act-item b { font-family: var(--f-display); }
+.act-item .when { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.act-item .what { grid-column: 1 / -1; font-size: 14px; }
 table.grades thead tr:first-child th.sec { background: var(--accent); color: var(--accent-ink); }
 table.grades td.calc.sec { font-weight: 700; background: var(--accent-soft); }
 table.grades thead tr:first-child th { background: var(--accent-soft); }
@@ -290,7 +299,12 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
   </section>
 
   <div id="app" hidden>
-    <div class="who-bar"><b id="me-name"></b><button class="btn ghost sm" id="logout">خروج</button></div>
+    <div class="who-bar"><b id="me-name"></b><span class="who-actions"><button class="btn ghost sm bell head-only" id="bell" type="button" hidden aria-label="الإشعارات">🔔 الإشعارات <span class="bell-n" id="bell-n" hidden></span></button><button class="btn ghost sm" id="logout">خروج</button></span></div>
+    <div class="card act-panel" id="act-panel" hidden>
+      <div class="vis-head-row" style="margin-top:0"><h3>الإشعارات: تحديثات المعلمين</h3><span><button class="btn ghost sm" id="act-reload" type="button">تحديث</button> <button class="btn ghost sm" id="act-close" type="button">إغلاق</button></span></div>
+      <div class="sub">كل ما يسجّله المعلمون في الموقع يظهر هنا. اضغط على أي إشعار للانتقال إلى ركنه.</div>
+      <div class="list" id="act-list"></div>
+    </div>
     <div class="notice demo-note" id="demo-note" hidden>حساب تجريبي: جرّب كل الأركان بحرية، وبياناتك لا تظهر في تقارير القسم ولا متابعته.</div>
     <details class="card demo-admin head-only" id="demo-admin" hidden>
       <summary>الحسابات التجريبية</summary>
@@ -1034,6 +1048,7 @@ async function doLogin(code, silent) {
     document.querySelector("nav.sections").classList.toggle("eight", !r.isHead);
     document.querySelector("nav.sections").classList.toggle("nine", !!r.isHead);
     $("demo-note").hidden = !r.isDemo;
+    startActPoll();
     if (r.isHead) $("demo-admin").ontoggle = () => { if ($("demo-admin").open) loadDemos(); };
     let last = "curr"; try { last = localStorage.getItem("section") || "curr"; } catch (e) {}
     go(last);
@@ -1046,7 +1061,7 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; CUR_PRM = null; prmSub = "new"; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; CUR_PRM = null; prmSub = "new"; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
@@ -2218,6 +2233,36 @@ async function openAch(id) {
     try { await run("deleteAchievement", CODE, a.id); ACH_ALL = ACH_ALL.filter(x => x.id !== a.id); $("ach-back").click(); } catch (e) { $("ach-dmsg").textContent = cleanErr(e); }
   });
 }
+
+// ================= الإشعارات (رئيس الشعبة) =================
+const SEC_NAMES_AR = { curr: "ما قطع من المنهج", cls: "كشف متابعة المتعلمين", ach: "التنمية المهنية وإنجاز الموظف", act: "سجل الأنشطة والمسابقات", min: "محاضر الاجتماعات", vis: "الزيارات الصفية", prm: "الاستئذان", nsh: "سجل النشرات والتعاميم" };
+let ACT = null, actTimer = null;
+function actWhen(t) { const d = new Date(String(t).replace(" ", "T") + "+03:00"), mins = Math.round((Date.now() - d) / 60000);
+  if (mins < 1) return "الآن"; if (mins < 60) return `قبل ${ar(mins)} دقيقة`; if (mins < 1440) return `قبل ${ar(Math.round(mins / 60))} ساعة`; return fmtStamp(String(t).slice(0, 16)); }
+async function loadAct(render) {
+  if (!ME || !ME.isHead) return;
+  try { ACT = await run("listActivity", CODE, 150); } catch (e) { if (render) $("act-list").innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; }
+  $("bell-n").hidden = !ACT.unread; $("bell-n").textContent = ar(ACT.unread > 99 ? "99+" : ACT.unread);
+  if (render) renderAct();
+}
+function renderAct() {
+  const box = $("act-list");
+  if (!ACT || !ACT.items.length) { box.innerHTML = '<div class="empty">لا توجد تحديثات من المعلمين بعد.</div>'; return; }
+  let h = "", last = "";
+  ACT.items.forEach(a => { const day = a.at.slice(0, 10); if (day !== last) { h += `<div class="vis-group">${fmtDate(day, true)}</div>`; last = day; }
+    h += `<button type="button" class="act-item${a.unread ? " unread" : ""}" data-sec="${esc(a.sec)}"><b>أ. ${esc(a.teacher)}${a.demo ? ' <span class="pill none">تجريبي</span>' : ""}</b><span class="when">${actWhen(a.at)}</span><span class="what">${esc(a.text)} <span class="sub">· ${esc(SEC_NAMES_AR[a.sec] || "")}</span></span></button>`; });
+  box.innerHTML = h;
+  box.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => { $("act-panel").hidden = true; go(b.dataset.sec); window.scrollTo({ top: 0, behavior: "smooth" }); });
+}
+$("bell").onclick = async () => {
+  const p = $("act-panel"); p.hidden = !p.hidden; if (p.hidden) return;
+  $("act-list").innerHTML = '<div class="empty">جارٍ التحميل…</div>';
+  await loadAct(true);
+  if (ACT && ACT.unread) { try { await run("markActivitySeen", CODE); $("bell-n").hidden = true; ACT.unread = 0; } catch (e) {} }
+};
+$("act-close").onclick = () => { $("act-panel").hidden = true; loadAct(); };
+$("act-reload").onclick = () => loadAct(true);
+function startActPoll() { clearInterval(actTimer); if (!ME || !ME.isHead) return; loadAct(); actTimer = setInterval(() => { if (!document.hidden && ME && ME.isHead) loadAct(!$("act-panel").hidden); }, 120000); }
 
 // ================= إنجازات القسم (التقارير الشهرية) =================
 const MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];

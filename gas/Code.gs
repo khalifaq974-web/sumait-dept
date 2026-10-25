@@ -10,6 +10,7 @@ const SHEET_LOG = "السجل";
 const SHEET_ACH = "الإنجازات";
 const SHEET_NSH = "النشرات والتعاميم";
 const SHEET_MRP = "تقارير إنجازات القسم";
+const SHEET_ACTLOG = "الإشعارات";
 const SHEET_NSHACK = "اطلاع النشرات";
 const SHEET_MIN = "المحاضر";
 const SHEET_SIG = "التواقيع";
@@ -63,7 +64,7 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, del
   listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport,
   myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
-  listMonthlyReports, saveMonthlyReport, deleteMonthlyReport };
+  listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen };
 
 function doPost(e) {
   let out;
@@ -71,7 +72,9 @@ function doPost(e) {
     const req = JSON.parse(e.postData.contents);
     const f = Object.prototype.hasOwnProperty.call(API, req.fn) ? API[req.fn] : null;
     if (!f) throw new Error("طلب غير معروف.");
-    out = { ok: true, result: f.apply(null, Array.isArray(req.args) ? req.args : []) };
+    const args = Array.isArray(req.args) ? req.args : [];
+    out = { ok: true, result: f.apply(null, args) };
+    if (ACT_LOG[req.fn]) { try { logAct_(req.fn, args, out.result); } catch (x) {} }
   } catch (err) {
     out = { ok: false, error: String(err && err.message || err) };
   }
@@ -1174,3 +1177,53 @@ function deleteMonthlyReport(code, id) {
   head_(code);
   return withLock_(() => { const sh = mrpSheet_(), row = findRow_(sh, 1, String(id)); if (row < 0) throw new Error("التقرير غير موجود."); sh.deleteRow(row); return true; });
 }
+
+
+// ======================= الإشعارات: كل تحديث يسويه معلم يصل لرئيس الشعبة =======================
+// أعمدة «الإشعارات»: 0 الوقت (yyyy-MM-dd HH:mm:ss) | 1 المعلم | 2 الركن | 3 ماذا فعل | 4 مفتاح الدمج
+// تُسجَّل الأحداث من doPost بعد نجاح الطلب. حفظ الدرجات والمنهج لنفس الصف خلال ساعة يُدمج في إشعار واحد.
+function actSheet_() { return sheet_(SHEET_ACTLOG, ["الوقت", "المعلم", "الركن", "ماذا فعل", "مفتاح الدمج"], true); }
+function stamp_() { return Utilities.formatDate(new Date(), "Asia/Kuwait", "yyyy-MM-dd HH:mm:ss"); }
+function arNum_(x) { return String(x).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]); }
+function clsName_(id) { const m = String(id || "").match(/^(hd|qr):(\d+)-(\d+)$/); return m ? `${SUBJ[m[1]]} ${arNum_(m[2])}/${arNum_(m[3])}` : String(id || ""); }
+function rowTitle_(sheet, id, col) { const r = rows_(sheet).slice(1).find(x => x[0] === String(id)); return r ? r[col] : ""; }
+const ACT_LOG = {
+  saveEntry: a => ({ sec: "curr", text: `حدّث ما قطع من المنهج: ${clsName_(a[2] + ":" + a[1])}${a[5] ? " — " + a[5] : ""}`, key: "curr|" + a[2] + a[1] }),
+  saveGrades: a => ({ sec: "cls", text: `رصد درجات كشف متابعة المتعلمين: ${clsName_(a[1])} (الفصل الدراسي ${a[2] == 2 ? "الثاني" : "الأول"})`, key: "grd|" + a[1] + "|" + a[2] }),
+  saveStudentReport: a => ({ sec: "cls", text: `${a[1] && a[1].id ? "عدّل" : "أرسل"} تقرير ${SREP_TYPES[a[1] && a[1].type] || "متعلم"}: ${a[1] && a[1].student || ""} (${clsName_(a[1] && a[1].cls)})` }),
+  deleteStudentReport: () => ({ sec: "cls", text: "حذف تقرير متعلم" }),
+  submitAchievement: a => ({ sec: a[1] && a[1].kind === "act" ? "act" : "ach", text: `${a[1] && a[1].kind === "act" ? "رفع نشاطًا في سجل الأنشطة والمسابقات" : "رفع إنجازًا في التنمية المهنية وإنجاز الموظف"}: ${a[1] && a[1].title || ""}` }),
+  deleteAchievement: () => ({ sec: "ach", text: "حذف إنجازًا أو نشاطًا مرفوعًا" }),
+  signMinute: a => ({ sec: "min", text: `وقّع على المحضر: ${rowTitle_(SHEET_MIN, a[1], 1)}` }),
+  signVisit: () => ({ sec: "vis", text: "اطّلع ووقّع على بطاقة الزيارة الصفية" }),
+  submitPermission: a => ({ sec: "prm", text: `قدّم طلب استئذان (${a[1] && a[1].type || ""}) ليوم ${a[1] && a[1].date || ""}` }),
+  deletePermission: () => ({ sec: "prm", text: "حذف طلب استئذان" }),
+  ackCircular: a => { const r = nshRows_().find(x => x[0] === String(a[1])); return { sec: "nsh", text: `اطّلع ووقّع على ${r ? r[1] + ": " + r[4] : "نشرة"}` }; }
+};
+function logAct_(fn, args, result) {
+  const me = who_(args[0]); if (me.isHead) return;
+  const ev = ACT_LOG[fn](args, result); if (!ev) return;
+  const now = stamp_(), key = ev.key ? me.name + "|" + ev.key : "";
+  withLock_(() => {
+    const sh = actSheet_();
+    if (key) {
+      const last = sh.getLastRow(), from = Math.max(2, last - 30);
+      if (last >= 2) {
+        const v = sh.getRange(from, 1, last - from + 1, 5).getDisplayValues();
+        for (let i = v.length - 1; i >= 0; i--) if (v[i][4] === key && (new Date(now.replace(" ", "T")) - new Date(v[i][0].replace(" ", "T"))) < 3600000) {
+          sh.getRange(from + i, 1, 1, 5).setValues([[now, me.name, ev.sec, ev.text, key]]); return;
+        }
+      }
+    }
+    appendText_(sh, [now, me.name, ev.sec, ev.text, key]);
+  });
+}
+/** لرئيس الشعبة: آخر الإشعارات، وعدد غير المقروء */
+function listActivity(code, limit) {
+  head_(code);
+  const seen = PropertiesService.getScriptProperties().getProperty("actSeen") || "";
+  const v = actSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]);
+  const items = v.slice(-Math.min(Number(limit) || 150, 300)).reverse().map(r => ({ at: r[0], teacher: r[1], sec: r[2], text: r[3], demo: isDemo_(r[1]), unread: r[0] > seen }));
+  return { items, unread: v.filter(r => r[0] > seen).length, seen };
+}
+function markActivitySeen(code) { head_(code); const t = stamp_(); PropertiesService.getScriptProperties().setProperty("actSeen", t); return { seen: t }; }
