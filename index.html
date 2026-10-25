@@ -1609,10 +1609,11 @@ function buildStudentReportDoc(D, r) {
   const hd = t => h.para(t, { size: 22, bold: true, color: h.NAVY, before: 100, after: 40, keepNext: true, shade: "EEF3F8" });
   const L = t => h.lab(t, { w: 1700 }), V = (t, w) => h.cell(t, { w, size: 20 });
   const info = h.table([
-    [L("رقم المتعلم:"), V(r.student ? ar(r.student) : "", 3600), L("الصف:"), V(ci ? ci.label : "", 3000)],
-    [L("المادة:"), V(SUBJECTS[dept], 3600), L("الفصل الدراسي:"), V(r.term ? `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧` : "", 3000)],
-    [L("المعلم:"), V(r.teacher ? "أ. " + r.teacher : "", 3600), L("المجموع في الكشف:"), V(r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : blank ? "      من ٤٠" : "—", 3000)],
-    [L("تاريخ التقرير:"), V(r.createdAt ? fmtDate(r.createdAt) : "    /    /   ٢٠٢م", 3600), L(""), V("", 3000)]
+    // «اسم المتعلم» يُطبع فارغًا ليكتبه المعلم يدويًا (الأسماء لا تُحفظ في الموقع)
+    [L("رقم المتعلم:"), V(r.student ? ar(r.student) : "", 3600), L("اسم المتعلم (يُكتب يدويًا):"), V("", 3000)],
+    [L("المادة:"), V(SUBJECTS[dept], 3600), L("الصف:"), V(ci ? ci.label : "", 3000)],
+    [L("المعلم:"), V(r.teacher ? "أ. " + r.teacher : "", 3600), L("الفصل الدراسي:"), V(r.term ? `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧` : "", 3000)],
+    [L("تاريخ التقرير:"), V(r.createdAt ? fmtDate(r.createdAt) : "    /    /   ٢٠٢م", 3600), L("المجموع في الكشف:"), V(r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : blank ? "      من ٤٠" : "—", 3000)]
   ], [1700, 3600, 1700, 3000], h.softBorders("C9D6E3"));
   const checks = (title, opts, chosen) => {
     chosen = chosen || []; const all = opts.concat(chosen.filter(x => opts.indexOf(x) === -1));
@@ -2117,7 +2118,7 @@ function pdfStudentReport(r) {
     for (let i = 0; i < all.length; i += 2) cells.push(`<tr>${[all[i], all[i + 1]].map(o => `<td style="width:50%">${o ? `${chosen.indexOf(o) !== -1 ? "■" : "□"} ${PE(o)}` : ""}</td>`).join("")}</tr>`);
     return P.h(title) + `<table class="plain">${cells.join("")}</table>`; };
   const box = (title, text) => P.h(title) + `<div style="border:1px solid #C9D6E3;padding:6px 10px;min-height:40px">${PE(text || "").replace(/\n/g, "<br>")}</div>`;
-  const blocks = [P.info([["رقم المتعلم", r.student ? ar(r.student) : ""], ["الصف", ci ? ci.label : ""], ["المادة", SUBJECTS[dept]], ["الفصل الدراسي", r.term ? `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧` : ""],
+  const blocks = [P.info([["رقم المتعلم", r.student ? ar(r.student) : ""], ["اسم المتعلم (يُكتب يدويًا)", ""], ["الصف", ci ? ci.label : ""], ["المادة", SUBJECTS[dept]], ["الفصل الدراسي", r.term ? `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧` : ""],
     ["المعلم", r.teacher ? "أ. " + r.teacher : ""], ["المجموع في الكشف", r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : "—"], ["تاريخ التقرير", r.createdAt ? fmtDate(r.createdAt) : ""]]),
     checks(F.a[0], F.a[1](dept), d.a), checks(F.b[0], F.b[1](dept), d.b), F.c ? checks(F.c[0], F.c[1](dept), d.c) : "", box(F.desc, d.desc)];
   if (k === "weak" && d.need) blocks.push(box("الدعم المطلوب من رئيس الشعبة أو الإدارة", d.need));
