@@ -3204,7 +3204,7 @@ function buildAchievementDoc(D, a, imgs) {
     children.push(h.heading(U.photosH));
     const one = imgs.length === 1, cw = one ? 9700 : 4850, rows = [];
     for (let i = 0; i < imgs.length; i += one ? 1 : 2) {
-      rows.push(imgs.slice(i, i + (one ? 1 : 2)).map(im => { const w = one ? 560 : 280, hh = Math.min(one ? 125 : 200, w * im.h / im.w), ww = hh * im.w / im.h;
+      rows.push(imgs.slice(i, i + (one ? 1 : 2)).map(im => { const w = one ? 560 : 280, hh = Math.min(one ? 95 : 200, w * im.h / im.w), ww = hh * im.w / im.h;
         return h.cell([new D.Paragraph({ alignment: h.C, children: [h.img(im.data, ww, hh)] })], { w: cw }); }));
       if (!one && rows[rows.length - 1].length === 1) rows[rows.length - 1].push(h.cell("", { w: cw }));
     }
