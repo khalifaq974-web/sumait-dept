@@ -1842,12 +1842,12 @@ const PDF_CSS = `
 .pp .mid{text-align:center}.pp .mid .g{width:36px}.pp .mid .t{color:#1E3A5F;font-weight:700;font-size:16px;margin:4px 0 6px}
 .pp .box{display:inline-block;background:#1E3A5F;color:#fff;font-weight:700;font-size:18px;padding:5px 44px;border-radius:9px}
 .pp .rule{border-bottom:4px double #1E3A5F;margin:10px 0 10px}
-.pp .bd{flex:1;overflow:hidden;font-size:13.5px;line-height:1.65}
+.pp .bd{flex:1;min-width:0;width:100%;overflow:hidden;font-size:13.5px;line-height:1.65}
 .pp h1{color:#1E3A5F;text-align:center;font-size:19px;margin:0 0 8px;font-weight:800}
 .pp h3{color:#1E3A5F;font-size:14px;margin:8px 0 4px;font-weight:700;background:#EEF3F8;padding:2px 8px;border-radius:4px}
 .pp p{margin:0 0 4px;text-align:justify}.pp .c{text-align:center}.pp .mut{color:#6B7782;font-size:11.5px}
 .pp ul{margin:0 0 4px;padding-right:20px}.pp li::marker{color:#1E3A5F}
-.pp table{width:100%;border-collapse:collapse;margin:2px 0 8px}
+.pp table{width:100%;min-width:0;border-collapse:collapse;margin:2px 0 8px}
 .pp table.info td{border:1px solid #C9D6E3;padding:4px 9px;font-size:13px}.pp table.info td.k{background:#EEF3F8;color:#1E3A5F;font-weight:700;white-space:nowrap;width:1%}
 .pp table.grid th{background:#1E3A5F;color:#fff;font-weight:700;padding:4px 5px;border:1px solid #1E3A5F;font-size:12px;text-align:center}
 .pp table.grid th.sub{background:#EEF3F8;color:#1E3A5F;border-color:#C9D6E3;font-size:11px}
@@ -1855,7 +1855,7 @@ const PDF_CSS = `
 .pp table.grid td.c{text-align:center}.pp table.grid td.b{font-weight:700}.pp table.grid td.f{background:#EEF3F8;font-weight:700;text-align:center}
 .pp table.grid tr:nth-child(even) td{background-color:#FAFCFD}
 .pp table.grid td.f{background:#EEF3F8}
-.pp table.dense td{padding:1px 5px;font-size:11.5px}
+.pp table.dense td{padding:1px 5px;font-size:11.5px}.pp table.vis td{padding:5px 6px;font-size:12.5px}.pp table.vis th{white-space:nowrap;padding:5px 3px}
 .pp table.plain td{border:none;padding:2px 4px}
 .pp .late{color:#B4382B;font-weight:700}.pp .ok{color:#2F7D4F;font-weight:700}.pp .ahead{color:#6B4FB5;font-weight:700}.pp .none{color:#7D8892}
 .pp .sg{display:grid;text-align:center;font-size:13.5px;margin-top:8px}
@@ -1986,15 +1986,22 @@ function pdfMinute(m) {
     m.attendees.map((n, i) => { const s = sig[n]; return P.tr([{ t: ar(i + 1), c: "c" }, n, { html: s && s.image ? P.img(s.image) : "", c: "c" }, { t: s ? fmtStamp(s.signedAt) : "—", c: "c" }]); })));
   return { box: "محضر اجتماع", blocks, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] };
 }
+function visInfo(v) {
+  const k = t => `<td class="k">${PE(t)}:</td>`, d = (t, n) => `<td${n ? ` colspan="${n}"` : ""}>${PE(t)}</td>`;
+  return `<table class="info" style="table-layout:fixed;width:100%"><colgroup><col style="width:12%"><col style="width:21%"><col style="width:12%"><col style="width:21%"><col style="width:12%"><col style="width:22%"></colgroup>
+<tr>${k("المعلم")}${d("أ. " + v.teacher, 3)}${k("الصف")}${d(classFull(v.classId))}</tr>
+<tr>${k("اليوم")}${d(dayName(v.date))}${k("التاريخ")}${d(fmtDate(v.date))}${k("الحصة")}${d(v.period ? PERIOD_NAMES[v.period] || ar(v.period) : "")}</tr>
+<tr>${k("نوع الزيارة")}${d(v.visitType || "")}${k("الموضوع")}${d(v.topic || "", 3)}</tr></table>`;
+}
 function pdfVisit(v) {
   const pos = lines(v.positives), rec = lines(v.recommendations);
-  const report = `<div style="font-size:11.5px"><div class="ok" style="background:#E4F2E9;padding:1px 6px">إيجابيات</div>${P.ul(pos)}<div style="background:#FBEEE0;color:#A0601A;font-weight:700;padding:1px 6px;margin-top:6px">ملاحظات وتوصيات</div>${P.ul(rec)}</div>`;
+  const report = `<div style="font-size:12.5px;line-height:1.7"><div class="ok" style="background:#E4F2E9;padding:1px 6px">إيجابيات</div>${P.ul(pos)}<div style="background:#FBEEE0;color:#A0601A;font-weight:700;padding:1px 6px;margin-top:6px">ملاحظات وتوصيات</div>${P.ul(rec)}</div>`;
   const rows = VIS_ITEMS.map((t, i) => { const r = v.ratings[i] || ["", ""], mk = lv => ({ t: r[0] === lv ? "✓" : "", c: "c b" });
     const cells = [{ t: ar(i + 1), c: "f" }, { t, c: "b" }, mk("ممتاز"), mk("جيد جدًا"), mk("جيد"), mk("ضعيف"), r[1] || ""];
     if (i === 0) cells.push({ html: report, span: VIS_ITEMS.length }); return P.tr(cells); });
   return { box: "تقرير زيارة رئيس الشعبة", guid: true, signs: [["رئيس الشعبة", HEAD_SIGN, v.headSig], ["المعلم", "أ. " + v.teacher, v.teacherSig], ["مدير المعهد", PRINCIPAL]], blocks: [
-    P.info([["اليوم", dayName(v.date)], ["الصف", classFull(v.classId)], ["التاريخ والحصة", fmtDate(v.date) + (v.period ? " · الحصة " + ar(v.period) : "")], ["نوع الزيارة", v.visitType || ""], ["الموضوع", v.topic || ""], ["المعلم", "أ. " + v.teacher]], 3),
-    `<table class="grid dense" style="table-layout:fixed"><colgroup><col style="width:4%"><col style="width:25%"><col style="width:6.5%"><col style="width:7%"><col style="width:6%"><col style="width:6.5%"><col style="width:17%"><col style="width:28%"></colgroup><thead>${P.th(["م", "البنود", "ممتاز", "جيد جدًا", "جيد", "ضعيف", "ملاحظات", "تقرير رئيس الشعبة"])}</thead><tbody>${rows.join("")}</tbody></table>`,
+    visInfo(v),
+    `<table class="grid vis" style="table-layout:fixed"><colgroup><col style="width:4%"><col style="width:23%"><col style="width:7%"><col style="width:8.5%"><col style="width:6%"><col style="width:6.5%"><col style="width:15%"><col style="width:30%"></colgroup><thead>${P.th(["م", "البنود", "ممتاز", "جيد جدًا", "جيد", "ضعيف", "ملاحظات", "تقرير رئيس الشعبة"])}</thead><tbody>${rows.join("")}</tbody></table>`,
     v.teacherSignedAt ? P.p("اطّلع المعلم ووقّع: " + fmtStamp(v.teacherSignedAt), "mut c") : ""] };
 }
 function pdfDailyReserve(date) {
