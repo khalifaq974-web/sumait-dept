@@ -965,6 +965,7 @@ function setAchDept() {
 function setAchKind(k) {
   const U = ACH_UI[k], changed = k !== ACH_KIND || !$("ach-type").options.length; ACH_KIND = k;
   if (!changed) return;
+  if (EDIT_ACH) { EDIT_ACH = null; KEEP = []; PHOTOS = []; if ($("ach-cancel")) $("ach-cancel").hidden = true; renderPreviews(); }
   $("ach-h2").textContent = U.h2; $("ach-intro").textContent = U.intro; $("ach-type-l").textContent = U.typeL;
   $("ach-type").innerHTML = U.types.map(t => `<option>${t}</option>`).join("");
   $("ach-title").placeholder = U.titlePh; $("ach-target-l").textContent = U.targetL; $("ach-target").placeholder = U.targetPh;
@@ -1623,6 +1624,7 @@ function prmTab(which) {
   if (!ME.isHead && (which === "req" || which === "log")) which = "new";
   prmSub = which; $("prm-detail").hidden = true; CUR_PRM = null;
   ["new", "mine", "req", "log"].forEach(t => { $("prmtab-" + t).setAttribute("aria-selected", t === which); $("prm-" + t).hidden = t !== which; });
+  if (which !== "new" && PRM_EDIT) { PRM_EDIT = null; $("pf-send").textContent = "إرسال الطلب إلى رئيس الشعبة"; $("pf-msg").textContent = ""; }
   if (which === "new") prmForm(); else loadPerms(true).then(renderPerms);
 }
 ["new", "mine", "req", "log"].forEach(t => $("prmtab-" + t).onclick = () => prmTab(t));
@@ -1653,6 +1655,16 @@ function renderPerms() {
 }
 
 // ---------- نموذج الطلب ----------
+let PRM_EDIT = null;
+async function startPermEdit(p) {
+  PRM_EDIT = p; prmTab("new"); await prmForm();
+  const t = document.querySelector(`input[name="pf-type"][value="${p.type}"]`); if (t) t.checked = true;
+  $("pf-reason").value = p.reason; $("pf-date").value = p.date; $("pf-date").oninput(); $("pf-from").value = p.from;
+  if (p.to === END_DAY) { $("pf-toend").checked = true; } else { $("pf-totime").checked = true; $("pf-to").value = p.to; } pfToMode();
+  const md = document.querySelector(`input[name="pf-mode"][value="${p.mode === "بديل" ? "بديل" : "متفرغ"}"]`); md.checked = true; $("pf-subbox").hidden = p.mode !== "بديل"; $("pf-sub").value = p.substitute || "";
+  $("pf-send").textContent = "حفظ التعديل وإرساله لرئيس الشعبة"; $("pf-msg").textContent = `تعديل الطلب رقم ${ar(p.serial)}: عدّل ما تريد ثم وقّع من جديد.`;
+  $("prm-form").scrollIntoView({ behavior: "smooth", block: "start" });
+}
 async function prmForm() {
   $("pf-name").textContent = "أ. " + ME.name;
   $("pf-types").innerHTML = PERM_TYPES.map((t, i) => `<label class="chip"><input type="radio" name="pf-type" value="${t}"${i === 1 ? " checked" : ""}><span>${t}</span></label>`).join("");
@@ -1678,6 +1690,17 @@ $("prm-form").addEventListener("submit", async e => {
   if (!body.from || !body.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)، أو اختر «حتى نهاية الدوام»."; return; }
   if (!sig) { m.textContent = "وقّع على الطلب قبل الإرسال."; return; }
   $("pf-send").disabled = true; m.textContent = "جارٍ الإرسال…";
+  if (PRM_EDIT) {
+    try {
+      const r = await run("submitPermission", CODE, Object.assign({ id: PRM_EDIT.id }, body));
+      PRM_EDIT = null; $("pf-send").textContent = "إرسال الطلب إلى رئيس الشعبة";
+      $("pf-reason").value = ""; $("pf-from").value = ""; $("pf-to").value = ""; $("pf-totime").checked = true; pfToMode(); $("pf-sub").value = "";
+      PRM = null; await loadPerms(true); m.textContent = "";
+      openPerm(r.id, "تم حفظ التعديل، ورجع الطلب لرئيس الشعبة ليعتمده مرة أخرى ✓");
+    } catch (err) { m.textContent = cleanErr(err); }
+    finally { $("pf-send").disabled = false; }
+    return;
+  }
   try {
     const r = await run("submitPermission", CODE, Object.assign({ deferMail: true }, body));
     m.textContent = "جارٍ تجهيز النموذج PDF وإرساله لرئيس الشعبة…";
@@ -1723,7 +1746,8 @@ async function openPerm(id, note) {
       <label class="f" for="pd-note">ملاحظة (اختياري)</label><input type="text" id="pd-note" maxlength="300">
       <div class="row-actions" style="margin-top:10px"><button class="btn" type="button" id="pd-ok">اعتماد وتوقيع</button><button class="btn ghost" type="button" id="pd-no">رفض</button></div></div>` : ""}
     <div class="row-actions" style="margin-top:14px"><button class="btn${canDecide ? " ghost" : ""}" type="button" id="pd-word">تنزيل النموذج وورد</button><button class="btn ghost" type="button" id="pd-pdf">PDF</button>
-      ${head || (mine && pending) ? `<button class="btn ghost" type="button" id="pd-del">حذف</button>` : ""}</div>
+      ${mine ? `<button class="btn ghost" type="button" id="pd-edit">تعديل الطلب</button>` : ""}${head || (mine && pending) ? `<button class="btn ghost" type="button" id="pd-del">حذف</button>` : ""}</div>
+    ${mine && !pending ? `<div class="sub">إذا عدّلت الطلب يرجع لرئيس الشعبة ليعتمده مرة أخرى.</div>` : ""}
     <div class="sub">توقيع المدير المساعد ومدير المعهد وجزء التأخير يُعبّأ على الورقة المطبوعة.</div>
     <div class="saved" id="pd-msg"></div>
   </div>`;
@@ -1734,6 +1758,7 @@ async function openPerm(id, note) {
     try { await deliver(await window.docx.Packer.toBlob(buildPermissionDoc(window.docx, p)), `إذن خروج ${p.serial.replace("/", "-")} - ${p.teacher}.docx`, m); }
     catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
   };
+  if ($("pd-edit")) $("pd-edit").onclick = () => startPermEdit(p);
   if ($("pd-del")) $("pd-del").onclick = async () => {
     if (!prmDelArmed) { prmDelArmed = true; $("pd-msg").textContent = "اضغط «حذف» مرة أخرى للتأكيد."; return; }
     try { await run("deletePermission", CODE, p.id); PRM = null; await loadPerms(true); prmTab(mine ? "mine" : "req"); } catch (e) { $("pd-msg").textContent = cleanErr(e); }
@@ -2132,7 +2157,7 @@ function pdfPermLog(r) {
 }
 
 // ================= ركن الإنجازات =================
-let ACH = null, ACH_ALL = null, achSub = "mine", PHOTOS = [];
+let ACH = null, ACH_ALL = null, achSub = "mine", PHOTOS = [], EDIT_ACH = null, KEEP = [];
 const photoCache = {};
 
 $("ach-date").value = todayISO();
@@ -2168,10 +2193,33 @@ $("ach-photos").onchange = async e => {
   e.target.value = ""; renderPreviews();
 };
 function renderPreviews() {
-  $("ach-previews").innerHTML = PHOTOS.map((p, i) => `<figure class="thumb"><img src="${p}" alt="صورة ${ar(i + 1)}"><button type="button" class="x" data-i="${i}" aria-label="حذف الصورة">×</button></figure>`).join("");
-  $("ach-previews").querySelectorAll(".x").forEach(b => b.onclick = () => { PHOTOS.splice(+b.dataset.i, 1); renderPreviews(); });
-  $("ach-photo-label").textContent = PHOTOS.length >= 4 ? "وصلت للحد الأقصى (٤ صور)" : `أضف صورًا (${ar(PHOTOS.length)} من ٤)`;
-  $("ach-photos").disabled = PHOTOS.length >= 4;
+  const n = KEEP.length + PHOTOS.length;
+  $("ach-previews").innerHTML = KEEP.map((k, i) => `<figure class="thumb"><img data-keep="${k.id}" src="${k.src || ""}" alt="صورة"><button type="button" class="x" data-k="${i}" aria-label="حذف الصورة">×</button></figure>`).join("")
+    + PHOTOS.map((p, i) => `<figure class="thumb"><img src="${p}" alt="صورة ${ar(i + 1)}"><button type="button" class="x" data-i="${i}" aria-label="حذف الصورة">×</button></figure>`).join("");
+  $("ach-previews").querySelectorAll(".x[data-i]").forEach(b => b.onclick = () => { PHOTOS.splice(+b.dataset.i, 1); renderPreviews(); });
+  $("ach-previews").querySelectorAll(".x[data-k]").forEach(b => b.onclick = () => { KEEP.splice(+b.dataset.k, 1); renderPreviews(); });
+  $("ach-photo-label").textContent = n >= 4 ? "وصلت للحد الأقصى (٤ صور)" : `أضف صورًا (${ar(n)} من ٤)`;
+  $("ach-photos").disabled = n >= 4;
+}
+// تعديل ما رفعه المعلم: يملأ النموذج نفسه، وبعد الحفظ يرجع لرئيس الشعبة لاعتماده
+function startAchEdit(a) {
+  EDIT_ACH = a; PHOTOS = []; KEEP = a.photos.map(id => ({ id, src: "" }));
+  if ($("ach-dept")) $("ach-dept").value = a.dept;
+  const sel = $("ach-type"); if (![...sel.options].some(o => o.value === a.type)) sel.add(new Option(a.type, a.type)); sel.value = a.type;
+  $("ach-date").value = a.date; $("ach-title").value = a.title; $("ach-target").value = a.target || ""; $("ach-desc").value = a.desc || ""; $("ach-results").value = a.results || "";
+  $("ach-h2").textContent = "تعديل: " + a.title; $("ach-submit").textContent = "حفظ التعديل";
+  if (!$("ach-cancel")) { const c = document.createElement("button"); c.type = "button"; c.className = "btn ghost"; c.id = "ach-cancel"; c.textContent = "إلغاء التعديل"; $("ach-submit").after(c); c.onclick = endAchEdit; }
+  $("ach-cancel").hidden = false; $("ach-msg").textContent = ME.isHead ? "" : "بعد حفظ التعديل يرجع لرئيس الشعبة ليعتمده مرة أخرى.";
+  renderPreviews();
+  KEEP.forEach(k => photo(k.id).then(src => { k.src = src; const im = document.querySelector(`[data-keep="${k.id}"]`); if (im) im.src = src; }).catch(() => {}));
+  $("ach-form").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function endAchEdit() {
+  EDIT_ACH = null; KEEP = []; PHOTOS = [];
+  $("ach-title").value = ""; $("ach-target").value = ""; $("ach-desc").value = ""; $("ach-results").value = ""; $("ach-date").value = todayISO();
+  if ($("ach-cancel")) $("ach-cancel").hidden = true;
+  const U = ACH_UI[ACH_KIND]; $("ach-h2").textContent = U.h2; $("ach-submit").textContent = "رفع " + U.nounDef;
+  $("ach-type").innerHTML = U.types.map(t => `<option>${t}</option>`).join(""); renderPreviews();
 }
 renderPreviews();
 
@@ -2179,7 +2227,17 @@ $("ach-form").addEventListener("submit", async e => {
   e.preventDefault();
   const msg = $("ach-msg"), btn = $("ach-submit");
   const U = ACH_UI[ACH_KIND];
-  if (!PHOTOS.length) { msg.textContent = `أضف صورة واحدة على الأقل لل${U.noun}.`; return; }
+  if (!PHOTOS.length && !KEEP.length) { msg.textContent = `أضف صورة واحدة على الأقل لل${U.noun}.`; return; }
+  if (EDIT_ACH) {
+    btn.disabled = true; msg.textContent = "جارٍ حفظ التعديل…";
+    try {
+      await run("editAchievement", CODE, EDIT_ACH.id, { kind: ACH_KIND, dept: $("ach-dept").value, type: $("ach-type").value, title: $("ach-title").value, date: $("ach-date").value, target: $("ach-target").value, desc: $("ach-desc").value, results: ACH_KIND === "act" ? $("ach-results").value : "", keep: KEEP.map(k => k.id), photos: PHOTOS });
+      endAchEdit(); ACH = null; ACH_ALL = null; loadMyAch();
+      msg.textContent = ME.isHead ? "تم حفظ التعديل." : "تم حفظ التعديل، ورجع لرئيس الشعبة ليعتمده مرة أخرى.";
+    } catch (x) { msg.textContent = cleanErr(x); }
+    finally { btn.disabled = false; }
+    return;
+  }
   btn.disabled = true; msg.textContent = `جارٍ رفع ${U.nounDef} والصور…`;
   try {
     await run("submitAchievement", CODE, { kind: ACH_KIND, dept: $("ach-dept").value, type: $("ach-type").value, title: $("ach-title").value, date: $("ach-date").value, target: $("ach-target").value, desc: $("ach-desc").value, results: ACH_KIND === "act" ? $("ach-results").value : "", photos: PHOTOS });
@@ -2197,9 +2255,10 @@ async function loadMyAch() {
   if (!mine.length) { box.innerHTML = `<div class="empty">لم ترفع شيئًا في «${U.log}» بعد. استخدم النموذج أعلاه.</div>`; return; }
   box.innerHTML = mine.map(a => `<div class="li">
       <div class="li-main"><b>${esc(a.title)}</b><span class="sub">${esc(a.type)} · ${fmtDate(a.date)}${a.photos.length ? " · " + ar(a.photos.length) + " صور" : ""}</span></div>
-      <div class="row-actions">${ME.isHead ? `<span class="pill ok">معتمد</span>` : `<span class="pill ${a.status === ST_READY ? "ok" : "none"}">${a.status === ST_READY ? "تمت المراجعة" : "قيد المراجعة"}</span>`}
-      ${ME.isHead ? `<button class="btn sm" data-view="${a.id}">عرض</button>` : ""}
+      <div class="row-actions">${ME.isHead ? `<span class="pill ok">معتمد</span>` : `<span class="pill ${a.status === ST_READY ? "ok" : "none"}">${a.status === ST_READY ? "تمت المراجعة" : a.editedAt ? "معدّل · بانتظار الاعتماد" : "قيد المراجعة"}</span>`}
+      ${ME.isHead ? `<button class="btn sm" data-view="${a.id}">عرض</button>` : ""}<button class="btn ghost sm" data-edit="${a.id}">تعديل</button>
       ${a.status === ST_READY && !ME.isHead ? "" : `<button class="btn ghost sm" data-del="${a.id}">حذف</button>`}</div></div>`).join("");
+  box.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => startAchEdit(mine.find(a => a.id === b.dataset.edit)));
   box.querySelectorAll("[data-view]").forEach(b => b.onclick = async () => {
     b.disabled = true; b.textContent = "جارٍ الفتح…";
     try { if (!ACH_ALL) ACH_ALL = await run("allAchievements", CODE); achSub = "all";
@@ -2232,7 +2291,7 @@ async function loadAllAch(force) {
   if (!list.length) { box.innerHTML = `<div class="empty">${achFilter === "pending" ? "لا يوجد شيء بانتظار الصياغة في هذا السجل." : "لا يوجد شيء في هذا السجل بعد."}</div>`; return; }
   box.innerHTML = list.map(a => `<button class="li li-btn" data-open="${a.id}">
       <div class="li-main"><b>${esc(a.title)}${a.demo ? ' <span class="pill none">تجريبي</span>' : ""}</b><span class="sub">أ. ${esc(a.teacher)} · ${esc(SUBJECTS[a.dept] || "")} · ${esc(a.type)} · ${fmtDate(a.date)}</span></div>
-      <span class="pill ${a.status === ST_READY ? "ok" : "late"}">${a.status === ST_READY ? "جاهز" : "بانتظار الصياغة"}</span></button>`).join("");
+      <span class="pill ${a.status === ST_READY ? "ok" : "late"}">${a.status === ST_READY ? "جاهز" : a.editedAt && a.report ? "معدّل · بانتظار اعتمادك" : "بانتظار الصياغة"}</span></button>`).join("");
   box.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openAch(b.dataset.open));
 }
 $("ach-reload").onclick = () => loadAllAch(true);
@@ -2257,10 +2316,11 @@ async function openAch(id) {
     <div class="gallery" id="ach-gallery">${a.photos.map(p => `<div class="ph" data-ph="${p}"><span class="sub">جارٍ تحميل الصورة…</span></div>`).join("")}</div>
     <h3>وصف المعلم</h3><p class="teacher-desc">${esc(a.desc)}</p>${a.results ? `<h3>النتائج والفائزون</h3><p class="teacher-desc">${esc(a.results)}</p>` : ""}
     <h3>التقرير الرسمي</h3>
-    <div class="sub">${a.status === ST_READY ? "صيغ في " + fmtStamp(a.reportedAt) + ". يمكنك تعديل النص ثم الحفظ." : "لم يُصغ بعد. اطلب من Claude: «صغ الإنجازات الجديدة»، أو اكتب التقرير بنفسك هنا."}</div>
+    ${a.status !== ST_READY && a.editedAt && a.report ? `<div class="notice">عدّل المعلم هذا في ${fmtStamp(a.editedAt)}. راجع الوصف والصور، وعدّل التقرير إن لزم، ثم اضغط «اعتماد».</div>` : ""}
+    <div class="sub">${a.status === ST_READY ? "صيغ في " + fmtStamp(a.reportedAt) + ". يمكنك تعديل النص ثم الحفظ." : a.report ? "بانتظار اعتمادك." : "لم يُصغ بعد. اطلب من Claude: «صغ الإنجازات الجديدة»، أو اكتب التقرير بنفسك هنا."}</div>
     <textarea id="ach-report" rows="14" placeholder="## مقدمة&#10;نص الفقرة…&#10;## تفاصيل النشاط&#10;- نقطة&#10;- نقطة">${esc(a.report || "")}</textarea>
     <div class="row-actions" style="margin-top:10px">
-      <button class="btn" id="ach-save">حفظ التقرير</button>
+      <button class="btn" id="ach-save">${a.status !== ST_READY && a.report ? "اعتماد" : "حفظ التقرير"}</button>
       <button class="btn" id="ach-word" ${a.report ? "" : "disabled"}>تنزيل وورد</button><button class="btn ghost" id="ach-pdf" type="button" ${a.report ? "" : "disabled"}>PDF</button>
       <button class="btn ghost" id="ach-delete">حذف</button>
     </div>
@@ -2273,7 +2333,7 @@ async function openAch(id) {
   $("ach-save").onclick = async () => {
     const m = $("ach-dmsg"), t = $("ach-report").value;
     $("ach-save").disabled = true; m.textContent = "جارٍ الحفظ…";
-    try { const r = await run("saveReport", CODE, a.id, t); a.report = t; a.status = r.status; a.reportedAt = r.reportedAt; $("ach-word").disabled = $("ach-pdf").disabled = !t.trim(); m.textContent = "تم الحفظ."; }
+    try { const r = await run("saveReport", CODE, a.id, t); a.report = t; a.status = r.status; a.reportedAt = r.reportedAt; $("ach-word").disabled = $("ach-pdf").disabled = !t.trim(); m.textContent = $("ach-save").textContent === "اعتماد" ? "تم الاعتماد ✓" : "تم الحفظ."; $("ach-save").textContent = "حفظ التقرير"; const nt = $("ach-detail").querySelector(".notice"); if (nt) nt.remove(); }
     catch (e) { m.textContent = cleanErr(e); } finally { $("ach-save").disabled = false; }
   };
   $("ach-pdf").onclick = () => deliverPdf(async () => { const ph = []; for (const x of a.photos) ph.push(await photo(x)); if (ph.length > 1) ph.splice(0, ph.length, await collage(ph)); return pdfAchievement({ ...a, report: $("ach-report").value }, ph); }, `تقرير ${a.title} - ${a.teacher}.pdf`, $("ach-dmsg"));

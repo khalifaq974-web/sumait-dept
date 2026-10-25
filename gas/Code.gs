@@ -58,7 +58,7 @@ function doGet() {
 
 // ======================= واجهة الموقع الخارجي (GitHub Pages) =======================
 // الصفحة المستضافة خارج جوجل ترسل الطلبات هنا، فلا يتأثر المعلم بتعدد حسابات جوجل في متصفحه.
-const API = { login, saveEntry, headData, submitAchievement, myAchievements, deleteAchievement, allAchievements, saveReport,
+const API = { login, saveEntry, headData, submitAchievement, myAchievements, editAchievement, deleteAchievement, allAchievements, saveReport,
   getPhoto, listMinutes, getMinute, saveMinute, deleteMinute, signMinute, mySignature, saveFileToDrive, demoAccounts, demoAction,
   saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, classesOverview, classSheet, saveGrades,
   listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport,
@@ -258,7 +258,7 @@ const ACH_KINDS = { pd: "التنمية المهنية وإنجاز الموظف
 function achObj_(r, withReport) {
   const o = { id: r[0], teacher: r[1], date: r[2], type: r[3], title: r[4], target: r[5], desc: r[6],
     photos: r[7] ? r[7].split(",").filter(Boolean) : [], status: r[8] || ST_PENDING, createdAt: r[10], reportedAt: r[11],
-    kind: r[12] === "act" ? "act" : "pd", results: r[13] || "", dept: r[14] === "qr" || r[14] === "hd" ? r[14] : achDept_(r[1]) };
+    kind: r[12] === "act" ? "act" : "pd", results: r[13] || "", dept: r[14] === "qr" || r[14] === "hd" ? r[14] : achDept_(r[1]), editedAt: r[15] || "" };
   if (withReport) o.report = r[9];
   return o;
 }
@@ -303,6 +303,39 @@ function submitAchievement(code, a) {
 function myAchievements(code) {
   const me = who_(code);
   return rows_(SHEET_ACH).slice(1).filter(r => r[0] && r[1] === me.name).map(r => achObj_(r, false)).reverse();
+}
+
+/** تعديل المعلم لما رفعه (النص والصور): يعود «بانتظار الاعتماد» ويصل رئيسَ الشعبة إشعار */
+function editAchievement(code, id, a) {
+  const me = who_(code);
+  const title = String(a.title || "").trim().slice(0, 150), desc = String(a.desc || "").trim().slice(0, 3000);
+  if (!title) throw new Error("اكتب العنوان.");
+  if (desc.length < 10) throw new Error("اكتب وصفًا ولو بسطرين.");
+  const res = withLock_(() => {
+    const sh = sh_(SHEET_ACH), row = findRow_(sh, 1, String(id));
+    if (row < 0) throw new Error("غير موجود.");
+    const r = sh.getRange(row, 1, 1, 15).getDisplayValues()[0];
+    if (r[1] !== me.name && !me.isHead) throw new Error("لا يمكنك تعديل هذا.");
+    const old = (r[7] || "").split(",").filter(Boolean);
+    const keep = (a.keep || []).map(String).filter(x => old.indexOf(x) !== -1);
+    old.filter(x => keep.indexOf(x) === -1).forEach(fid => { try { DriveApp.getFileById(fid).setTrashed(true); } catch (e) {} });
+    const folder = folder_(), stamp = Date.now();
+    const added = (a.photos || []).slice(0, Math.max(0, 4 - keep.length)).map((b64, i) => folder.createFile(Utilities.newBlob(
+      Utilities.base64Decode(String(b64).replace(/^data:image\/\w+;base64,/, "")), "image/jpeg", `${r[0]}-e${stamp}-${i + 1}.jpg`)).getId());
+    const ids = keep.concat(added);
+    if (!ids.length) throw new Error("أبقِ صورة واحدة على الأقل.");
+    const kind = r[12] === "act" ? "act" : "pd";
+    r[2] = String(a.date || r[2]).slice(0, 10); r[3] = String(a.type || r[3]).slice(0, 60); r[4] = title; r[5] = String(a.target || "").slice(0, 150); r[6] = desc;
+    r[7] = ids.join(","); r[13] = kind === "act" ? String(a.results || "").trim().slice(0, 1500) : "";
+    if (a.dept === "hd" || a.dept === "qr") r[14] = a.dept;
+    if (!me.isHead) r[8] = ST_PENDING;
+    writeRow_(sh, row, r);
+    if (!me.isHead) sh.getRange(row, 16).setNumberFormat("@").setValue(nowText_());
+    return { kind, photos: ids, status: r[8] };
+  });
+  if (!me.isHead) notify_(me, `تعديل ${res.kind === "act" ? "نشاط" : "إنجاز"} من أ. ${me.name}: ${title}`,
+    `<p>عدّل <b>أ. ${esc_(me.name)}</b> ${res.kind === "act" ? "نشاطه" : "إنجازه"} «${esc_(title)}» في سجل «${ACH_KINDS[res.kind]}»، وهو الآن بانتظار اعتمادك مرة أخرى من الموقع.</p>`);
+  return res;
 }
 
 function deleteAchievement(code, id) {
@@ -962,7 +995,7 @@ function saveProfile(code, p) { const me = who_(code), c = cleanProfile_(p); wit
 
 function permObj_(r, withImages) {
   const o = { id: r[0], serial: r[1], teacher: r[2], type: r[3], dept: r[4], job: r[5], civil: r[6], reason: r[7], date: r[8], from: r[9], to: r[10],
-    mode: r[11], substitute: r[12], sentAt: r[14], status: r[15], decidedAt: r[17], headNote: r[18] };
+    mode: r[11], substitute: r[12], sentAt: r[14], status: r[15], decidedAt: r[17], headNote: r[18], editedAt: r[19] || "" };
   if (withImages) { o.teacherSig = r[13]; o.headSig = r[16]; }
   return o;
 }
@@ -991,6 +1024,22 @@ function submitPermission(code, p) {
   const sub = mode === "بديل" ? String(p.substitute || "").trim().slice(0, 80) : "";
   if (mode === "بديل" && !sub) throw new Error("اكتب اسم المعلم البديل.");
   if (!validSig_(p.sig)) throw new Error("وقّع على الطلب قبل الإرسال.");
+  if (p.id) {
+    const ed = withLock_(() => {
+      const sh = permSheet_(), row = findRow_(sh, 1, String(p.id));
+      if (row < 0) throw new Error("الاستئذان غير موجود.");
+      const r = sh.getRange(row, 1, 1, PERM_HEAD.length).getDisplayValues()[0];
+      if (r[2] !== me.name) throw new Error("ليس طلبك.");
+      saveProfile_(me.name, prof);
+      const now = nowText_();
+      writeRow_(sh, row, [r[0], r[1], r[2], type, prof.dept, prof.job, prof.civil, reason, date, p.from, p.to, mode, sub, p.sig, r[14], PERM_PENDING, "", "", "", now]);
+      saveMySig_(me.name, p.sig, now);
+      return r[1];
+    });
+    notify_(me, `تعديل طلب استئذان من أ. ${me.name} (${date})`, `<p>عدّل <b>أ. ${esc_(me.name)}</b> طلب الاستئذان رقم ${esc_(ed)}، وهو الآن بانتظار اعتمادك مرة أخرى من الموقع.</p>
+      <p>${esc_(type)} · ${esc_(date)} · من ${esc_(p.from)} ${p.to === "نهاية الدوام" ? "حتى نهاية الدوام" : "إلى " + esc_(p.to)} · ${esc_(reason)}</p>`);
+    return { id: String(p.id), serial: ed, edited: true };
+  }
   const id = newId_(), now = nowText_(), year = date.slice(0, 4);
   const serial = withLock_(() => {
     saveProfile_(me.name, prof);
@@ -1194,9 +1243,10 @@ const ACT_LOG = {
   deleteStudentReport: () => ({ sec: "cls", text: "حذف تقرير متعلم" }),
   submitAchievement: a => ({ sec: a[1] && a[1].kind === "act" ? "act" : "ach", text: `${a[1] && a[1].kind === "act" ? "رفع نشاطًا في سجل الأنشطة والمسابقات" : "رفع إنجازًا في التنمية المهنية وإنجاز الموظف"}: ${a[1] && a[1].title || ""}` }),
   deleteAchievement: () => ({ sec: "ach", text: "حذف إنجازًا أو نشاطًا مرفوعًا" }),
+  editAchievement: (a, res) => ({ sec: res && res.kind === "act" ? "act" : "ach", text: `عدّل ${res && res.kind === "act" ? "نشاطًا" : "إنجازًا"} وينتظر اعتمادك: ${a[2] && a[2].title || ""}` }),
   signMinute: a => ({ sec: "min", text: `وقّع على المحضر: ${rowTitle_(SHEET_MIN, a[1], 1)}` }),
   signVisit: () => ({ sec: "vis", text: "اطّلع ووقّع على بطاقة الزيارة الصفية" }),
-  submitPermission: a => ({ sec: "prm", text: `قدّم طلب استئذان (${a[1] && a[1].type || ""}) ليوم ${a[1] && a[1].date || ""}` }),
+  submitPermission: a => ({ sec: "prm", text: `${a[1] && a[1].id ? "عدّل طلب استئذان وينتظر اعتمادك" : "قدّم طلب استئذان"} (${a[1] && a[1].type || ""}) ليوم ${a[1] && a[1].date || ""}` }),
   deletePermission: () => ({ sec: "prm", text: "حذف طلب استئذان" }),
   ackCircular: a => { const r = nshRows_().find(x => x[0] === String(a[1])); return { sec: "nsh", text: `اطّلع ووقّع على ${r ? r[1] + ": " + r[4] : "نشرة"}` }; }
 };
