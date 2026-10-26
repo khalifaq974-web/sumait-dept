@@ -270,6 +270,14 @@ table.grades th small { color: var(--muted); font-weight: 500; }
 @media (max-width: 640px) { .doc-hd img.moe, .doc-hd img.ins { height: 44px; } .doc-hd .t, .doc-hd .box { font-size: 13px; } }
 .who-actions { display: flex; gap: 8px; align-items: center; }
 .bell { position: relative; }
+/* اللمبة الزرقاء: عدد تحديثات المعلمين الجديدة في كل ركن */
+nav.sections button { position: relative; }
+.lamp { position: absolute; top: -8px; left: -6px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 12px; background: radial-gradient(circle at 35% 30%, #8fd3ff, #1e88e5 55%, #0d5fb3); color: #fff; font: 700 13px/24px var(--f-display, inherit); font-style: normal; text-align: center; box-shadow: 0 0 0 2px var(--surface), 0 0 10px 2px rgba(30,136,229,.65); animation: lampGlow 1.8s ease-in-out infinite; pointer-events: none; z-index: 2; }
+.lamp[hidden] { display: none; }
+.lamp::before { content: "💡"; font-size: 11px; margin-left: 2px; filter: hue-rotate(180deg) saturate(2) brightness(1.3); }
+@keyframes lampGlow { 0%, 100% { box-shadow: 0 0 0 2px var(--surface), 0 0 6px 1px rgba(30,136,229,.5); } 50% { box-shadow: 0 0 0 2px var(--surface), 0 0 14px 4px rgba(30,136,229,.85); } }
+@media (prefers-reduced-motion: reduce) { .lamp { animation: none; } }
+.bell-n.blue { background: #1e88e5; box-shadow: 0 0 8px rgba(30,136,229,.7); }
 .bell-n { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--late); color: #fff; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; }
 .act-panel { margin-top: 10px; max-height: 70vh; overflow: auto; }
 .act-item { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; width: 100%; text-align: right; font: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--ink); margin-top: 6px; }
@@ -338,7 +346,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
   </section>
 
   <div id="app" hidden>
-    <div class="who-bar"><b id="me-name"></b><span class="who-actions"><button class="btn ghost sm bell head-only" id="bell" type="button" hidden aria-label="الإشعارات">🔔 الإشعارات <span class="bell-n" id="bell-n" hidden></span></button><button class="btn ghost sm" id="logout">خروج</button></span></div>
+    <div class="who-bar"><b id="me-name"></b><span class="who-actions"><button class="btn ghost sm bell head-only" id="bell" type="button" hidden aria-label="الإشعارات">🔔 الإشعارات <span class="bell-n blue" id="bell-n" hidden></span></button><button class="btn ghost sm" id="logout">خروج</button></span></div>
     <div class="card act-panel" id="act-panel" hidden>
       <div class="vis-head-row" style="margin-top:0"><h3>الإشعارات: تحديثات المعلمين</h3><span><button class="btn ghost sm" id="act-reload" type="button">تحديث</button> <button class="btn ghost sm" id="act-close" type="button">إغلاق</button></span></div>
       <div class="sub">كل ما يسجّله المعلمون في الموقع يظهر هنا. اضغط على أي إشعار للانتقال إلى ركنه.</div>
@@ -353,15 +361,15 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
     </details>
 
     <nav class="sections" aria-label="أركان الموقع">
-      <button id="nav-curr" aria-selected="true"><b>ما قطع من المنهج</b><span>متابعة الخطة</span></button>
-      <button id="nav-cls" aria-selected="false"><b>كشف متابعة المتعلمين</b><span>الدرجات وتقارير المتعلمين</span></button>
-      <button id="nav-ach" aria-selected="false"><b>التنمية المهنية وإنجاز الموظف</b><span>الدورات والورش والزيارات</span></button>
-      <button id="nav-act" aria-selected="false"><b>سجل الأنشطة والمسابقات</b><span>الأنشطة والمسابقات والإذاعة</span></button>
-      <button id="nav-min" aria-selected="false"><b>محاضر الاجتماعات</b><span>الاطلاع والتوقيع</span></button>
-      <button id="nav-vis" aria-selected="false"><b>الزيارات الصفية</b><span>بطاقات الزيارة</span></button>
-      <button id="nav-prm" aria-selected="false"><b>الاستئذان</b><span>طلب الاستئذان والسجل</span></button>
-      <button id="nav-nsh" aria-selected="false"><b>سجل النشرات والتعاميم</b><span>الاطلاع والتوقيع</span></button>
-      <button id="nav-res" aria-selected="false"><b>سجل الغياب والاحتياط</b><span id="nav-res-sub">الغياب والبدلاء وتبديل الحصص</span></button>
+      <button id="nav-curr" aria-selected="true"><b>ما قطع من المنهج</b><span>متابعة الخطة</span><i class="lamp" id="lamp-curr" hidden></i></button>
+      <button id="nav-cls" aria-selected="false"><b>كشف متابعة المتعلمين</b><span>الدرجات وتقارير المتعلمين</span><i class="lamp" id="lamp-cls" hidden></i></button>
+      <button id="nav-ach" aria-selected="false"><b>التنمية المهنية وإنجاز الموظف</b><span>الدورات والورش والزيارات</span><i class="lamp" id="lamp-ach" hidden></i></button>
+      <button id="nav-act" aria-selected="false"><b>سجل الأنشطة والمسابقات</b><span>الأنشطة والمسابقات والإذاعة</span><i class="lamp" id="lamp-act" hidden></i></button>
+      <button id="nav-min" aria-selected="false"><b>محاضر الاجتماعات</b><span>الاطلاع والتوقيع</span><i class="lamp" id="lamp-min" hidden></i></button>
+      <button id="nav-vis" aria-selected="false"><b>الزيارات الصفية</b><span>بطاقات الزيارة</span><i class="lamp" id="lamp-vis" hidden></i></button>
+      <button id="nav-prm" aria-selected="false"><b>الاستئذان</b><span>طلب الاستئذان والسجل</span><i class="lamp" id="lamp-prm" hidden></i></button>
+      <button id="nav-nsh" aria-selected="false"><b>سجل النشرات والتعاميم</b><span>الاطلاع والتوقيع</span><i class="lamp" id="lamp-nsh" hidden></i></button>
+      <button id="nav-res" aria-selected="false"><b>سجل الغياب والاحتياط</b><span id="nav-res-sub">الغياب والبدلاء وتبديل الحصص</span><i class="lamp" id="lamp-res" hidden></i></button>
       <button id="nav-mrp" aria-selected="false" class="head-only" hidden><b>إنجازات القسم</b><span>التقارير الشهرية</span></button>
     </nav>
 
@@ -1158,7 +1166,7 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
@@ -1170,6 +1178,7 @@ function go(sec) {
   const shown = sec === "act" ? "ach" : sec;
   SECTIONS.forEach(s => { $("nav-" + s).setAttribute("aria-selected", s === sec); const el = $("sec-" + s); if (el) el.hidden = s !== shown; });
   try { localStorage.setItem("section", sec); } catch (e) {}
+  seenSection(sec);
   // كل دخول للركن يجلب أحدث البيانات من الخادم (حتى تظهر الطلبات والرفوعات الجديدة بدون إعادة تحميل الصفحة)
   if (sec === "prm") PRM = null;
   if (sec === "ach" || sec === "act") { ACH = null; ACH_ALL = null; }
@@ -2671,15 +2680,40 @@ async function openAch(id) {
 }
 
 // ================= الإشعارات (رئيس الشعبة) =================
-const SEC_NAMES_AR = { curr: "ما قطع من المنهج", cls: "كشف متابعة المتعلمين", ach: "التنمية المهنية وإنجاز الموظف", act: "سجل الأنشطة والمسابقات", min: "محاضر الاجتماعات", vis: "الزيارات الصفية", prm: "الاستئذان", nsh: "سجل النشرات والتعاميم" };
+const SEC_NAMES_AR = { curr: "ما قطع من المنهج", cls: "كشف متابعة المتعلمين", ach: "التنمية المهنية وإنجاز الموظف", act: "سجل الأنشطة والمسابقات", min: "محاضر الاجتماعات", vis: "الزيارات الصفية", prm: "الاستئذان", nsh: "سجل النشرات والتعاميم", res: "سجل الغياب والاحتياط" };
 let ACT = null, actTimer = null;
 function actWhen(t) { const d = new Date(String(t).replace(" ", "T") + "+03:00"), mins = Math.round((Date.now() - d) / 60000);
   if (mins < 1) return "الآن"; if (mins < 60) return `قبل ${ar(mins)} دقيقة`; if (mins < 1440) return `قبل ${ar(Math.round(mins / 60))} ساعة`; return fmtStamp(String(t).slice(0, 16)); }
+const LAMP_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res"];
+let SEC_SEEN = {};
+function lsSeen() { try { return JSON.parse(localStorage.getItem("secSeen") || "{}"); } catch (e) { return {}; } }
+function itemUnread(a) { const s = SEC_SEEN[a.sec] || ""; return a.at > (ACT.seen || "") && a.at > s; }
+/** يحدّث اللمبات الزرقاء على الأركان والعدد على زر الإشعارات */
+function renderLamps() {
+  if (!ACT || !ME || !ME.isHead) return;
+  const n = {}; let total = 0;
+  ACT.items.forEach(a => { a.unread = itemUnread(a); if (a.unread) { n[a.sec] = (n[a.sec] || 0) + 1; total++; } });
+  LAMP_SECS.forEach(s => { const el = $("lamp-" + s); if (!el) return; const c = n[s] || 0; el.hidden = !c; el.textContent = c ? ar(c > 99 ? "99+" : c) : ""; $("nav-" + s).title = c ? `${c} تحديث جديد من المعلمين` : ""; });
+  $("bell-n").hidden = !total; $("bell-n").textContent = ar(total > 99 ? "99+" : total);
+}
 async function loadAct(render) {
   if (!ME || !ME.isHead) return;
-  try { ACT = await run("listActivity", CODE, 150); } catch (e) { if (render) $("act-list").innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; }
-  $("bell-n").hidden = !ACT.unread; $("bell-n").textContent = ar(ACT.unread > 99 ? "99+" : ACT.unread);
+  try { ACT = await run("listActivity", CODE, 300); } catch (e) { if (render) $("act-list").innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; }
+  const loc = lsSeen(); SEC_SEEN = {};
+  LAMP_SECS.forEach(s => { const a = (ACT.secSeen || {})[s] || "", b = loc[s] || ""; SEC_SEEN[s] = a > b ? a : b; });
+  // إذا الرئيس فاتح الركن الآن، تحديثاته تُعتبر مقروءة
+  const cur = LAMP_SECS.find(s => $("nav-" + s).getAttribute("aria-selected") === "true");
+  if (cur && ACT.items.some(a => a.sec === cur && itemUnread(a))) seenSection(cur); else renderLamps();
   if (render) renderAct();
+}
+/** فتح الركن يطفئ لمبته */
+function seenSection(sec) {
+  if (!ME || !ME.isHead || !ACT || LAMP_SECS.indexOf(sec) === -1) return;
+  const latest = ACT.items.filter(a => a.sec === sec).reduce((m, a) => a.at > m ? a.at : m, "");
+  if (!latest || latest <= (SEC_SEEN[sec] || "")) return;
+  SEC_SEEN[sec] = latest; const loc = lsSeen(); loc[sec] = latest; try { localStorage.setItem("secSeen", JSON.stringify(loc)); } catch (e) {}
+  renderLamps();
+  run("markSectionSeen", CODE, sec).catch(() => {});
 }
 function renderAct() {
   const box = $("act-list");
@@ -2694,11 +2728,11 @@ $("bell").onclick = async () => {
   const p = $("act-panel"); p.hidden = !p.hidden; if (p.hidden) return;
   $("act-list").innerHTML = '<div class="empty">جارٍ التحميل…</div>';
   await loadAct(true);
-  if (ACT && ACT.unread) { try { await run("markActivitySeen", CODE); $("bell-n").hidden = true; ACT.unread = 0; } catch (e) {} }
+  if (ACT && ACT.items.some(a => a.unread)) { try { const r = await run("markActivitySeen", CODE); ACT.seen = r.seen; } catch (e) {} renderLamps(); }
 };
 $("act-close").onclick = () => { $("act-panel").hidden = true; loadAct(); };
 $("act-reload").onclick = () => loadAct(true);
-function startActPoll() { clearInterval(actTimer); if (!ME || !ME.isHead) return; loadAct(); actTimer = setInterval(() => { if (!document.hidden && ME && ME.isHead) loadAct(!$("act-panel").hidden); }, 120000); }
+function startActPoll() { clearInterval(actTimer); if (!ME || !ME.isHead) return; loadAct(); actTimer = setInterval(() => { if (!document.hidden && ME && ME.isHead) loadAct(!$("act-panel").hidden); }, 60000); }
 
 // ================= إنجازات القسم (التقارير الشهرية) =================
 const MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];

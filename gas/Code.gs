@@ -64,7 +64,7 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, edi
   listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport, saveRemedialPlan,
   myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
-  listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen };
+  listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen };
 
 function doPost(e) {
   let out;
@@ -1475,6 +1475,9 @@ const ACT_LOG = {
   signVisit: () => ({ sec: "vis", text: "اطّلع على بطاقة الزيارة الصفية" }),
   submitPermission: a => ({ sec: "prm", text: `${a[1] && a[1].id ? "عدّل طلب استئذان" : "قدّم طلب استئذان"} (${a[1] && a[1].type || ""}) ليوم ${a[1] && a[1].date || ""}` }),
   deletePermission: () => ({ sec: "prm", text: "حذف طلب استئذان" }),
+  saveRemedialPlan: () => ({ sec: "cls", text: "حدّث الخطة العلاجية لمتعلم متعثر" }),
+  requestSwap: a => ({ sec: "res", text: `طلب تبديل حصة مع أ. ${a[1] && a[1].other || ""} ليوم ${a[1] && a[1].date || ""}` }),
+  cancelSwap: () => ({ sec: "res", text: "ألغى تبديل حصة" }),
   ackCircular: a => { const r = nshRows_().find(x => x[0] === String(a[1])); return { sec: "nsh", text: `اطّلع على ${r ? r[1] + ": " + r[4] : "نشرة"}` }; }
 };
 function logAct_(fn, args, result) {
@@ -1501,6 +1504,19 @@ function listActivity(code, limit) {
   const seen = PropertiesService.getScriptProperties().getProperty("actSeen") || "";
   const v = actSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]);
   const items = v.slice(-Math.min(Number(limit) || 150, 300)).reverse().map(r => ({ at: r[0], teacher: r[1], sec: r[2], text: r[3], demo: isDemo_(r[1]), unread: r[0] > seen }));
-  return { items, unread: v.filter(r => r[0] > seen).length, seen };
+  let secSeen = {}; try { secSeen = JSON.parse(PropertiesService.getScriptProperties().getProperty("actSeenSec") || "{}"); } catch (e) {}
+  return { items, unread: v.filter(r => r[0] > seen).length, seen, secSeen };
+}
+/** اللمبة الزرقاء: فتح الركن يصفّر عدّاد تحديثاته فقط */
+const ACT_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res"];
+function markSectionSeen(code, sec) {
+  head_(code);
+  if (ACT_SECS.indexOf(sec) === -1) throw new Error("ركن غير معروف.");
+  const t = stamp_(), props = PropertiesService.getScriptProperties();
+  return withLock_(() => {
+    let m = {}; try { m = JSON.parse(props.getProperty("actSeenSec") || "{}"); } catch (e) {}
+    m[sec] = t; props.setProperty("actSeenSec", JSON.stringify(m));
+    return { sec, seen: t };
+  });
 }
 function markActivitySeen(code) { head_(code); const t = stamp_(); PropertiesService.getScriptProperties().setProperty("actSeen", t); return { seen: t }; }
