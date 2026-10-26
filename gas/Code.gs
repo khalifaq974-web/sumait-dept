@@ -61,7 +61,7 @@ function doGet() {
 const API = { login, saveEntry, headData, submitAchievement, myAchievements, editAchievement, deleteAchievement, allAchievements, saveReport,
   getPhoto, listMinutes, getMinute, saveMinute, deleteMinute, signMinute, mySignature, saveFileToDrive, demoAccounts, demoAction,
   saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, setSwapReturn, classesOverview, classSheet, saveGrades,
-  listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport,
+  listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport, saveRemedialPlan,
   myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
   listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen };
@@ -981,7 +981,52 @@ const SREP_HEAD = ["المعرف", "النوع", "المعلم", "الصف", "ا
 function srepSheet_() { return sheet_(SHEET_SREP, SREP_HEAD, true); }
 function srepObj_(r) {
   let data = {}; try { data = JSON.parse(r[8] || "{}"); } catch (e) {}
-  return { id: r[0], type: r[1], teacher: r[2], cls: r[3], term: Number(r[5]) || 1, student: r[6], score: r[7], data, createdAt: r[9], seenAt: r[10], updatedAt: r[11] };
+  let plan = null; try { plan = r[12] ? JSON.parse(r[12]) : null; } catch (e) {}
+  return { id: r[0], type: r[1], teacher: r[2], cls: r[3], term: Number(r[5]) || 1, student: r[6], score: r[7], data, createdAt: r[9], seenAt: r[10], updatedAt: r[11],
+    plan, planAt: r[13] || "" };
+}
+
+// ======================= الخطة العلاجية التفصيلية للمتعلم المتعثر =======================
+// اختيارية للمعلم، تُبنى على تقرير «متعلم متعثر» (المظاهر والأسباب منه)، وتُحفظ في عمودين بعد أعمدة التقرير
+const PLAN_HEAD = ["الخطة العلاجية", "آخر تحديث للخطة"];
+function srepPlanSheet_() {
+  const sh = srepSheet_(), c = SREP_HEAD.length, n = c + PLAN_HEAD.length;
+  if (sh.getMaxColumns() < n) sh.insertColumnsAfter(sh.getMaxColumns(), n - sh.getMaxColumns());
+  if (sh.getRange(1, c + 1).getDisplayValue() !== PLAN_HEAD[0]) {
+    sh.getRange(1, c + 1, sh.getMaxRows(), PLAN_HEAD.length).setNumberFormat("@");
+    sh.getRange(1, c + 1, 1, PLAN_HEAD.length).setValues([PLAN_HEAD]);
+  }
+  return sh;
+}
+function cleanPlan_(p) {
+  p = p || {};
+  const S = (v, n) => String(v == null ? "" : v).trim().slice(0, n || 300);
+  const rows = (a, keys, max) => (Array.isArray(a) ? a : []).slice(0, max).map(r => { const o = {}; keys.forEach(k => o[k] = S(r && r[k])); return o; }).filter(o => keys.some(k => o[k]));
+  return { start: S(p.start, 10), weeks: S(p.weeks, 2), tools: cleanList_(p.tools), preQuiz: S(p.preQuiz, 6), preTotal: S(p.preTotal, 6),
+    goals: rows(p.goals, ["g", "crit"], 6), strat: cleanList_(p.strat), actions: rows(p.actions, ["a", "tool", "time", "by"], 8),
+    follow: rows(p.follow, ["week", "date", "done", "level"], 8), parent: rows(p.parent, ["date", "how", "agreed"], 6),
+    postQuiz: S(p.postQuiz, 6), postTotal: S(p.postTotal, 6), result: S(p.result, 30), recs: S(p.recs, 1500) };
+}
+function saveRemedialPlan(code, id, plan) {
+  const me = who_(code);
+  const sh = srepPlanSheet_(), c = SREP_HEAD.length;
+  return withLock_(() => {
+    const row = findRow_(sh, 1, String(id || ""));
+    if (row < 0) throw new Error("التقرير غير موجود.");
+    const old = sh.getRange(row, 1, 1, c + PLAN_HEAD.length).getDisplayValues()[0];
+    if (old[1] !== SREP_TYPES.weak) throw new Error("الخطة العلاجية للمتعلم المتعثر فقط.");
+    if (old[2] !== me.name && !(me.isHead && !me.isDemo)) throw new Error("لا يمكنك تعديل خطة غيرك.");
+    const P = cleanPlan_(plan);
+    if (!P.goals.length) throw new Error("اكتب هدفًا واحدًا على الأقل للخطة.");
+    let prev = {}; try { prev = old[c] ? JSON.parse(old[c]) : {}; } catch (e) {}
+    const now = nowText_(), rg = sh.getRange(row, c + 1, 1, PLAN_HEAD.length);
+    rg.setNumberFormat("@"); rg.setValues([[JSON.stringify(P), now]]);
+    const first = !old[c], done = P.result && P.result !== prev.result, p = old[3].split(":");
+    if (first || done) notify_(me, `${first ? "أعدّ" : "أنهى"} أ. ${me.name} الخطة العلاجية للمتعلم رقم ${arNum_(old[6])} (${SUBJ[p[0]]})`, `
+      <p>${first ? "أعدّ" : "سجّل"} <b>أ. ${esc_(me.name)}</b> ${first ? "خطة علاجية تفصيلية" : "التقويم الختامي للخطة العلاجية"} لـ<b>المتعلم رقم ${arNum_(old[6])}</b> في الصف ${esc_(p[1].replace("-", "/"))} · ${esc_(SUBJ[p[0]])}.</p>
+      ${done ? `<p><b>النتيجة:</b> ${esc_(P.result)}</p>` : `<p><b>الأهداف:</b></p><ul>${P.goals.map(g => "<li>" + esc_(g.g) + "</li>").join("")}</ul>`}`);
+    return { planAt: now };
+  });
 }
 function cleanList_(a) { return (Array.isArray(a) ? a : []).slice(0, 20).map(x => String(x).trim().slice(0, 200)).filter(Boolean); }
 

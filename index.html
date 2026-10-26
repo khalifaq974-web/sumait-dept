@@ -298,6 +298,8 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
 .srep-li:hover { border-color: var(--accent); }
 #cls-rep .attlist { margin-top: 2px; }
 @media (max-width: 640px) { .cls-stats { grid-template-columns: 1fr 1fr; } }
+.srep-choose { margin: 10px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.plan-t input, .plan-t select { width: 100%; }
 .res-items { display: grid; gap: 10px; margin-top: 14px; }
 .res-row { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
 .res-row.muted-row { opacity: .75; }
@@ -421,7 +423,18 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <div class="saved" id="cls-msg"></div>
         </div>
         <div class="card" style="margin-top:12px">
-          <div class="vis-head-row" style="margin-top:0"><h3>تقارير المتعلمين في هذا الصف</h3><div class="row-actions"><button class="btn ghost sm" type="button" id="srep-new-excel">+ تقرير متعلم فائق</button><button class="btn ghost sm" type="button" id="srep-new-weak">+ تقرير متعلم متعثر</button></div></div>
+          <div class="vis-head-row" style="margin-top:0"><h3>تقارير المتعلمين في هذا الصف</h3><div class="row-actions"><button class="btn ghost sm" type="button" id="srep-new-excel">+ تقرير متعلم فائق</button><button class="btn ghost sm" type="button" id="srep-new-weak">+ متعلم متعثر</button></div></div>
+          <div class="srep-choose" id="srep-weak-choose" hidden>
+            <b>اختر نوع الخطة العلاجية للمتعلم المتعثر:</b>
+            <div class="row-actions" style="margin-top:8px">
+              <button class="btn" type="button" id="srep-weak-general">خطة علاجية عامة</button>
+              <button class="btn" type="button" id="srep-weak-detailed">خطة علاجية تفصيلية مع المتابعة</button>
+              <button class="btn ghost sm" type="button" id="srep-weak-cancel">إلغاء</button>
+            </div>
+            <div class="sub" style="margin-top:6px"><b>العامة:</b> تقرير واحد بمظاهر التعثر وأسبابه والإجراءات المتخذة. <b>التفصيلية:</b> نفس التشخيص، ثم أهداف وإجراءات محددة، ومتابعة أسبوعية، وتقويم ختامي بالدرجات.</div>
+            <div class="sub" style="margin-top:6px">نموذج فارغ للطباعة: <a href="#" id="srep-blank-general">الخطة العامة PDF</a> · <a href="#" id="srep-blank-detailed">الخطة التفصيلية PDF</a></div>
+            <div class="saved" id="srep-blank-msg"></div>
+          </div>
           <div class="sub">يصل التقرير إلى رئيس الشعبة فور إرساله، ويمكنك تعديله أو تنزيله وورد لاحقًا.</div>
           <div class="list" id="srep-class-list"></div>
         </div>
@@ -1501,7 +1514,7 @@ async function loadSreps(force) {
 }
 function srepRow(r) {
   const k = SREP_KEY[r.type] || "weak";
-  return `<button type="button" class="li srep-li" data-srep="${esc(r.id)}"><span><b>${stuLabel(r.student)}</b> <span class="pill ${SREP[k].pill}">${esc(r.type)}</span>${ME.isHead && !ME.isDemo && !r.seenAt ? ' <span class="pill ahead">جديد</span>' : ""}<br>
+  return `<button type="button" class="li srep-li" data-srep="${esc(r.id)}"><span><b>${stuLabel(r.student)}</b> <span class="pill ${SREP[k].pill}">${esc(r.type)}</span>${ME.isHead && !ME.isDemo && !r.seenAt ? ' <span class="pill ahead">جديد</span>' : ""}${r.plan ? ` <span class="pill ${r.plan.result ? (r.plan.result === PLAN_RESULTS[0] ? "ok" : "late") : "none"}">خطة علاجية${r.plan.result ? ": " + esc(r.plan.result) : ""}</span>` : ""}<br>
     <span class="sub">${esc(classFull(r.cls))} · الفصل ${TERM_NAMES[r.term]}${ME.isHead ? " · أ. " + esc(r.teacher) : ""} · ${fmtStamp(r.createdAt)}</span></span><span class="sub">عرض ←</span></button>`;
 }
 function renderSreps() {
@@ -1529,12 +1542,12 @@ function studentScore(n) {
   const t = rowTotals(Array.from({ length: 9 }, (_, i) => v[i] || ""));
   return t.form === "" ? "" : `${String(t.form)} من 40`;
 }
-function srepForm(type, rep) {
+function srepForm(type, rep, detailed) {
   const F = SREP[type], dept = CUR_CLS.cls.split(":")[0], d = (rep && rep.data) || {};
   CUR_SREP = rep || null; srepBack = "sheet"; clsView("cls-rep");
   $("cls-rep").innerHTML = `<div class="vis-head-row"><button class="btn ghost sm" type="button" id="srep-cancel">→ رجوع إلى الكشف</button></div>
   <form class="card" id="srep-form" style="margin-top:10px">
-    <h2>${F.title} · ${SUBJECTS[dept]}</h2><div class="sub">${esc(classFull(CUR_CLS.cls))} · الفصل الدراسي ${TERM_NAMES[CUR_CLS.term]} · المعلم: أ. ${esc(rep ? rep.teacher : ME.name)}</div>
+    <h2>${detailed ? "خطة علاجية تفصيلية مع المتابعة" : type === "weak" ? "خطة علاجية عامة (" + F.title + ")" : F.title} · ${SUBJECTS[dept]}</h2>${detailed ? '<div class="pill ahead" style="margin:4px 0">الخطوة ١ من ٢: تشخيص التعثر، ثم تنتقل إلى الأهداف والمتابعة</div>' : ""}<div class="sub">${esc(classFull(CUR_CLS.cls))} · الفصل الدراسي ${TERM_NAMES[CUR_CLS.term]} · المعلم: أ. ${esc(rep ? rep.teacher : ME.name)}</div>
     <label class="f" for="sr-student">رقم المتعلم (حسب كشف الصف)</label>
     <select id="sr-student" required><option value="">اختر رقم المتعلم…</option>${CUR_CLS.students.map(s => `<option value="${s.n}"${rep && String(rep.student) === String(s.n) ? " selected" : ""}>${stuLabel(s.n)}</option>`).join("")}</select>
     <div class="sub" id="sr-score"></div>
@@ -1545,7 +1558,7 @@ function srepForm(type, rep) {
     ${type === "weak" ? `<label class="f" for="sr-need">الدعم المطلوب من رئيس الشعبة أو الإدارة (اختياري)</label><textarea id="sr-need" rows="2" maxlength="1000">${esc(d.need || "")}</textarea>` : ""}
     <label class="f" for="sr-rec">توصية المعلم (اختياري)</label><textarea id="sr-rec" rows="2" maxlength="1500">${esc(d.rec || "")}</textarea>
     <label class="f" for="sr-other">ملاحظات أخرى (اختياري)</label><input type="text" id="sr-other" maxlength="1000" value="${esc(d.other || "")}">
-    <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="sr-save">${rep ? "حفظ التعديل وإرساله" : "إرسال التقرير إلى رئيس الشعبة"}</button></div>
+    <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="sr-save">${rep ? "حفظ التعديل وإرساله" : detailed ? "حفظ التشخيص والانتقال إلى الخطة ←" : "إرسال التقرير إلى رئيس الشعبة"}</button></div>
     <div class="saved" id="sr-msg"></div>
   </form>`;
   const upd = () => { const s = studentScore($("sr-student").value); $("sr-score").textContent = $("sr-student").value ? (s ? "مجموعه الحالي في الكشف: " + fmtN(s.split(" ")[0]) + " من ٤٠" : "لم يكتمل رصد درجاته في الكشف بعد.") : ""; };
@@ -1558,13 +1571,24 @@ function srepForm(type, rep) {
     const body = { id: rep ? rep.id : "", type, cls: CUR_CLS.cls, term: CUR_CLS.term, student: name, score: studentScore(name),
       data: { a: pick("sr-a"), b: pick("sr-b"), c: pick("sr-c"), desc: $("sr-desc").value, need: $("sr-need") ? $("sr-need").value : "", rec: $("sr-rec").value, other: $("sr-other").value } };
     $("sr-save").disabled = true; m.textContent = "جارٍ الإرسال…";
-    try { const r = await run("saveStudentReport", CODE, body); SREPS = null; await loadSreps(true); openSrep(r.id, "sheet", "تم إرسال التقرير إلى رئيس الشعبة ✓"); }
+    try {
+      const r = await run("saveStudentReport", CODE, body); SREPS = null; await loadSreps(true);
+      if (detailed) { srepBack = "sheet"; const nr = (SREPS || []).find(x => x.id === r.id); if (nr) return planForm(nr, true, true); }
+      openSrep(r.id, "sheet", "تم إرسال التقرير إلى رئيس الشعبة ✓");
+    }
     catch (err) { m.textContent = cleanErr(err); $("sr-save").disabled = false; }
   };
   window.scrollTo({ top: $("sec-cls").offsetTop - 10 });
 }
 $("srep-new-excel").onclick = () => CUR_CLS && CUR_CLS.students.length && srepForm("excel");
-$("srep-new-weak").onclick = () => CUR_CLS && CUR_CLS.students.length && srepForm("weak");
+$("srep-new-weak").onclick = () => { if (CUR_CLS && CUR_CLS.students.length) { $("srep-weak-choose").hidden = !$("srep-weak-choose").hidden; $("srep-blank-msg").textContent = ""; } };
+$("srep-weak-cancel").onclick = () => $("srep-weak-choose").hidden = true;
+$("srep-weak-general").onclick = () => { $("srep-weak-choose").hidden = true; srepForm("weak"); };
+$("srep-weak-detailed").onclick = () => { $("srep-weak-choose").hidden = true; srepForm("weak", null, true); };
+$("srep-blank-general").onclick = e => { e.preventDefault(); const dept = CUR_CLS ? CUR_CLS.cls.split(":")[0] : "hd";
+  deliverPdf(() => pdfStudentReport({ type: SREP.weak.label, dept }), `نموذج خطة علاجية عامة - ${SUBJECTS[dept]}.pdf`, $("srep-blank-msg")); };
+$("srep-blank-detailed").onclick = e => { e.preventDefault(); const dept = CUR_CLS ? CUR_CLS.cls.split(":")[0] : "hd";
+  deliverPdf(() => pdfRemedialPlan({ dept, data: {}, plan: {} }), `نموذج خطة علاجية تفصيلية - ${SUBJECTS[dept]}.pdf`, $("srep-blank-msg")); };
 
 function openSrep(id, back, note) {
   const r = (SREPS || []).find(x => x.id === id); if (!r) return;
@@ -1586,7 +1610,8 @@ function openSrep(id, back, note) {
     <div class="row-actions" style="margin-top:14px"><button class="btn" type="button" id="srep-word">تنزيل التقرير وورد</button><button class="btn ghost" type="button" id="srep-pdf">PDF</button>
       ${mine ? `<button class="btn ghost" type="button" id="srep-edit">تعديل</button><button class="btn ghost" type="button" id="srep-del">حذف</button>` : ""}</div>
     <div class="saved" id="srep-vmsg"></div>
-  </div>`;
+  </div>${k === "weak" ? planCard(r, mine) : ""}`;
+  if (k === "weak") planCardWire(r, mine);
   $("srep-back").onclick = () => { if (srepBack === "sheet" && CUR_CLS) clsView("cls-sheet"); else { clsView("cls-home"); CUR_CLS = null; } renderSreps(); };
   $("srep-pdf").onclick = () => deliverPdf(() => pdfStudentReport(r), `${F.title} - ${SUBJECTS[ci.dept]} - ${stuLabel(r.student)} - ${ci.label}.pdf`, $("srep-vmsg"));
   $("srep-word").onclick = async () => {
@@ -1612,6 +1637,128 @@ function openSrep(id, back, note) {
   }
   if (ME.isHead && !ME.isDemo && !r.seenAt) { r.seenAt = "now"; run("seenStudentReport", CODE, r.id).catch(() => {}); }
   window.scrollTo({ top: $("sec-cls").offsetTop - 10 });
+}
+
+// ---------- الخطة العلاجية التفصيلية (اختيارية للمعلم، تُبنى على تقرير المتعلم المتعثر) ----------
+const PLAN_TOOLS = ["الاختبار القصير", "التسميع الشفهي", "الملاحظة الصفية", "الواجبات", "كشف متابعة المتعلمين"];
+const PLAN_STRAT = d => ["التعلم بالأقران (زميل متقن)", "التسميع الفردي المتكرر", d === "qr" ? "تجزئة المقطع المقرر للحفظ" : "تجزئة الحديث المقرر للحفظ",
+  d === "qr" ? "الاستماع لقارئ متقن وترديد التلاوة" : "تبسيط المعاني بأمثلة من واقع المتعلم", "أوراق عمل مبسطة", "الخرائط الذهنية والتشجير", "التعزيز والتحفيز", "حصص تقوية أو وقت الأنشطة"];
+const PLAN_LEVELS = ["تحسّن", "ثابت", "تراجع"], PLAN_RESULTS = ["تحققت أهداف الخطة", "تحققت جزئيًا", "لم تتحقق"], PLAN_HOW = ["اتصال", "حضور", "رسالة"];
+function planProgress(pl) {
+  const f = (pl.follow || []).filter(x => x.done || x.level);
+  return pl.result ? pl.result : f.length ? `متابعة ${ar(f.length)} من ${ar(+pl.weeks || 4)} أسابيع · آخرها: ${f[f.length - 1].level || "—"}` : "لم تبدأ المتابعة بعد";
+}
+function planCard(r, mine) {
+  const pl = r.plan;
+  if (!pl) return mine ? `<div class="card" style="margin-top:12px"><h3 style="margin-top:0">الخطة العلاجية التفصيلية <span class="sub">(اختيارية)</span></h3>
+    <div class="sub">إذا احتاج المتعلم متابعة أطول: حدّد أهدافًا وإجراءات، وتابع تقدّمه أسبوعًا بأسبوع حتى التقويم الختامي. مظاهر التعثر وأسبابه تُنقل من هذا التقرير.</div>
+    <div class="row-actions" style="margin-top:10px"><button class="btn" type="button" id="plan-open">+ إعداد خطة علاجية تفصيلية</button></div></div>` : "";
+  return `<div class="card" style="margin-top:12px"><h3 style="margin-top:0">الخطة العلاجية التفصيلية</h3>
+    <dl class="meta-grid"><div><dt>بداية الخطة</dt><dd>${pl.start ? fmtDate(pl.start) : "—"}</dd></div><div><dt>المدة</dt><dd>${ar(+pl.weeks || 4)} أسابيع</dd></div>
+      <div><dt>الأهداف</dt><dd>${ar((pl.goals || []).filter(g => g.g).length)}</dd></div><div><dt>الحالة</dt><dd><span class="pill ${pl.result === PLAN_RESULTS[0] ? "ok" : pl.result ? "late" : "none"}">${esc(planProgress(pl))}</span></dd></div>
+      ${r.planAt ? `<div><dt>آخر تحديث</dt><dd>${fmtStamp(r.planAt)}</dd></div>` : ""}</dl>
+    <div class="row-actions" style="margin-top:10px">${mine ? `<button class="btn" type="button" id="plan-open">فتح الخطة وتحديث المتابعة</button>` : `<button class="btn" type="button" id="plan-open">عرض الخطة</button>`}<button class="btn ghost" type="button" id="plan-pdf">تنزيل الخطة PDF</button></div>
+    <div class="saved" id="plan-vmsg"></div></div>`;
+}
+function planCardWire(r, mine) {
+  if ($("plan-open")) $("plan-open").onclick = () => planForm(r, mine);
+  if ($("plan-pdf")) $("plan-pdf").onclick = () => { const ci = classInfo(r.cls); deliverPdf(() => pdfRemedialPlan(r), `خطة علاجية - ${SUBJECTS[ci.dept]} - ${stuLabel(r.student)} - ${ci.label}.pdf`, $("plan-vmsg")); };
+}
+function planForm(r, mine, fresh) {
+  const ci = classInfo(r.cls), dept = ci.dept, d = r.data || {}, pl = r.plan || {}, ro = mine ? "" : " disabled";
+  const weeks = +pl.weeks || 4, goals = (pl.goals || []).concat([{}, {}, {}]).slice(0, Math.max(3, (pl.goals || []).length));
+  const acts = (pl.actions || []).concat([{}, {}, {}, {}]).slice(0, Math.max(4, (pl.actions || []).length));
+  const follow = Array.from({ length: 8 }, (_, i) => (pl.follow || []).find(x => +x.week === i + 1) || {});
+  const parent = (pl.parent || []).concat([{}, {}]).slice(0, Math.max(2, (pl.parent || []).length));
+  const ul = a => a && a.length ? `<ul>${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="sub">—</div>`;
+  const inp = (cls, v, ph, w) => `<input type="text" class="${cls}" value="${esc(v || "")}" placeholder="${esc(ph || "")}" maxlength="300"${w ? ` style="min-width:${w}"` : ""}${ro}>`;
+  const sel = (cls, opts, v) => `<select class="${cls}"${ro}><option value="">—</option>${opts.map(o => `<option${o === v ? " selected" : ""}>${o}</option>`).join("")}</select>`;
+  const preTotal = pl.preTotal || (r.score ? String(r.score).split(" ")[0] : "");
+  $("cls-rep").innerHTML = `<div class="vis-head-row"><button class="btn ghost sm" type="button" id="plan-back">→ رجوع إلى التقرير</button></div>
+  <form class="card" id="plan-form" style="margin-top:10px">
+    <h2>الخطة العلاجية التفصيلية · ${SUBJECTS[dept]}: ${stuLabel(r.student)}</h2>${fresh ? '<div class="pill ok" style="margin:4px 0">تم حفظ التشخيص ✓ — الخطوة ٢ من ٢: الأهداف والإجراءات والمتابعة</div>' : ""}
+    <div class="sub">${esc(classFull(r.cls))} · الفصل الدراسي ${TERM_NAMES[r.term]} · المعلم: أ. ${esc(r.teacher)}</div>
+    <div class="grid2"><div><label class="f" for="pl-start">تاريخ بدء الخطة</label><input type="date" id="pl-start" value="${esc(pl.start || todayISO())}"${ro}></div>
+      <div><label class="f" for="pl-weeks">مدة الخطة</label><select id="pl-weeks"${ro}>${[2, 3, 4, 5, 6, 8].map(n => `<option value="${n}"${n === weeks ? " selected" : ""}>${ar(n)} أسابيع</option>`).join("")}</select></div></div>
+    <h3>أولًا: تشخيص التعثر <span class="sub">(من التقرير)</span></h3>
+    <div class="grid2"><div><b class="sub">مظاهر التعثر</b>${ul(d.a)}</div><div><b class="sub">الأسباب المحتملة</b>${ul(d.b)}</div></div>
+    ${checkGroup("pl-tools", "أدوات التشخيص", PLAN_TOOLS, pl.tools)}
+    <div class="grid2"><div><label class="f" for="pl-prequiz">درجة الاختبار القصير قبل الخطة (من ١٥)</label><input type="text" id="pl-prequiz" inputmode="decimal" maxlength="5" value="${esc(pl.preQuiz || "")}"${ro}></div>
+      <div><label class="f" for="pl-pretotal">المجموع قبل الخطة (من ٤٠)</label><input type="text" id="pl-pretotal" inputmode="decimal" maxlength="5" value="${esc(preTotal)}"${ro}></div></div>
+    <h3>ثانيًا: أهداف الخطة <span class="sub">(أن + فعل + الطالب)</span></h3>
+    <div class="tablebox"><table class="vis-table plan-t" id="pl-goals"><thead><tr><th>م</th><th>الهدف</th><th>معيار تحققه</th></tr></thead><tbody>${goals.map((g, i) =>
+      `<tr><td>${ar(i + 1)}</td><td>${inp("g", g.g, i === 0 ? (dept === "qr" ? "أن يحفظ الطالب الآيات المقررة حفظًا متقنًا" : "أن يحفظ الطالب نص الحديث حفظًا متقنًا") : "أن …", "220px")}</td><td>${inp("crit", g.crit, i === 0 ? "يسمّع دون أخطاء" : "", "140px")}</td></tr>`).join("")}</tbody></table></div>
+    ${checkGroup("pl-strat", "ثالثًا: الإجراءات العلاجية", PLAN_STRAT(dept), pl.strat)}
+    <div class="tablebox"><table class="vis-table plan-t" id="pl-acts"><thead><tr><th>م</th><th>الإجراء أو النشاط العلاجي</th><th>الوسيلة</th><th>التوقيت</th><th>المنفّذ</th></tr></thead><tbody>${acts.map((a, i) =>
+      `<tr><td>${ar(i + 1)}</td><td>${inp("a", a.a, i === 0 ? "تسميع فردي لمقطع قصير" : "", "180px")}</td><td>${inp("tool", a.tool, i === 0 ? "المصحف / بطاقة" : "", "110px")}</td><td>${inp("time", a.time, i === 0 ? "الأحد والأربعاء" : "", "100px")}</td><td>${inp("by", a.by, i === 0 ? "المعلم" : "", "90px")}</td></tr>`).join("")}</tbody></table></div>
+    <h3>رابعًا: متابعة تنفيذ الخطة</h3>
+    <div class="tablebox"><table class="vis-table plan-t" id="pl-follow"><thead><tr><th>الأسبوع</th><th>التاريخ</th><th>ما تم تنفيذه</th><th>مستوى التقدم</th></tr></thead><tbody>${follow.map((f, i) =>
+      `<tr data-w="${i + 1}"${i >= weeks ? " hidden" : ""}><td>${ar(i + 1)}</td><td><input type="date" class="date" value="${esc(f.date || "")}"${ro}></td><td>${inp("done", f.done, "", "200px")}</td><td>${sel("level", PLAN_LEVELS, f.level)}</td></tr>`).join("")}</tbody></table></div>
+    <h3>خامسًا: التواصل مع ولي الأمر</h3>
+    <div class="tablebox"><table class="vis-table plan-t" id="pl-parent"><thead><tr><th>التاريخ</th><th>الوسيلة</th><th>ما تم الاتفاق عليه</th></tr></thead><tbody>${parent.map(x =>
+      `<tr><td><input type="date" class="date" value="${esc(x.date || "")}"${ro}></td><td>${sel("how", PLAN_HOW, x.how)}</td><td>${inp("agreed", x.agreed, "", "200px")}</td></tr>`).join("")}</tbody></table></div>
+    <h3>سادسًا: التقويم الختامي للخطة</h3>
+    <div class="grid3"><div><label class="f" for="pl-postquiz">الاختبار القصير بعد الخطة (من ١٥)</label><input type="text" id="pl-postquiz" inputmode="decimal" maxlength="5" value="${esc(pl.postQuiz || "")}"${ro}></div>
+      <div><label class="f" for="pl-posttotal">المجموع بعد الخطة (من ٤٠)</label><input type="text" id="pl-posttotal" inputmode="decimal" maxlength="5" value="${esc(pl.postTotal || "")}"${ro}></div>
+      <div><label class="f" for="pl-result">النتيجة</label>${sel("", PLAN_RESULTS, pl.result).replace("<select", '<select id="pl-result"')}</div></div>
+    <label class="f" for="pl-recs">التوصيات</label><textarea id="pl-recs" rows="2" maxlength="1500"${ro}>${esc(pl.recs || "")}</textarea>
+    <div class="sub" style="margin-top:6px">احفظ الخطة متى ما أردت، وارجع لها كل أسبوع لتسجيل المتابعة، ثم عبّئ التقويم الختامي في نهايتها.</div>
+    <div class="row-actions" style="margin-top:14px">${mine ? `<button class="btn" type="submit" id="pl-save">حفظ الخطة</button>` : ""}<button class="btn ghost" type="button" id="pl-pdf">تنزيل الخطة PDF</button></div>
+    <div class="saved" id="pl-msg"></div>
+  </form>`;
+  $("pl-weeks").onchange = () => { const n = +$("pl-weeks").value; document.querySelectorAll("#pl-follow tr[data-w]").forEach(tr => tr.hidden = +tr.dataset.w > n); };
+  const collect = () => {
+    const rows = (id, keys) => [...document.querySelectorAll(`#${id} tbody tr`)].filter(tr => !tr.hidden).map(tr => { const o = {}; keys.forEach(k => { const el = tr.querySelector("." + k); o[k] = el ? el.value : ""; }); if (tr.dataset.w) o.week = tr.dataset.w; return o; });
+    const pick = id => [...$(id).querySelectorAll("input:checked")].map(x => x.value);
+    return { start: $("pl-start").value, weeks: $("pl-weeks").value, tools: pick("pl-tools"), preQuiz: normNum($("pl-prequiz").value), preTotal: normNum($("pl-pretotal").value),
+      goals: rows("pl-goals", ["g", "crit"]), strat: pick("pl-strat"), actions: rows("pl-acts", ["a", "tool", "time", "by"]),
+      follow: rows("pl-follow", ["date", "done", "level"]), parent: rows("pl-parent", ["date", "how", "agreed"]),
+      postQuiz: normNum($("pl-postquiz").value), postTotal: normNum($("pl-posttotal").value), result: $("pl-result").value, recs: $("pl-recs").value };
+  };
+  $("plan-back").onclick = () => openSrep(r.id);
+  $("pl-pdf").onclick = () => { const tmp = Object.assign({}, r, { plan: mine ? collect() : r.plan }); deliverPdf(() => pdfRemedialPlan(tmp), `خطة علاجية - ${SUBJECTS[dept]} - ${stuLabel(r.student)} - ${ci.label}.pdf`, $("pl-msg")); };
+  $("plan-form").onsubmit = async e => {
+    e.preventDefault(); if (!mine) return;
+    const m = $("pl-msg"), body = collect();
+    if (!body.goals.some(g => g.g.trim())) { m.textContent = "اكتب هدفًا واحدًا على الأقل للخطة."; return; }
+    $("pl-save").disabled = true; m.textContent = "جارٍ الحفظ…";
+    try {
+      const res = await run("saveRemedialPlan", CODE, r.id, body);
+      SREPS = null; await loadSreps(true);
+      openSrep(r.id, srepBack, "تم حفظ الخطة العلاجية ✓");
+    } catch (err) { m.textContent = /غير معروف/.test(cleanErr(err)) ? "الخطة العلاجية تعمل بعد تحديث كود السيرفر (Code.gs) ونشره." : cleanErr(err); $("pl-save").disabled = false; }
+  };
+  window.scrollTo({ top: $("sec-cls").offsetTop - 10 });
+}
+function pdfRemedialPlan(r) {
+  const blank = !r.cls, ci = blank ? { label: "", dept: r.dept || "hd" } : classInfo(r.cls), dept = ci.dept, d = r.data || {}, pl = r.plan || {}, n = v => v ? ar(v) : "";
+  const checks = (opts, chosen) => { chosen = chosen || []; const all = opts.concat(chosen.filter(x => opts.indexOf(x) === -1)), cells = [];
+    for (let i = 0; i < all.length; i += 2) cells.push(`<tr>${[all[i], all[i + 1]].map(o => `<td style="width:50%">${o ? `${chosen.indexOf(o) !== -1 ? "■" : "□"} ${PE(o)}` : ""}</td>`).join("")}</tr>`);
+    return `<table class="plain">${cells.join("")}</table>`; };
+  const fill = (a, min) => (a || []).concat(Array.from({ length: Math.max(0, min - (a || []).length) }, () => ({})));
+  const weeks = +pl.weeks || 4, follow = Array.from({ length: weeks }, (_, i) => (pl.follow || []).find(x => +x.week === i + 1) || {});
+  const ul = a => a && a.length ? a.map(x => "• " + x).join("    ") : blank ? "" : "—";
+  if (blank) { const S = SREP.weak; d.__blank = true; pl.__a = S.a[1](dept); pl.__b = S.b[1](dept); }
+  const diag = (title, list, chosen) => blank ? P.tr([{ t: title, c: "f" }, { html: checks(list, []) }]) : P.tr([{ t: title, c: "f" }, ul(chosen)]);
+  return { box: "خطة علاجية", guid: true, signs: [["المعلم", "أ. " + (r.teacher || "")], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
+    P.title("خطة علاجية لمتعلم متعثر · " + SUBJECTS[dept]),
+    P.info([["رقم المتعلم", blank ? "" : ar(r.student)], ["المتعلم", ""], ["الصف", ci.label], ["الفصل الدراسي", blank ? "□ الأول   □ الثاني  ٢٠٢٦/٢٠٢٧" : `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧`], ["المعلم", "أ. " + (r.teacher || "")],
+      ["تاريخ بدء الخطة", pl.start ? fmtDate(pl.start) : blank ? "     /     / ٢٠٢٦م" : ""], ["مدة الخطة", blank ? "       أسابيع" : ar(weeks) + " أسابيع"], ["المجموع قبل الخطة", pl.preTotal ? n(pl.preTotal) + " من ٤٠" : blank ? "       من ٤٠" : "—"]]),
+    P.h("أولًا: تشخيص التعثر"),
+    P.grid("", [diag("مظاهر التعثر", pl.__a, d.a), diag("الأسباب المحتملة", pl.__b, d.b), diag("أدوات التشخيص", PLAN_TOOLS, pl.tools),
+      P.tr([{ t: "درجات المتعلم", c: "f" }, `الاختبار القصير: ${pl.preQuiz ? n(pl.preQuiz) : "……"} من ١٥      المجموع: ${pl.preTotal ? n(pl.preTotal) : "……"} من ٤٠`]), P.tr([{ t: "وصف الحالة", c: "f" }, blank ? { html: "<div style='height:34px'></div>" } : d.desc || "—"])]),
+    P.h("ثانيًا: أهداف الخطة"),
+    P.grid(P.th(["م", "الهدف", "معيار تحققه"]), fill(pl.goals, 3).map((g, i) => P.tr([{ t: ar(i + 1), c: "c" }, g.g || "", g.crit || ""]))),
+    P.h("ثالثًا: الإجراءات العلاجية"), checks(PLAN_STRAT(dept), pl.strat),
+    P.grid(P.th(["م", "الإجراء أو النشاط العلاجي", "الوسيلة", "التوقيت", "المنفّذ"]), fill(pl.actions, 3).map((a, i) => P.tr([{ t: ar(i + 1), c: "c" }, a.a || "", a.tool || "", a.time || "", a.by || ""]))),
+    P.h("رابعًا: متابعة تنفيذ الخطة"),
+    P.grid(P.th(["الأسبوع", "التاريخ", "ما تم تنفيذه", "مستوى التقدم"]), follow.map((f, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: f.date ? fmtDate(f.date) : "", c: "c" }, f.done || "",
+      { t: f.level || PLAN_LEVELS.map(x => "□ " + x).join("  "), c: f.level === "تراجع" ? "c late" : f.level === "تحسّن" ? "c ok" : "c" }]))),
+    P.h("خامسًا: التواصل مع ولي الأمر"),
+    P.grid(P.th(["التاريخ", "الوسيلة", "ما تم الاتفاق عليه"]), fill(pl.parent, 2).map(x => P.tr([{ t: x.date ? fmtDate(x.date) : "", c: "c" }, { t: x.how || PLAN_HOW.map(h => "□ " + h).join("  "), c: "c" }, x.agreed || ""]))),
+    P.h("سادسًا: التقويم الختامي للخطة"),
+    P.grid("", [P.tr([{ t: "درجة المتعلم بعد الخطة", c: "f" }, `الاختبار القصير: ${pl.postQuiz ? n(pl.postQuiz) : "……"} من ١٥      المجموع: ${pl.postTotal ? n(pl.postTotal) : "……"} من ٤٠`]),
+      P.tr([{ t: "النتيجة", c: "f" }, PLAN_RESULTS.map(x => (x === pl.result ? "■ " : "□ ") + x).join("      ")]), P.tr([{ t: "التوصيات", c: "f" }, pl.recs || ""])])] };
 }
 
 // تقرير متعلم فائق/متعثر (وورد) بالديباجة المعتمدة. بدون بيانات = نموذج فارغ للطباعة
@@ -2140,7 +2287,7 @@ function pdfStudentReport(r) {
     return P.h(title) + `<table class="plain">${cells.join("")}</table>`; };
   const box = (title, text) => P.h(title) + `<div style="border:1px solid #C9D6E3;padding:6px 10px;min-height:40px">${PE(text || "").replace(/\n/g, "<br>")}</div>`;
   const blocks = [P.info([["رقم المتعلم", r.student ? ar(r.student) : ""], ["المتعلم", ""], ["الصف", ci ? ci.label : ""], ["المادة", SUBJECTS[dept]], ["الفصل الدراسي", r.term ? `${TERM_NAMES[r.term]} ٢٠٢٦/٢٠٢٧` : ""],
-    ["المعلم", r.teacher ? "أ. " + r.teacher : ""], ["المجموع في الكشف", r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : "—"], ["تاريخ التقرير", r.createdAt ? fmtDate(r.createdAt) : ""]]),
+    ["المعلم", r.teacher ? "أ. " + r.teacher : ""], ["المجموع في الكشف", r.score ? fmtN(r.score.split(" ")[0]) + " من ٤٠" : r.student ? "—" : "        من ٤٠"], ["تاريخ التقرير", r.createdAt ? fmtDate(r.createdAt) : r.student ? "" : "     /     / ٢٠٢٦م"]]),
     checks(F.a[0], F.a[1](dept), d.a), checks(F.b[0], F.b[1](dept), d.b), F.c ? checks(F.c[0], F.c[1](dept), d.c) : "", box(F.desc, d.desc)];
   if (k === "weak" && d.need) blocks.push(box("الدعم المطلوب من رئيس الشعبة أو الإدارة", d.need));
   if (d.rec) blocks.push(box("توصية المعلم", d.rec));
