@@ -582,11 +582,11 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       </section>
       <section id="res-swap" hidden>
         <div class="row-actions" style="margin-top:12px">
-          <select id="swap-filter" aria-label="الحالة"><option value="pending">لم يُرد بعد</option><option value="all" selected>كل التبديلات</option><option value="done">تم الرد</option></select>
+          <select id="swap-filter" aria-label="الحالة"><option value="pending">لم يُرد بعد</option><option value="all" selected>كل التبديلات المعتمدة</option><option value="done">تم الرد</option><option value="cancel">الملغاة</option></select>
           <button class="btn ghost" id="swap-reload" type="button">تحديث</button>
           <button class="btn" id="swap-pdf" type="button">تنزيل سجل التبديل PDF</button>
         </div>
-        <div class="sub" style="margin-top:8px">التبديل: معلم المادة الأخرى في الفصل نفسه يدخل حصة الغائب، ثم يردّ الغائب الحصة بدخول حصة ذلك المعلم في الفصل نفسه في يوم الرد. علّم «تم الرد» بعد أن يردّها.</div>
+        <div class="sub" style="margin-top:8px">التبديل يطلبه المعلم من حسابه (ركن الاستئذان ← تبديل حصة) مع معلم المادة الأخرى في الفصل نفسه، ويطبع «نموذج تبديل حصة» للتوقيع. علّم «تم الرد» بعد أن يردّ المعلم الحصة.</div>
         <div class="saved" id="swap-msg"></div>
         <div id="swap-body"></div>
       </section>
@@ -605,6 +605,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <nav class="tabs" role="tablist">
         <button id="prmtab-new" role="tab" aria-selected="true">طلب استئذان</button>
         <button id="prmtab-mine" role="tab" aria-selected="false">استئذاناتي</button>
+        <button id="prmtab-swap" role="tab" aria-selected="false">تبديل حصة</button>
         <button id="prmtab-req" role="tab" aria-selected="false" class="head-only" hidden>الطلبات الواردة</button>
         <button id="prmtab-log" role="tab" aria-selected="false" class="head-only" hidden>سجل الاستئذان</button>
       </nav>
@@ -638,6 +639,19 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <div class="sub" style="margin-top:6px">«تنزيل PDF فقط» يعطيك النموذج معبّأً لتطبعه، ولا يُرسَل لرئيس الشعبة ولا يُسجَّل في الموقع.</div>
           <div class="saved" id="pf-msg"></div>
         </form>
+      </section>
+      <section id="prm-swap" hidden>
+        <div class="card">
+          <h2>تبديل حصة</h2>
+          <div class="sub">بدّل حصتك مع معلم المادة الأخرى في الفصل نفسه: يدخل حصتك، وتردّها أنت بدخول حصته في الفصل نفسه في يوم الرد. يقترح الموقع الخيارات التي ليس فيها تعارض، وبعد الاعتماد اطبع «نموذج تبديل حصة» ووقّعه مع زميلك.</div>
+          <div class="grid2" style="margin-top:10px"><div><label class="f" for="sw-date">يوم الحصة <span class="sub" id="sw-day"></span></label><input type="date" id="sw-date"></div></div>
+          <label class="f">حصتك التي تريد تبديلها</label><div class="chips" id="sw-periods"></div>
+          <label class="f">خيارات التبديل المتاحة</label><div id="sw-choices" class="attlist"></div>
+          <div class="row-actions" style="margin-top:14px"><button class="btn" type="button" id="sw-send" disabled>اعتماد التبديل وطباعة النموذج</button></div>
+          <div class="saved" id="sw-msg"></div>
+        </div>
+        <h3 class="list-title">تبديلاتي</h3>
+        <div class="list" id="sw-mine"></div>
       </section>
       <section id="prm-mine" hidden><div class="saved" id="prm-mine-msg"></div><div class="list" id="prm-mine-list"></div></section>
       <section id="prm-req" hidden><div class="saved" id="prm-req-msg"></div><div class="list" id="prm-req-list"></div></section>
@@ -1143,7 +1157,7 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; CUR_PRM = null; prmSub = "new"; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
@@ -1824,11 +1838,58 @@ function fmtDur(min) { const h = Math.floor(min / 60), m = min % 60; return h &&
 function prmTab(which) {
   if (!ME.isHead && (which === "req" || which === "log")) which = "new";
   prmSub = which; $("prm-detail").hidden = true; CUR_PRM = null;
-  ["new", "mine", "req", "log"].forEach(t => { $("prmtab-" + t).setAttribute("aria-selected", t === which); $("prm-" + t).hidden = t !== which; });
+  ["new", "mine", "swap", "req", "log"].forEach(t => { $("prmtab-" + t).setAttribute("aria-selected", t === which); $("prm-" + t).hidden = t !== which; });
   if (which !== "new" && PRM_EDIT) { PRM_EDIT = null; $("pf-send").textContent = "إرسال الطلب إلى رئيس الشعبة"; $("pf-msg").textContent = ""; }
-  if (which === "new") prmForm(); else loadPerms(true).then(renderPerms);
+  if (which === "new") prmForm(); else if (which === "swap") swapTab(); else loadPerms(true).then(renderPerms);
 }
-["new", "mine", "req", "log"].forEach(t => $("prmtab-" + t).onclick = () => prmTab(t));
+["new", "mine", "swap", "req", "log"].forEach(t => $("prmtab-" + t).onclick = () => prmTab(t));
+
+// ---------- تبديل حصة (المعلم) ----------
+async function swapTab(force) {
+  if (!$("sw-date").value) { $("sw-date").value = todayISO(); $("sw-date").min = todayISO(); }
+  if (!SWAPS || force) { try { SWAPS = await run("listSwaps", CODE); } catch (e) { $("sw-msg").textContent = cleanErr(e); SWAPS = SWAPS || []; } }
+  renderSwapPeriods(); renderMySwaps();
+}
+function renderSwapPeriods() {
+  const date = $("sw-date").value, day = isoDay(date), ev = swapEv(SWAPS);
+  $("sw-day").textContent = day >= 0 ? "(" + DAYS[day] + ")" : ""; $("sw-choices").innerHTML = ""; $("sw-send").disabled = true;
+  if (!TIMETABLE[ME.name]) { $("sw-periods").innerHTML = '<div class="sub">لا يوجد لك جدول حصص في الموقع.</div>'; return; }
+  if (day < 0 || day > 4) { $("sw-periods").innerHTML = '<div class="sub">اختر يوم دوام.</div>'; return; }
+  const mine = effDay(ME.name, date, ev).filter(x => !x.swappedOut && isLesson([0, x.p, x.cls]));
+  $("sw-periods").innerHTML = mine.length ? mine.map(x => `<label class="chip"><input type="radio" name="sw-p" value="${x.p}" data-cls="${esc(x.cls)}"><span>الحصة ${PERIOD_NAMES[x.p]} · ${classLabel(x.cls)} ${subjOf(x.cls)}</span></label>`).join("")
+    : '<div class="sub">ليست لك حصص قابلة للتبديل في هذا اليوم.</div>';
+  document.querySelectorAll('input[name="sw-p"]').forEach(r => r.onchange = renderSwapChoices);
+}
+function renderSwapChoices() {
+  const r = document.querySelector('input[name="sw-p"]:checked'); if (!r) return;
+  const date = $("sw-date").value, list = swapChoices(ME.name, date, +r.value, r.dataset.cls, swapEv(SWAPS));
+  $("sw-choices").innerHTML = list.length ? list.map((o, i) => `<label class="check"><input type="radio" name="sw-o" value="${i}"${i === 0 ? " checked" : ""}> ${i === 0 ? "★ الأفضل: " : ""}أ. ${esc(o.t)} يدخل حصتك، وتردّها ${DAYS[isoDay(o.date)]} ${fmtDate(o.date)} الحصة ${PERIOD_NAMES[o.period]} (${classLabel(o.cls)} ${subjOf(o.cls)})</label>`).join("")
+    : '<div class="sub">لا يوجد خيار تبديل بلا تعارض لهذه الحصة خلال أسبوعين.</div>';
+  $("sw-choices").dataset.list = JSON.stringify(list); $("sw-send").disabled = !list.length;
+}
+$("sw-date").onchange = renderSwapPeriods;
+$("sw-send").onclick = async () => {
+  const r = document.querySelector('input[name="sw-p"]:checked'), o = document.querySelector('input[name="sw-o"]:checked'), m = $("sw-msg");
+  if (!r || !o) { m.textContent = "اختر الحصة وخيار التبديل."; return; }
+  const c = JSON.parse($("sw-choices").dataset.list || "[]")[+o.value];
+  $("sw-send").disabled = true; m.textContent = "جارٍ الاعتماد…";
+  try {
+    const res = await run("requestSwap", CODE, { date: $("sw-date").value, period: +r.value, other: c.t, retDate: c.date, retPeriod: c.period });
+    SWAPS = null; await swapTab(true);
+    const x = SWAPS.find(y => y.id === res.id);
+    m.textContent = "تم اعتماد التبديل ✓ — جارٍ تجهيز النموذج…";
+    if (x) deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, m);
+  } catch (e) { m.textContent = /غير معروف/.test(cleanErr(e)) ? "تبديل الحصص يعمل بعد تحديث كود السيرفر." : cleanErr(e); $("sw-send").disabled = false; }
+};
+function renderMySwaps() {
+  const list = (SWAPS || []).filter(x => x.status === SWP_ACTIVE);
+  $("sw-mine").innerHTML = list.length ? list.map(x => `<div class="li"><span><b>${classLabel(x.cls)}</b> · أ. ${esc(shortName(x.teacher))} ⇄ أ. ${esc(shortName(x.other))}<br>
+    <span class="sub">${fmtDate(x.date, true)} الحصة ${PERIOD_NAMES[x.period]} ← الرد ${fmtDate(x.retDate, true)} الحصة ${PERIOD_NAMES[x.retPeriod]}</span></span>
+    <span class="row-actions"><button class="btn ghost sm" type="button" data-swf="${esc(x.id)}">النموذج PDF</button>${x.teacher === ME.name && x.date >= todayISO() ? `<button class="btn ghost sm" type="button" data-swc="${esc(x.id)}">إلغاء</button>` : ""}</span></div>`).join("")
+    : '<div class="empty">لا توجد تبديلات معتمدة.</div>';
+  $("sw-mine").querySelectorAll("[data-swf]").forEach(b => b.onclick = () => { const x = SWAPS.find(y => y.id === b.dataset.swf); deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, $("sw-msg")); });
+  $("sw-mine").querySelectorAll("[data-swc]").forEach(b => b.onclick = () => confirmInline(b, "تأكيد الإلغاء", async () => { try { await run("cancelSwap", CODE, b.dataset.swc); await swapTab(true); $("sw-msg").textContent = "أُلغي التبديل."; } catch (e) { $("sw-msg").textContent = cleanErr(e); } }));
+}
 
 async function loadPerms(force) {
   if (PRM && !force) return PRM;
@@ -2150,7 +2211,7 @@ async function buildPdf(spec) {
   let pages = [], tight = false;
   const newPage = first => {
     const pg = document.createElement("div"); pg.className = "pp" + (spec.landscape ? " land" : "") + (tight ? " tight" : "");
-    pg.innerHTML = `<div class="fr">${first ? pdfHeader(spec.box, spec.guid) : ""}<div class="bd"></div></div>`;
+    pg.innerHTML = `<div class="fr">${first && !spec.noHead ? pdfHeader(spec.box, spec.guid) : ""}<div class="bd"></div></div>`;
     host.appendChild(pg); pages.push(pg); return pg.querySelector(".bd");
   };
   const over = b => b.scrollHeight > b.clientHeight + 1;
@@ -2327,6 +2388,26 @@ function pdfStudentReport(r) {
   if (d.rec) blocks.push(box("توصية المعلم", d.rec));
   if (d.other) blocks.push(box("ملاحظات أخرى", d.other));
   return { box: `${F.title} · ${SUBJECTS[dept]}`, blocks, signs: [["المعلم", r.teacher ? "أ. " + r.teacher : ""], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] };
+}
+// «نموذج تبديل حصة» الإداري كما هو (شعار الوزارة والمعهد وإدارة التعليم الديني، بلا ديباجة رئيس الشعبة)
+function pdfSwapForm(x) {
+  const d = s => { const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${ar(+m[3])}/${ar(+m[2])}/${ar(m[1])}` : "  /   / ٢٠٢"; };
+  const cls = c => c ? c.split(":")[1].split("-").map(n => ar(n)).join("/") : "";
+  const row = (t, c, p1, dt1, p2, dt2) => `<table class="swf"><tr><th style="width:24%">اسم المعلم</th><th>الفصل</th><th>من الحصة</th><th>اليوم</th><th style="width:13%">التاريخ</th><th>إلى الحصة</th><th>اليوم</th><th style="width:13%">التاريخ</th></tr>
+    <tr><td class="r">أ/ ${PE(t)}</td><td>${cls(c)}</td><td>${PERIOD_NAMES[p1] || ""}</td><td>${DAYS[isoDay(dt1)] || ""}</td><td>${d(dt1)}</td><td>${PERIOD_NAMES[p2] || ""}</td><td>${DAYS[isoDay(dt2)] || ""}</td><td>${d(dt2)}</td></tr></table>
+    <table class="swl"><tr><td>توقيع المعلم /...........................</td><td style="text-align:left">رئيس القسم /...........................</td></tr></table>`;
+  return { box: "", noHead: true, signs: [], blocks: [
+    `<style>.pp .swh{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:end;text-align:center;margin:6px 0 4px}.pp .swh img{display:block;margin:0 auto 4px}.pp .swh .e{font-size:12px;font-weight:700;line-height:1.35}
+      .pp .swt{text-align:center;margin:18px 0 22px}.pp .swt span{font-size:27px;font-weight:900;border-bottom:2px solid #000;padding:0 4px 2px}
+      .pp table.swf{border:4px solid #000;margin:0 0 12px}.pp table.swf th{background:#fff;color:#000;font-size:15px;font-weight:900;border:1px solid #777;padding:14px 3px;text-align:center}
+      .pp table.swf td{border:1px solid #777;height:62px;text-align:center;font-size:14px;font-weight:700;white-space:nowrap}.pp table.swf td.r{white-space:normal}.pp table.swf td.r{text-align:right;padding-right:8px}
+      .pp table.swl td{border:none;font-size:16px;font-weight:700;padding:6px 8px 26px}.pp .swg{display:grid;grid-template-columns:1fr 1fr;text-align:center;font-size:17px;font-weight:700;margin-top:36px;line-height:2}</style>
+    <div class="swh"><div><img src="data:image/png;base64,${MOE_B64}" style="width:96px"></div><div><img src="data:image/png;base64,${LOGO_B64}" style="width:150px"></div>
+      <div><img src="data:image/png;base64,${GUID_B64}" style="width:46px"><div class="e">إدارة التعليم الديني<br><span dir="ltr">Religious Education Dept</span></div></div></div>
+    <div class="swt"><span>نموذج تبديل حصة</span></div>`,
+    row(x.teacher, x.cls, x.period, x.date, x.retPeriod, x.retDate),
+    row(x.other, x.retCls, x.retPeriod, x.retDate, x.period, x.date),
+    `<div class="swg"><div>المدير المساعد<br>أ/ عبداللطيف صالح العطوان</div><div>مدير المعهد<br>د/ حامد غازي العتيبي</div></div>`] };
 }
 function pdfPermission(p) {
   const [fh, fm] = hm(p.from), [th, tm] = hm(p.to), bx = c => c ? "■" : "□";
@@ -3243,6 +3324,52 @@ const COV_DONE = "مغطاة", COV_NONE = "غير مغطاة", COV_PRESENT = "ح
 const COV_SWAP = "تبديل", RET_PENDING = "لم يُرد", RET_DONE = "تم الرد";
 function isCov(c) { return c.status === COV_DONE || c.status === COV_SWAP; }
 function covName(c) { return (c.status === COV_SWAP ? "تبديل: " : "") + "أ. " + c.substitute; }
+// ---------- تبديل الحصص (بطلب المعلم) ----------
+const SWP_ACTIVE = "معتمد", SWP_CANCEL = "ملغى";
+let SWAPS = null;
+// أحداث التبديل المعتمدة: في كل حدث يدخل «in» حصة «out» في الفصل cls
+function swapEv(list) {
+  const ev = [];
+  (list || []).filter(x => x.status === SWP_ACTIVE).forEach(x => {
+    ev.push({ date: x.date, period: x.period, cls: x.cls, out: x.teacher, in: x.other });
+    ev.push({ date: x.retDate, period: x.retPeriod, cls: x.retCls, out: x.other, in: x.teacher });
+  });
+  return ev;
+}
+// حصة المعلم الفعلية في تاريخ معين بعد التبديلات
+function effSlot(t, date, period, ev) {
+  const h = ev.find(e => e.date === date && e.period === period && (e.in === t || e.out === t));
+  if (h) return h.in === t ? [isoDay(date), period, h.cls] : null;
+  return slotOf(t, isoDay(date), period);
+}
+// حصص المعلم في يوم معين: swappedOut = من يدخلها بدله، swappedIn = صاحب الحصة الأصلي
+function effDay(t, date, ev) {
+  const day = isoDay(date), out = [];
+  for (let p = 1; p <= 7; p++) {
+    const h = ev.find(e => e.date === date && e.period === p && (e.in === t || e.out === t)), st = slotOf(t, day, p);
+    if (h && h.out === t) out.push({ p, cls: h.cls, swappedOut: h.in });
+    else if (h && h.in === t) out.push({ p, cls: h.cls, swappedIn: h.out });
+    else if (st) out.push({ p, cls: st[2] });
+  }
+  return out;
+}
+// خيارات التبديل لحصة المعلم: معلمو المادة الأخرى في الفصل نفسه (من القسمين) الفاضون وقتها،
+// ولكل واحد أقرب حصتين له في الفصل نفسه (بعد يوم الحصة، خلال أسبوعين) يكون المعلم فاضيًا وقتها
+function swapChoices(me, date, period, cls, ev) {
+  const [sj, k] = cls.split(":"), other = (sj === "hd" ? "qr" : "hd") + ":" + k, day = isoDay(date), out = [];
+  for (const t of Object.keys(TIMETABLE)) {
+    if (t === me) continue;
+    const mine = TIMETABLE[t].filter(x => x[2] === other);
+    if (!mine.length || isLesson(effSlot(t, date, period, ev))) continue;
+    for (const [d2, p2] of mine) for (let w = 0; w < 2; w++) {
+      const rd = addDaysISO(date, ((d2 - day + 7) % 7 || 7) + 7 * w);
+      const tl = effSlot(t, rd, p2, ev);
+      if (!tl || tl[2] !== other || isLesson(effSlot(me, rd, p2, ev))) continue;
+      out.push({ t, date: rd, period: p2, cls: other });
+    }
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
+}
 function shortName(t) { const w = String(t).split(" "); return w.length > 2 ? w[0] + " " + w[w.length - 1] : t; }
 const PERIOD_NAMES = ["", "الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة", "السادسة", "السابعة"];
 let RES = null, resSub = "new", resLogTeacher = "";
@@ -3283,7 +3410,7 @@ function candidates(date, day, period, cls, absent, absenceId, extra) {
   const list = [];
   for (const t of Object.keys(TIMETABLE)) {
     if (t === HEAD_NAME || absentToday.indexOf(t) !== -1 || takenNow.indexOf(t) !== -1) continue;
-    if (isLesson(slotOf(t, day, period))) continue;
+    if (isLesson(effSlot(t, date, period, swapEv(RES.swaps)))) continue;
     const weekCount = RES.covers.filter(c => c.substitute === t && c.status === COV_DONE && c.date >= wk && c.date <= wkEnd && c.absenceId !== absenceId).length + ((extra || {})[t] || 0);
     const total = RES.covers.filter(c => c.substitute === t && c.status === COV_DONE && c.absenceId !== absenceId).length;
     const n = nisab(t), load = n + weekCount;
@@ -3296,38 +3423,6 @@ function candidates(date, day, period, cls, absent, absenceId, extra) {
   list.forEach(c => c.why.unshift(RES_LAST_RESORT[c.t] + " — لا يوجد غيره متاح"));
   return list;
 }
-
-// خيارات التبديل لحصة: معلمو المادة الأخرى في الفصل نفسه (من القسمين) الفاضون وقت الحصة،
-// ولكل واحد أقرب حصة له في الفصل نفسه يكون الغائب فاضيًا وقتها (خلال أسبوعين)، مرتبين من الأقرب ردًّا
-// usedRet = أوقات رد اختيرت في النموذج نفسه، حتى لا يتكرر وقت الرد
-function swapOptions(date, day, period, cls, absent, absenceId, usedRet) {
-  if (!RES.swap || !cls || cls.indexOf(":") < 0) return [];
-  const [sj, k] = cls.split(":"), other = (sj === "hd" ? "qr" : "hd") + ":" + k;
-  const absentOn = d => RES.absences.filter(a => a.date === d && a.id !== absenceId).map(a => a.teacher);
-  const takenNow = RES.covers.filter(c => c.date === date && c.period === period && c.absenceId !== absenceId && isCov(c)).map(c => c.substitute);
-  const retBusy = (t, d, p) => usedRet[d + "|" + p] || RES.covers.some(c => c.status === COV_SWAP && c.absenceId !== absenceId && c.retDate === d && c.retPeriod === p && (c.absent === t || c.substitute === t));
-  const out = [];
-  for (const t of Object.keys(TIMETABLE)) {
-    if (t === absent || t === HEAD_NAME) continue;
-    const mine = TIMETABLE[t].filter(x => x[2] === other);
-    if (!mine.length || absentOn(date).indexOf(t) !== -1 || takenNow.indexOf(t) !== -1 || isLesson(slotOf(t, day, period))) continue;
-    const rets = [];
-    for (const [d2, p2] of mine) {
-      if (isLesson(slotOf(absent, d2, p2))) continue;
-      for (let w = 0; w < 2; w++) {
-        const rd = addDaysISO(date, ((d2 - day + 7) % 7 || 7) + 7 * w), off = absentOn(rd);
-        if (off.indexOf(absent) !== -1 || off.indexOf(t) !== -1 || retBusy(absent, rd, p2) || retBusy(t, rd, p2)) continue;
-        rets.push({ date: rd, day: d2, period: p2 }); break;
-      }
-    }
-    if (!rets.length) continue;
-    rets.sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
-    out.push({ t, rets });
-  }
-  return out.sort((a, b) => a.rets[0].date.localeCompare(b.rets[0].date) || nisab(a.t) - nisab(b.t));
-}
-const swapVal = (t, r) => `__swap|${t}|${r.date}|${r.period}`;
-function swapLabel(absent, t, r) { return `⇄ تبديل مع أ. ${shortName(t)} — يردّها أ. ${shortName(absent)} ${DAYS[isoDay(r.date)]} ${fmtDate(r.date)} الحصة ${PERIOD_NAMES[r.period]}`; }
 
 let resEditId = "";
 function renderResForm() {
@@ -3351,31 +3446,25 @@ function renderResItems() {
   $("rf-heading").textContent = existing ? "تعديل غياب مسجّل" : "تسجيل غياب";
   $("rf-delete").hidden = !existing;
   const saved = existing ? RES.covers.filter(c => c.absenceId === existing.id) : [];
-  const slots = (TIMETABLE[t] || []).filter(x => x[0] === day).sort((a, b) => a[1] - b[1]);
+  const ev = swapEv(RES.swaps), slots = effDay(t, date, ev);
   if (!slots.length) { box.innerHTML = `<div class="empty">ليس لـ أ. ${esc(t)} حصص يوم ${DAYS[day]}.</div>`; $("rf-save").disabled = true; return; }
   $("rf-save").disabled = false;
-  const extra = {}, usedRet = {};
-  box.innerHTML = (RES.swap ? "" : '<div class="sub">خيار التبديل يعمل بعد تحديث كود السيرفر (Code.gs) ونشره.</div>') + slots.map(([d, p, cls]) => {
-    if (!isLesson([d, p, cls])) return `<div class="res-row muted-row"><div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${cls === "RF" ? "احتياط فنية" : "احتياط"} — لا تحتاج تغطية</span></div></div>`;
+  const extra = {};
+  box.innerHTML = slots.map(({ p, cls, swappedOut, swappedIn }) => {
+    if (swappedOut) return `<div class="res-row muted-row"><div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)} · ${subjOf(cls)}</span></div><span class="sub">⇄ يدخلها أ. ${esc(swappedOut)} (تبديل بطلب المعلم) — لا تحتاج تغطية</span></div>`;
+    if (!isLesson([0, p, cls])) return `<div class="res-row muted-row"><div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${cls === "RF" ? "احتياط فنية" : "احتياط"} — لا تحتاج تغطية</span></div></div>`;
     const cands = candidates(date, day, p, cls, t, resEditId, extra);
-    const swaps = swapOptions(date, day, p, cls, t, resEditId, usedRet);
     const sv = saved.find(c => c.period === p);
-    const best = swaps[0] ? swapVal(swaps[0].t, swaps[0].rets[0]) : "";
-    const sel = sv ? (sv.status === COV_DONE ? sv.substitute : sv.status === COV_SWAP ? swapVal(sv.substitute, { date: sv.retDate, period: sv.retPeriod }) : sv.status === COV_PRESENT ? "__present" : "__none")
-      : best || (cands[0] ? cands[0].t : "__none");
-    if (sel.startsWith("__swap|")) { const q = sel.split("|"); usedRet[q[2] + "|" + q[3]] = 1; }
-    else if (!sel.startsWith("__")) extra[sel] = (extra[sel] || 0) + 1;
-    const swapOpts = swaps.flatMap((o, i) => o.rets.map((r, j) => { const v = swapVal(o.t, r); return `<option value="${esc(v)}"${sel === v ? " selected" : ""}>${i === 0 && j === 0 ? "★ الأفضل: " : ""}${esc(swapLabel(t, o.t, r))}</option>`; })).join("");
-    const keepSwap = sv && sv.status === COV_SWAP && !swapOpts.includes(esc(sel)) ? `<option value="${esc(sel)}" selected>${esc(swapLabel(t, sv.substitute, { date: sv.retDate, period: sv.retPeriod }))} (مسجّل سابقًا)</option>` : "";
-    const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 && !best ? "★ الأفضل: " : ""}${esc(c.t)} — ${esc(c.why.join("، "))}</option>`).join("");
+    const sel = sv ? (sv.status === COV_DONE ? sv.substitute : sv.status === COV_PRESENT ? "__present" : "__none") : (cands[0] ? cands[0].t : "__none");
+    if (!sel.startsWith("__")) extra[sel] = (extra[sel] || 0) + 1;
+    const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 ? "★ الأفضل: " : ""}${esc(c.t)} — ${esc(c.why.join("، "))}</option>`).join("");
     const keep = sv && sv.status === COV_DONE && !cands.some(c => c.t === sv.substitute) ? `<option value="${esc(sv.substitute)}" selected>${esc(sv.substitute)} (مسجّل سابقًا)</option>` : "";
-    const swapGroup = swapOpts || keepSwap ? `<optgroup label="تبديل مع معلم الفصل نفسه (يحتفظ الفصل بحصصه)">${keepSwap}${swapOpts}</optgroup>` : "";
     return `<div class="res-row" data-p="${p}">
-      <div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)} · ${subjOf(cls)}</span></div>
-      <select aria-label="البديل في الحصة ${PERIOD_NAMES[p]}">${swapGroup}<optgroup label="احتياط">${keep}${opts}</optgroup>
+      <div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)} · ${subjOf(cls)}${swappedIn ? ` · ⇄ تبديل مع أ. ${esc(swappedIn)}` : ""}</span></div>
+      <select aria-label="البديل في الحصة ${PERIOD_NAMES[p]}">${keep}${opts}
         <option value="__none"${sel === "__none" ? " selected" : ""}>— لم تُغطَّ —</option>
         <option value="__present"${sel === "__present" ? " selected" : ""}>حضر المعلم هذه الحصة</option></select>
-      ${cands.length || swaps.length ? "" : '<span class="sub">لا يوجد معلم متاح في هذه الحصة.</span>'}</div>`;
+      ${cands.length ? "" : '<span class="sub">لا يوجد معلم متاح في هذه الحصة.</span>'}</div>`;
   }).join("");
 }
 function renderResDay() {
@@ -3398,7 +3487,6 @@ $("res-form").addEventListener("submit", async e => {
   const msg = $("rf-msg"), btn = $("rf-save");
   const items = [...document.querySelectorAll("#res-items .res-row[data-p]")].map(r => {
     const v = r.querySelector("select").value;
-    if (v.startsWith("__swap|")) { const q = v.split("|"); return { period: +r.dataset.p, status: COV_SWAP, substitute: q[1], retDate: q[2], retPeriod: +q[3] }; }
     return { period: +r.dataset.p, status: v === "__none" ? COV_NONE : v === "__present" ? COV_PRESENT : COV_DONE, substitute: v.startsWith("__") ? "" : v };
   });
   btn.disabled = true; msg.textContent = "جارٍ الحفظ…";
@@ -3456,39 +3544,37 @@ function renderResTeacher(r) {
       `<tr><td>${fmtDate(c.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)}</td><td>أ. ${esc(c.absent)}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">لم يأخذ احتياطًا في هذه الفترة.</div>'}`;
   $("res-back").onclick = () => { resLogTeacher = ""; renderResLog(); };
 }
-// ---------- سجل التبديل ----------
+// ---------- سجل التبديل (تبديلات المعلمين من حساباتهم) ----------
 function swapList() {
-  const f = $("swap-filter").value;
-  return RES.covers.filter(c => c.status === COV_SWAP && (f === "all" || (f === "done") === (c.retStatus === RET_DONE)))
-    .sort((a, b) => (a.retStatus === RET_DONE) - (b.retStatus === RET_DONE) || a.retDate.localeCompare(b.retDate) || a.retPeriod - b.retPeriod);
+  const f = $("swap-filter").value, all = (RES.swaps || []);
+  return all.filter(x => f === "cancel" ? x.status === SWP_CANCEL : x.status === SWP_ACTIVE && (f === "all" || (f === "done") === (x.retStatus === RET_DONE)))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
 }
 function renderSwapLog() {
   const box = $("swap-body");
   if (RES.error) { box.innerHTML = `<div class="empty">${esc(RES.error)}</div>`; return; }
-  if (!RES.swap) { box.innerHTML = '<div class="empty">سجل التبديل يعمل بعد تحديث كود السيرفر (Code.gs) ونشره.</div>'; return; }
-  const list = swapList(), today = todayISO();
-  const all = RES.covers.filter(c => c.status === COV_SWAP), pend = all.filter(c => c.retStatus !== RET_DONE);
-  const stats = `<dl class="meta-grid" style="margin-top:10px"><div><dt>كل التبديلات</dt><dd>${ar(all.length)}</dd></div><div><dt>لم يُرد بعد</dt><dd>${ar(pend.length)}</dd></div><div><dt>فات موعد ردها</dt><dd>${ar(pend.filter(c => c.retDate < today).length)}</dd></div><div><dt>تم الرد</dt><dd>${ar(all.length - pend.length)}</dd></div></dl>`;
+  const list = swapList(), today = todayISO(), act = (RES.swaps || []).filter(x => x.status === SWP_ACTIVE), pend = act.filter(x => x.retStatus !== RET_DONE);
+  const stats = `<dl class="meta-grid" style="margin-top:10px"><div><dt>التبديلات المعتمدة</dt><dd>${ar(act.length)}</dd></div><div><dt>لم يُرد بعد</dt><dd>${ar(pend.length)}</dd></div><div><dt>فات موعد ردها</dt><dd>${ar(pend.filter(x => x.retDate < today).length)}</dd></div><div><dt>تم الرد</dt><dd>${ar(act.length - pend.length)}</dd></div></dl>`;
   if (!list.length) { box.innerHTML = stats + '<div class="empty">لا توجد تبديلات هنا.</div>'; return; }
-  box.innerHTML = stats + `<div class="tablebox"><table class="vis-table"><thead><tr><th>يوم الغياب</th><th>الحصة</th><th>الفصل</th><th>الغائب</th><th>دخل مكانه</th><th>يوم الرد</th><th>حصة الرد</th><th>الحالة</th></tr></thead><tbody>${list.map(c => {
-    const done = c.retStatus === RET_DONE, late = !done && c.retDate < today, now = !done && c.retDate === today;
-    return `<tr><td>${fmtDate(c.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)} · ${subjOf(c.classId)}</td><td>أ. ${esc(c.absent)}</td><td>أ. ${esc(c.substitute)}</td>
-      <td>${fmtDate(c.retDate, true)}${now ? ' <span class="pill ok">اليوم</span>' : ""}</td><td>${PERIOD_NAMES[c.retPeriod] || "—"} <span class="sub">(${classLabel(c.retClass)} · ${subjOf(c.retClass)})</span></td>
-      <td><span class="pill ${done ? "ok" : late ? "late" : "none"}">${done ? RET_DONE : late ? "فات موعد الرد" : RET_PENDING}</span>
-        <button class="btn ghost sm" data-swap="${esc(c.id)}" data-done="${done ? "" : "1"}" type="button">${done ? "تراجع" : "تم الرد ✓"}</button></td></tr>`;
+  box.innerHTML = stats + `<div class="tablebox"><table class="vis-table"><thead><tr><th>الفصل</th><th>المعلم (صاحب الطلب)</th><th>يوم الحصة</th><th>يدخلها</th><th>يوم الرد</th><th>الحالة</th><th></th></tr></thead><tbody>${list.map(x => {
+    const done = x.retStatus === RET_DONE, late = x.status === SWP_ACTIVE && !done && x.retDate < today;
+    return `<tr><td>${classLabel(x.cls)}</td><td>أ. ${esc(x.teacher)}<br><span class="sub">${subjOf(x.cls)}</span></td>
+      <td>${fmtDate(x.date, true)}<br><span class="sub">الحصة ${PERIOD_NAMES[x.period]}</span></td><td>أ. ${esc(x.other)}<br><span class="sub">${subjOf(x.retCls)}</span></td>
+      <td>${fmtDate(x.retDate, true)}<br><span class="sub">الحصة ${PERIOD_NAMES[x.retPeriod]} · يردّها أ. ${esc(shortName(x.teacher))}</span></td>
+      <td><span class="pill ${x.status === SWP_CANCEL ? "none" : done ? "ok" : late ? "late" : "none"}">${x.status === SWP_CANCEL ? "ملغى" : done ? RET_DONE : late ? "فات موعد الرد" : RET_PENDING}</span></td>
+      <td><span class="row-actions"><button class="btn ghost sm" data-swf="${esc(x.id)}" type="button">النموذج PDF</button>${x.status === SWP_ACTIVE ? `<button class="btn ghost sm" data-swap="${esc(x.id)}" data-done="${done ? "" : "1"}" type="button">${done ? "تراجع" : "تم الرد ✓"}</button><button class="btn ghost sm" data-swc="${esc(x.id)}" type="button">إلغاء</button>` : ""}</span></td></tr>`;
   }).join("")}</tbody></table></div>`;
-  box.querySelectorAll("[data-swap]").forEach(b => b.onclick = async () => {
-    b.disabled = true; $("swap-msg").textContent = "جارٍ الحفظ…";
-    try { await run("setSwapReturn", CODE, b.dataset.swap, !!b.dataset.done); await loadRes(true); renderSwapLog(); $("swap-msg").textContent = "تم الحفظ."; }
-    catch (e) { $("swap-msg").textContent = cleanErr(e); b.disabled = false; }
-  });
+  const msg = $("swap-msg"), act2 = async (fn, ...a) => { msg.textContent = "جارٍ الحفظ…"; try { await run(fn, CODE, ...a); await loadRes(true); renderSwapLog(); msg.textContent = "تم الحفظ."; } catch (e) { msg.textContent = cleanErr(e); } };
+  box.querySelectorAll("[data-swap]").forEach(b => b.onclick = () => act2("setSwapReturn", b.dataset.swap, !!b.dataset.done));
+  box.querySelectorAll("[data-swc]").forEach(b => b.onclick = () => confirmInline(b, "تأكيد الإلغاء", () => act2("cancelSwap", b.dataset.swc)));
+  box.querySelectorAll("[data-swf]").forEach(b => b.onclick = () => { const x = RES.swaps.find(y => y.id === b.dataset.swf); deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, msg); });
 }
 function pdfSwapLog() {
   const list = swapList(), f = $("swap-filter");
   return { box: "سجل التبديل", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(f.options[f.selectedIndex].text, "c b"),
-    list.length ? P.grid(P.th(["م", "يوم الغياب", "الحصة", "الفصل", "المعلم الغائب", "دخل مكانه", "يوم الرد", "حصة الرد", "الحالة"]),
-      list.map((c, i) => P.tr([{ t: ar(i + 1), c: "c" }, fmtDate(c.date, true), { t: PERIOD_NAMES[c.period], c: "c" }, { t: classLabel(c.classId) + " " + subjOf(c.classId), c: "c" }, "أ. " + c.absent, "أ. " + c.substitute,
-        fmtDate(c.retDate, true), { t: PERIOD_NAMES[c.retPeriod] || "—", c: "c" }, { t: c.retStatus === RET_DONE ? RET_DONE : RET_PENDING, c: c.retStatus === RET_DONE ? "c" : "c late" }])), "dense")
+    list.length ? P.grid(P.th(["م", "الفصل", "صاحب الطلب", "يوم الحصة", "الحصة", "يدخلها", "يوم الرد", "حصة الرد", "الحالة"]),
+      list.map((x, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: classLabel(x.cls), c: "c" }, "أ. " + x.teacher, fmtDate(x.date, true), { t: PERIOD_NAMES[x.period], c: "c" }, "أ. " + x.other,
+        fmtDate(x.retDate, true), { t: PERIOD_NAMES[x.retPeriod], c: "c" }, { t: x.status === SWP_CANCEL ? "ملغى" : x.retStatus === RET_DONE ? RET_DONE : RET_PENDING, c: x.retStatus === RET_DONE ? "c" : "c late" }])), "dense")
       : P.p("لا توجد تبديلات.")] };
 }
 $("swap-filter").onchange = renderSwapLog;

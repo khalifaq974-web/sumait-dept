@@ -60,7 +60,7 @@ function doGet() {
 // الصفحة المستضافة خارج جوجل ترسل الطلبات هنا، فلا يتأثر المعلم بتعدد حسابات جوجل في متصفحه.
 const API = { login, saveEntry, headData, submitAchievement, myAchievements, editAchievement, deleteAchievement, allAchievements, saveReport,
   getPhoto, listMinutes, getMinute, saveMinute, deleteMinute, signMinute, mySignature, saveFileToDrive, demoAccounts, demoAction,
-  saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, setSwapReturn, classesOverview, classSheet, saveGrades,
+  saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, setSwapReturn, requestSwap, listSwaps, cancelSwap, classesOverview, classSheet, saveGrades,
   listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport, saveRemedialPlan,
   myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
@@ -111,6 +111,7 @@ function setup() {
   sheet_(SHEET_MAIL, ["الوقت", "إلى", "الموضوع", "النتيجة"], true);
   sheet_(SHEET_ABS, ["المعرف", "التاريخ", "المعلم الغائب", "ملاحظة", "تاريخ التسجيل", "آخر تعديل"], true);
   covSheet_();
+  swpSheet_();
   sheet_(SHEET_STU, ["الصف", "م", "(بلا أسماء)", "ملاحظة"], true);
   gradesSheet_();
   anonymizeStudents_();
@@ -718,6 +719,87 @@ function dayOf_(iso) {
 function lessonAt_(teacher, day, period) {
   return (TIMETABLE[teacher] || []).find(x => x[0] === day && x[1] === period) || null;
 }
+// ======================= تبديل الحصص (بطلب المعلم من حسابه فقط) =======================
+// المعلم يبدّل حصته مع معلم المادة الأخرى في الفصل نفسه: الآخر يدخل حصته، ويردّها هو بدخول حصة الآخر في الفصل نفسه في يوم الرد.
+// لا يُنشئ رئيس الشعبة تبديلًا بنفسه (قراره ٢٦/١٠/٢٠٢٦)؛ يُطبع «نموذج تبديل حصة» الإداري ويوقَّع ورقيًا.
+const SHEET_SWP = "التبديل";
+const SWP_HEAD = ["المعرف", "التاريخ", "الحصة", "الفصل", "المعلم", "المعلم الآخر", "تاريخ الرد", "حصة الرد", "فصل الرد", "الحالة", "حالة الرد", "تاريخ الطلب", "طلبه"];
+const SWP_ACTIVE = "معتمد", SWP_CANCEL = "ملغى";
+function swpSheet_() { return sheet_(SHEET_SWP, SWP_HEAD, true); }
+function swpObj_(r) {
+  return { id: r[0], date: r[1], period: Number(r[2]), cls: r[3], teacher: r[4], other: r[5], retDate: r[6], retPeriod: Number(r[7]), retCls: r[8],
+    status: r[9], retStatus: r[10], createdAt: r[11], by: r[12] };
+}
+function swpRows_() { const sh = sh_(SHEET_SWP); return sh ? sh.getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(swpObj_) : []; }
+// أحداث التبديل المعتمدة: في كل حدث يدخل «in» حصة «out» في الفصل cls
+function swapEvents_(swaps) {
+  const ev = [];
+  swaps.filter(x => x.status === SWP_ACTIVE).forEach(x => {
+    ev.push({ date: x.date, period: x.period, cls: x.cls, out: x.teacher, in: x.other, id: x.id });
+    ev.push({ date: x.retDate, period: x.retPeriod, cls: x.retCls, out: x.other, in: x.teacher, id: x.id });
+  });
+  return ev;
+}
+// حصة المعلم الفعلية في تاريخ معين بعد احتساب التبديلات المعتمدة
+function effLesson_(t, date, period, ev) {
+  const hit = (ev || []).find(e => e.date === date && e.period === period && (e.in === t || e.out === t));
+  if (hit) return hit.in === t ? [dayOf_(date), period, hit.cls] : null;
+  return lessonAt_(t, dayOf_(date), period);
+}
+const isLes_ = l => !!l && l[2] !== "R" && l[2] !== "RF";
+function todayIso_() { return Utilities.formatDate(new Date(), "Asia/Kuwait", "yyyy-MM-dd"); }
+
+function listSwaps(code) {
+  const me = who_(code);
+  const all = swpRows_();
+  return me.isHead && !me.isDemo ? all.reverse() : all.filter(x => x.teacher === me.name || x.other === me.name).reverse();
+}
+function requestSwap(code, q) {
+  const me = who_(code);
+  if (me.isDemo) throw new Error("تبديل الحصص غير متاح في الحساب التجريبي.");
+  const teacher = me.name;
+  if (!TIMETABLE[teacher]) throw new Error("لا يوجد لك جدول حصص في الموقع.");
+  const date = String(q.date || "").slice(0, 10), p = Math.floor(Number(q.period)), other = String(q.other || "");
+  const rd = String(q.retDate || "").slice(0, 10), rp = Math.floor(Number(q.retPeriod));
+  if (dayOf_(date) > 4 || dayOf_(rd) > 4) throw new Error("أحد اليومين عطلة (جمعة أو سبت).");
+  const today = todayIso_();
+  if (date < today || rd < today) throw new Error("لا يكون التبديل في يوم مضى.");
+  if (date === rd) throw new Error("يوم الرد يكون غير يوم الحصة.");
+  return withLock_(() => {
+    const ev = swapEvents_(swpRows_());
+    const les = effLesson_(teacher, date, p, ev);
+    if (!isLes_(les)) throw new Error("ليست لك حصة في هذا الوقت.");
+    const k = les[2].split(":")[1], otherCls = (les[2].split(":")[0] === "hd" ? "qr" : "hd") + ":" + k;
+    if (!TIMETABLE[other] || other === teacher) throw new Error("اختر المعلم الذي ستبدّل معه.");
+    if (isLes_(effLesson_(other, date, p, ev))) throw new Error("أ. " + other + " عنده حصة في هذا الوقت.");
+    const rl = effLesson_(other, rd, rp, ev);
+    if (!rl || rl[2] !== otherCls) throw new Error("حصة الرد ليست حصة أ. " + other + " في الفصل نفسه.");
+    if (isLes_(effLesson_(teacher, rd, rp, ev))) throw new Error("عندك حصة في وقت الرد.");
+    const abs = rows_(SHEET_ABS).slice(1).filter(r => r[0]);
+    if (abs.some(r => (r[1] === date || r[1] === rd) && r[2] === other)) throw new Error("أ. " + other + " مسجّل غائبًا في أحد اليومين.");
+    const id = newId_();
+    appendText_(swpSheet_(), [id, date, String(p), les[2], teacher, other, rd, String(rp), otherCls, SWP_ACTIVE, RET_PENDING, nowText_(), me.name]);
+    const cl = c => esc_(c.split(":")[1].replace("-", "/")) + " · " + SUBJ[c.split(":")[0]];
+    notify_(me, `تبديل حصة: أ. ${teacher} مع أ. ${other}`, `
+      <p>سجّل <b>أ. ${esc_(teacher)}</b> تبديل حصة مع <b>أ. ${esc_(other)}</b> في الفصل ${esc_(k.replace("-", "/"))}:</p>
+      <ul><li>${esc_(date)} الحصة ${p}: يدخل أ. ${esc_(other)} حصة ${cl(les[2])}</li>
+      <li>${esc_(rd)} الحصة ${rp}: يدخل أ. ${esc_(teacher)} حصة ${cl(otherCls)}</li></ul>
+      <p>نموذج التبديل يُطبع من الموقع ويوقَّع ورقيًا.</p>`);
+    return { id };
+  });
+}
+function cancelSwap(code, id) {
+  const me = who_(code);
+  return withLock_(() => {
+    const sh = swpSheet_(), row = findRow_(sh, 1, String(id || ""));
+    if (row < 0) throw new Error("التبديل غير موجود.");
+    const r = sh.getRange(row, 1, 1, SWP_HEAD.length).getDisplayValues()[0];
+    if (r[4] !== me.name && r[12] !== me.name && !(me.isHead && !me.isDemo)) throw new Error("لا يمكنك إلغاء هذا التبديل.");
+    r[9] = SWP_CANCEL; writeRow_(sh, row, r);
+    return true;
+  });
+}
+
 function absObj_(r) { return { id: r[0], date: r[1], teacher: r[2], note: r[3], createdAt: r[4], updatedAt: r[5] }; }
 function covObj_(r) {
   return { id: r[0], absenceId: r[1], date: r[2], period: Number(r[3]), classId: r[4], absent: r[5], substitute: r[6], status: r[7],
@@ -727,7 +809,7 @@ function covObj_(r) {
 /** كل بيانات الغياب والاحتياط */
 function reserveData(code) {
   head_(code);
-  return { absences: rows_(SHEET_ABS).slice(1).filter(r => r[0]).map(absObj_), covers: covSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(covObj_), swap: true };
+  return { absences: rows_(SHEET_ABS).slice(1).filter(r => r[0]).map(absObj_), covers: covSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(covObj_), swaps: swpRows_(), swap: true };
 }
 
 /** تسجيل غياب معلم (أو تعديله) مع توزيع حصصه على البدلاء */
@@ -739,7 +821,7 @@ function saveAbsence(code, a) {
   if (day > 4) throw new Error("التاريخ يوم عطلة (جمعة أو سبت).");
   const items = (Array.isArray(a.items) ? a.items : []).slice(0, 7);
   return withLock_(() => {
-    const absSh = sh_(SHEET_ABS), covSh = covSheet_();
+    const absSh = sh_(SHEET_ABS), covSh = covSheet_(), ev = swapEvents_(swpRows_());
     const absRows = absSh.getDataRange().getDisplayValues();
     let rowIdx = -1, id = String(a.id || "");
     for (let i = 1; i < absRows.length; i++) {
@@ -760,14 +842,14 @@ function saveAbsence(code, a) {
     const out = [], seen = {};
     items.forEach(it => {
       const period = Math.floor(Number(it.period));
-      const les = lessonAt_(teacher, day, period);
+      const les = effLesson_(teacher, date, period, ev);
       if (!les || les[2] === "R" || les[2] === "RF") throw new Error("الحصة " + period + " ليست من حصص المعلم في هذا اليوم.");
       if (seen[period]) return; seen[period] = 1;
-      let status = [COV_DONE, COV_NONE, COV_PRESENT, COV_SWAP].indexOf(it.status) !== -1 ? it.status : COV_NONE;
+      let status = [COV_DONE, COV_NONE, COV_PRESENT].indexOf(it.status) !== -1 ? it.status : COV_NONE;
       let sub = String(it.substitute || ""), ret = ["", "", "", ""];
       if (isCov_(status)) {
         if (!TIMETABLE[sub] || sub === teacher) throw new Error("اختر المعلم البديل للحصة " + period + ".");
-        const l2 = lessonAt_(sub, day, period);
+        const l2 = effLesson_(sub, date, period, ev);
         if (l2 && l2[2] !== "R" && l2[2] !== "RF") throw new Error("أ. " + sub + " عنده حصة في الحصة " + period + ".");
         if (absentToday.indexOf(sub) !== -1) throw new Error("أ. " + sub + " غائب في هذا اليوم.");
         if (busy.indexOf(sub + "|" + period) !== -1) throw new Error("أ. " + sub + " مكلّف باحتياط آخر في الحصة " + period + ".");
@@ -802,14 +884,13 @@ function swapReturn_(teacher, sub, cls, date, it, retBusy, absentOn, period) {
   return [rd, String(rp), other, RET_PENDING];
 }
 
-/** تعليم رد التبديل: تم أو لم يتم */
+/** تعليم رد التبديل: تم أو لم يتم (رئيس الشعبة) */
 function setSwapReturn(code, id, done) {
   head_(code);
   return withLock_(() => {
-    const sh = covSheet_(), row = findRow_(sh, 1, String(id || ""));
+    const sh = swpSheet_(), row = findRow_(sh, 1, String(id || ""));
     if (row < 0) throw new Error("التبديل غير موجود.");
-    if (sh.getRange(row, 8).getDisplayValue() !== COV_SWAP) throw new Error("هذه الحصة ليست تبديلًا.");
-    writeRow_(sh, row, sh.getRange(row, 1, 1, 12).getDisplayValues()[0].concat([done ? RET_DONE : RET_PENDING]));
+    sh.getRange(row, 11).setNumberFormat("@").setValue(done ? RET_DONE : RET_PENDING);
     return true;
   });
 }
