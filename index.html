@@ -621,7 +621,8 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <label class="f">الحصص وقت الاستئذان</label>
           <div class="chips"><label class="chip"><input type="radio" name="pf-mode" value="متفرغ" checked><span>المعلم متفرغ</span></label><label class="chip"><input type="radio" name="pf-mode" value="بديل"><span>بديل المعلم</span></label></div>
           <div id="pf-subbox" hidden><label class="f" for="pf-sub">اسم المعلم البديل</label><input type="text" id="pf-sub" maxlength="80"></div>
-          <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="pf-send">إرسال الطلب إلى رئيس الشعبة</button></div>
+          <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="pf-send">إرسال الطلب إلى رئيس الشعبة</button><button class="btn ghost" type="button" id="pf-pdf">تنزيل PDF فقط (بدون إرسال)</button></div>
+          <div class="sub" style="margin-top:6px">«تنزيل PDF فقط» يعطيك النموذج معبّأً لتطبعه، ولا يُرسَل لرئيس الشعبة ولا يُسجَّل في الموقع.</div>
           <div class="saved" id="pf-msg"></div>
         </form>
       </section>
@@ -1719,12 +1720,21 @@ const pfToMode = () => { const end = $("pf-toend").checked; $("pf-to").hidden = 
 $("pf-toend").onchange = pfToMode; $("pf-totime").onchange = pfToMode;
 $("pf-date").oninput = () => { const d = isoDay($("pf-date").value); $("pf-day").textContent = d >= 0 ? "(" + DAYS[d] + ")" : ""; };
 document.querySelectorAll('input[name="pf-mode"]').forEach(r => r.onchange = () => { $("pf-subbox").hidden = document.querySelector('input[name="pf-mode"]:checked').value !== "بديل"; });
+function pfBody() {
+  return { job: $("pf-job").value, civil: normNum($("pf-civil").value), dept: $("pf-dept").value,
+    type: (document.querySelector('input[name="pf-type"]:checked') || {}).value, reason: $("pf-reason").value, date: $("pf-date").value,
+    from: $("pf-from").value, to: $("pf-toend").checked ? END_DAY : $("pf-to").value, mode: document.querySelector('input[name="pf-mode"]:checked').value, substitute: $("pf-sub").value, sig: "" };
+}
+// تنزيل النموذج PDF معبّأً دون إرساله أو تسجيله
+$("pf-pdf").onclick = () => {
+  const m = $("pf-msg"), b = pfBody();
+  if (!b.from || !b.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)، أو اختر «حتى نهاية الدوام»."; return; }
+  const p = Object.assign({}, b, { serial: "", teacher: ME.name, job: b.job.trim(), dept: b.dept.trim(), reason: b.reason.trim(), substitute: b.substitute.trim(), teacherSig: "", headSig: "" });
+  deliverPdf(() => pdfPermission(p), `طلب استئذان ${b.date} - ${ME.name}.pdf`, m);
+};
 $("prm-form").addEventListener("submit", async e => {
   e.preventDefault();
-  const m = $("pf-msg"), sig = "";
-  const body = { job: $("pf-job").value, civil: normNum($("pf-civil").value), dept: $("pf-dept").value,
-    type: (document.querySelector('input[name="pf-type"]:checked') || {}).value, reason: $("pf-reason").value, date: $("pf-date").value,
-    from: $("pf-from").value, to: $("pf-toend").checked ? END_DAY : $("pf-to").value, mode: document.querySelector('input[name="pf-mode"]:checked').value, substitute: $("pf-sub").value, sig };
+  const m = $("pf-msg"), body = pfBody();
   if (!/^\d{12}$/.test(body.civil)) { $("pf-prof").open = true; m.textContent = "الرقم المدني يتكون من ١٢ رقمًا."; $("pf-civil").focus(); return; }
   if (!body.from || !body.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)، أو اختر «حتى نهاية الدوام»."; return; }
   $("pf-send").disabled = true; m.textContent = "جارٍ الإرسال…";
@@ -2142,7 +2152,7 @@ function pdfPermission(p) {
   const tt = (h, m) => `<span class="tbx"><i>ساعة</i>${h || "&nbsp;"}</span><span class="tbx"><i>دقيقة</i>${m || "&nbsp;"}</span>`;
   const sig = (r, n, img) => `<div><b>${r}</b>${img ? `<img src="${img}">` : `<div class="sp"></div>`}<div class="n" style="font-size:12px">${PE(n)}</div></div>`;
   return { box: "إذن خروج", signs: [["مدير المعهد", PRINCIPAL]], blocks: [
-    `<table class="plain"><tr><td class="b" style="color:#1E3A5F">المسلسل: ${ar(p.serial)}</td><td class="c b" style="color:#1E3A5F">إخطار بمدة الاستئذان المصرح بها</td><td class="b" style="color:#1E3A5F;text-align:left">نموذج رقم (٥م)</td></tr></table>`,
+    `<table class="plain"><tr><td class="b" style="color:#1E3A5F">المسلسل: ${p.serial ? ar(p.serial) : "........"}</td><td class="c b" style="color:#1E3A5F">إخطار بمدة الاستئذان المصرح بها</td><td class="b" style="color:#1E3A5F;text-align:left">نموذج رقم (٥م)</td></tr></table>`,
     P.p(PERM_TYPES.map(t => `${bx(p.type === t)} ${t}`).join("        "), "c b"),
     `<p><b>السيد المحترم / مدير معهد عبدالرحمن السميط الديني الثانوي بنين</b>      بعد التحية،</p>`,
     P.info([["لقد تم التصريح للسيد", "أ. " + p.teacher], ["القسم", p.dept], ["سبب التصريح", p.reason], ["الوظيفة", p.job], ["الرقم المدني", ar(p.civil)], ["بالاستئذان يوم", (DAYS[isoDay(p.date)] || "") + " · الموافق " + fmtDate(p.date)]]),
