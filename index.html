@@ -361,7 +361,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <button id="nav-vis" aria-selected="false"><b>الزيارات الصفية</b><span>بطاقات الزيارة</span></button>
       <button id="nav-prm" aria-selected="false"><b>الاستئذان</b><span>طلب الاستئذان والسجل</span></button>
       <button id="nav-nsh" aria-selected="false"><b>سجل النشرات والتعاميم</b><span>الاطلاع والتوقيع</span></button>
-      <button id="nav-res" aria-selected="false" class="head-only" hidden><b>الاحتياط</b><span>الغياب والبدلاء</span></button>
+      <button id="nav-res" aria-selected="false"><b>سجل الغياب والاحتياط</b><span id="nav-res-sub">الغياب والبدلاء وتبديل الحصص</span></button>
       <button id="nav-mrp" aria-selected="false" class="head-only" hidden><b>إنجازات القسم</b><span>التقارير الشهرية</span></button>
     </nav>
 
@@ -555,12 +555,13 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       </div>
       <div class="card detail" id="nsh-detail" hidden></div>
     </section>
-    <!-- ركن الاحتياط (رئيس الشعبة فقط) -->
+    <!-- سجل الغياب والاحتياط: تسجيل الغياب والسجلات لرئيس الشعبة، وطلب تبديل حصة لكل معلم -->
     <section id="sec-res" hidden>
       <nav class="tabs" role="tablist">
-        <button id="restab-new" role="tab" aria-selected="true">تسجيل غياب</button>
-        <button id="restab-log" role="tab" aria-selected="false">سجل الغياب والاحتياط</button>
-        <button id="restab-swap" role="tab" aria-selected="false">سجل التبديل</button>
+        <button id="restab-new" role="tab" aria-selected="true" class="head-only" hidden>تسجيل غياب</button>
+        <button id="restab-log" role="tab" aria-selected="false" class="head-only" hidden>السجل والعدادات</button>
+        <button id="restab-swap" role="tab" aria-selected="false" class="head-only" hidden>سجل التبديل</button>
+        <button id="restab-req" role="tab" aria-selected="false">طلب تبديل حصة</button>
       </nav>
       <section id="res-new">
         <form id="res-form" class="card">
@@ -580,13 +581,26 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="saved" id="res-dmsg"></div>
         <div class="list" id="res-day"></div>
       </section>
+      <section id="res-req" hidden>
+        <div class="card">
+          <h2>طلب تبديل حصة</h2>
+          <div class="sub">بدّل حصتك مع معلم المادة الأخرى في الفصل نفسه: يدخل حصتك، وتردّها أنت بدخول حصته في الفصل نفسه في يوم الرد. يقترح الموقع الخيارات التي ليس فيها تعارض، وبعد الاعتماد اطبع «نموذج تبديل حصة» ووقّعه مع زميلك.</div>
+          <div class="grid2" style="margin-top:10px"><div><label class="f" for="sw-date">يوم الحصة <span class="sub" id="sw-day"></span></label><input type="date" id="sw-date"></div></div>
+          <label class="f">حصتك التي تريد تبديلها</label><div class="chips" id="sw-periods"></div>
+          <label class="f">خيارات التبديل المتاحة</label><div id="sw-choices" class="attlist"></div>
+          <div class="row-actions" style="margin-top:14px"><button class="btn" type="button" id="sw-send" disabled>اعتماد التبديل وطباعة النموذج</button></div>
+          <div class="saved" id="sw-msg"></div>
+        </div>
+        <h3 class="list-title">تبديلاتي</h3>
+        <div class="list" id="sw-mine"></div>
+      </section>
       <section id="res-swap" hidden>
         <div class="row-actions" style="margin-top:12px">
           <select id="swap-filter" aria-label="الحالة"><option value="pending">لم يُرد بعد</option><option value="all" selected>كل التبديلات المعتمدة</option><option value="done">تم الرد</option><option value="cancel">الملغاة</option></select>
           <button class="btn ghost" id="swap-reload" type="button">تحديث</button>
           <button class="btn" id="swap-pdf" type="button">تنزيل سجل التبديل PDF</button>
         </div>
-        <div class="sub" style="margin-top:8px">التبديل يطلبه المعلم من حسابه (ركن الاستئذان ← تبديل حصة) مع معلم المادة الأخرى في الفصل نفسه، ويطبع «نموذج تبديل حصة» للتوقيع. علّم «تم الرد» بعد أن يردّ المعلم الحصة.</div>
+        <div class="sub" style="margin-top:8px">التبديل يطلبه المعلم من حسابه (سجل الغياب والاحتياط ← طلب تبديل حصة) مع معلم المادة الأخرى في الفصل نفسه، ويطبع «نموذج تبديل حصة» للتوقيع. علّم «تم الرد» بعد أن يردّ المعلم الحصة.</div>
         <div class="saved" id="swap-msg"></div>
         <div id="swap-body"></div>
       </section>
@@ -605,7 +619,6 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <nav class="tabs" role="tablist">
         <button id="prmtab-new" role="tab" aria-selected="true">طلب استئذان</button>
         <button id="prmtab-mine" role="tab" aria-selected="false">استئذاناتي</button>
-        <button id="prmtab-swap" role="tab" aria-selected="false">تبديل حصة</button>
         <button id="prmtab-req" role="tab" aria-selected="false" class="head-only" hidden>الطلبات الواردة</button>
         <button id="prmtab-log" role="tab" aria-selected="false" class="head-only" hidden>سجل الاستئذان</button>
       </nav>
@@ -639,19 +652,6 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <div class="sub" style="margin-top:6px">«تنزيل PDF فقط» يعطيك النموذج معبّأً لتطبعه، ولا يُرسَل لرئيس الشعبة ولا يُسجَّل في الموقع.</div>
           <div class="saved" id="pf-msg"></div>
         </form>
-      </section>
-      <section id="prm-swap" hidden>
-        <div class="card">
-          <h2>تبديل حصة</h2>
-          <div class="sub">بدّل حصتك مع معلم المادة الأخرى في الفصل نفسه: يدخل حصتك، وتردّها أنت بدخول حصته في الفصل نفسه في يوم الرد. يقترح الموقع الخيارات التي ليس فيها تعارض، وبعد الاعتماد اطبع «نموذج تبديل حصة» ووقّعه مع زميلك.</div>
-          <div class="grid2" style="margin-top:10px"><div><label class="f" for="sw-date">يوم الحصة <span class="sub" id="sw-day"></span></label><input type="date" id="sw-date"></div></div>
-          <label class="f">حصتك التي تريد تبديلها</label><div class="chips" id="sw-periods"></div>
-          <label class="f">خيارات التبديل المتاحة</label><div id="sw-choices" class="attlist"></div>
-          <div class="row-actions" style="margin-top:14px"><button class="btn" type="button" id="sw-send" disabled>اعتماد التبديل وطباعة النموذج</button></div>
-          <div class="saved" id="sw-msg"></div>
-        </div>
-        <h3 class="list-title">تبديلاتي</h3>
-        <div class="list" id="sw-mine"></div>
       </section>
       <section id="prm-mine" hidden><div class="saved" id="prm-mine-msg"></div><div class="list" id="prm-mine-list"></div></section>
       <section id="prm-req" hidden><div class="saved" id="prm-req-msg"></div><div class="list" id="prm-req-list"></div></section>
@@ -1143,6 +1143,7 @@ async function doLogin(code, silent) {
     document.querySelectorAll(".teacher-only").forEach(el => el.hidden = r.isHead);
     document.querySelector("nav.sections").classList.toggle("eight", !r.isHead);
     document.querySelector("nav.sections").classList.toggle("nine", !!r.isHead);
+    $("nav-res-sub").textContent = r.isHead ? "الغياب والبدلاء وتبديل الحصص" : "طلب تبديل حصة";
     $("demo-note").hidden = !r.isDemo;
     startActPoll();
     if (r.isHead) $("demo-admin").ontoggle = () => { if ($("demo-admin").open) loadDemos(); };
@@ -1165,7 +1166,7 @@ $("logout").onclick = () => {
 
 const SECTIONS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "mrp"];
 function go(sec) {
-  if (SECTIONS.indexOf(sec) === -1 || ((sec === "res" || sec === "mrp") && !ME.isHead)) sec = "curr";
+  if (SECTIONS.indexOf(sec) === -1 || (sec === "mrp" && !ME.isHead)) sec = "curr";
   const shown = sec === "act" ? "ach" : sec;
   SECTIONS.forEach(s => { $("nav-" + s).setAttribute("aria-selected", s === sec); const el = $("sec-" + s); if (el) el.hidden = s !== shown; });
   try { localStorage.setItem("section", sec); } catch (e) {}
@@ -1838,11 +1839,11 @@ function fmtDur(min) { const h = Math.floor(min / 60), m = min % 60; return h &&
 function prmTab(which) {
   if (!ME.isHead && (which === "req" || which === "log")) which = "new";
   prmSub = which; $("prm-detail").hidden = true; CUR_PRM = null;
-  ["new", "mine", "swap", "req", "log"].forEach(t => { $("prmtab-" + t).setAttribute("aria-selected", t === which); $("prm-" + t).hidden = t !== which; });
+  ["new", "mine", "req", "log"].forEach(t => { $("prmtab-" + t).setAttribute("aria-selected", t === which); $("prm-" + t).hidden = t !== which; });
   if (which !== "new" && PRM_EDIT) { PRM_EDIT = null; $("pf-send").textContent = "إرسال الطلب إلى رئيس الشعبة"; $("pf-msg").textContent = ""; }
-  if (which === "new") prmForm(); else if (which === "swap") swapTab(); else loadPerms(true).then(renderPerms);
+  if (which === "new") prmForm(); else loadPerms(true).then(renderPerms);
 }
-["new", "mine", "swap", "req", "log"].forEach(t => $("prmtab-" + t).onclick = () => prmTab(t));
+["new", "mine", "req", "log"].forEach(t => $("prmtab-" + t).onclick = () => prmTab(t));
 
 // ---------- تبديل حصة (المعلم) ----------
 async function swapTab(force) {
@@ -1882,7 +1883,7 @@ $("sw-send").onclick = async () => {
   } catch (e) { m.textContent = /غير معروف/.test(cleanErr(e)) ? "تبديل الحصص يعمل بعد تحديث كود السيرفر." : cleanErr(e); $("sw-send").disabled = false; }
 };
 function renderMySwaps() {
-  const list = (SWAPS || []).filter(x => x.status === SWP_ACTIVE);
+  const list = (SWAPS || []).filter(x => x.status === SWP_ACTIVE && (x.teacher === ME.name || x.other === ME.name));
   $("sw-mine").innerHTML = list.length ? list.map(x => `<div class="li"><span><b>${classLabel(x.cls)}</b> · أ. ${esc(shortName(x.teacher))} ⇄ أ. ${esc(shortName(x.other))}<br>
     <span class="sub">${fmtDate(x.date, true)} الحصة ${PERIOD_NAMES[x.period]} ← الرد ${fmtDate(x.retDate, true)} الحصة ${PERIOD_NAMES[x.retPeriod]}</span></span>
     <span class="row-actions"><button class="btn ghost sm" type="button" data-swf="${esc(x.id)}">النموذج PDF</button>${x.teacher === ME.name && x.date >= todayISO() ? `<button class="btn ghost sm" type="button" data-swc="${esc(x.id)}">إلغاء</button>` : ""}</span></div>`).join("")
@@ -2082,7 +2083,7 @@ function buildPermissionDoc(D, p) {
   const [fh, fm] = hm(p.from), [th, tm] = hm(p.to);
   const sigImg = (data, label) => data ? new D.Paragraph({ alignment: C, children: [h.img(b64ToBytes(data), 130, 48, "png")] }) : h.para("", { after: 0, line: 700 });
   const timeTable = (hh, mm) => h.table([[h.th("ساعة", { w: 900 }), h.th("دقيقة", { w: 900 })], [h.cell(hh, { align: C, size: 22, bold: true }), h.cell(mm, { align: C, size: 22, bold: true })]], [900, 900], h.softBorders("C9D6E3"));
-  const kids = [...h.formHeader("إذن خروج"),
+  const kids = [...h.formHeader("إذن خروج", 10000, false, true),
     h.table([[h.cell([h.para(`المسلسل: ${ar(p.serial)}`, { size: 21, bold: true, color: NAVY, after: 0 })], { w: 3300 }),
       h.cell([h.para("إخطار بمدة الاستئذان المصرح بها", { size: 22, bold: true, color: NAVY, align: C, after: 0 })], { w: 3400 }),
       h.cell([h.para("نموذج رقم (٥م)", { size: 21, bold: true, color: NAVY, align: D.AlignmentType.LEFT, after: 0 })], { w: 3300 })]], [3300, 3400, 3300], h.noBorders),
@@ -2185,8 +2186,8 @@ const P = {
     flush(); return out; },
   img: (src, cls = "sig") => src ? `<img class="${cls}" src="${src}">` : ""
 };
-function pdfHeader(box, guid) {
-  return `<div class="hd"><img class="moe" src="data:image/png;base64,${MOE_B64}"><div class="mid">${guid ? `<img class="g" src="data:image/png;base64,${GUID_B64}">` : ""}<div class="t">${guid ? "التوجيه الفني للعلوم الشرعية" : "قسم الحديث الشريف والقرآن الكريم"}</div><span class="box">${PE(box)}</span></div><img class="ins" src="data:image/png;base64,${LOGO_B64}"></div><div class="rule"></div>`;
+function pdfHeader(box, guid, noDept) {
+  return `<div class="hd"><img class="moe" src="data:image/png;base64,${MOE_B64}"><div class="mid">${guid ? `<img class="g" src="data:image/png;base64,${GUID_B64}">` : ""}${noDept && !guid ? "" : `<div class="t">${guid ? "التوجيه الفني للعلوم الشرعية" : "قسم الحديث الشريف والقرآن الكريم"}</div>`}<span class="box">${PE(box)}</span></div><img class="ins" src="data:image/png;base64,${LOGO_B64}"></div><div class="rule"></div>`;
 }
 // إذا كان صاحب السجل رئيس الشعبة نفسه فلا يتكرر اسمه: يبقى توقيع «رئيس الشعبة» فقط
 function dedupeSigns(signs) {
@@ -2211,7 +2212,7 @@ async function buildPdf(spec) {
   let pages = [], tight = false;
   const newPage = first => {
     const pg = document.createElement("div"); pg.className = "pp" + (spec.landscape ? " land" : "") + (tight ? " tight" : "");
-    pg.innerHTML = `<div class="fr">${first && !spec.noHead ? pdfHeader(spec.box, spec.guid) : ""}<div class="bd"></div></div>`;
+    pg.innerHTML = `<div class="fr">${first && !spec.noHead ? pdfHeader(spec.box, spec.guid, spec.noDept) : ""}<div class="bd"></div></div>`;
     host.appendChild(pg); pages.push(pg); return pg.querySelector(".bd");
   };
   const over = b => b.scrollHeight > b.clientHeight + 1;
@@ -2413,7 +2414,7 @@ function pdfPermission(p) {
   const [fh, fm] = hm(p.from), [th, tm] = hm(p.to), bx = c => c ? "■" : "□";
   const tt = (h, m) => `<span class="tbx"><i>ساعة</i>${h || "&nbsp;"}</span><span class="tbx"><i>دقيقة</i>${m || "&nbsp;"}</span>`;
   const sig = (r, n, img) => `<div><b>${r}</b>${img ? `<img src="${img}">` : `<div class="sp"></div>`}<div class="n" style="font-size:12px">${PE(n)}</div></div>`;
-  return { box: "إذن خروج", signs: [["مدير المعهد", PRINCIPAL]], blocks: [
+  return { box: "إذن خروج", noDept: true, signs: [["مدير المعهد", PRINCIPAL]], blocks: [
     `<table class="plain"><tr><td class="b" style="color:#1E3A5F">المسلسل: ${p.serial ? ar(p.serial) : "........"}</td><td class="c b" style="color:#1E3A5F">إخطار بمدة الاستئذان المصرح بها</td><td class="b" style="color:#1E3A5F;text-align:left">نموذج رقم (٥م)</td></tr></table>`,
     P.p(PERM_TYPES.map(t => `${bx(p.type === t)} ${t}`).join("        "), "c b"),
     `<p><b>السيد المحترم / مدير معهد عبدالرحمن السميط الديني الثانوي بنين</b>      بعد التحية،</p>`,
@@ -3383,12 +3384,16 @@ function subjOf(cls) { return cls && cls.indexOf(":") > 0 ? SUBJECTS[cls.split("
 
 function resTab(which) {
   resSub = which;
-  ["new", "log", "swap"].forEach(k => { $("restab-" + k).setAttribute("aria-selected", k === which); $("res-" + k).hidden = k !== which; });
+  if (!ME.isHead) which = "req";
+  resSub = which;
+  ["new", "log", "swap", "req"].forEach(k => { $("restab-" + k).setAttribute("aria-selected", k === which); $("res-" + k).hidden = k !== which; });
+  if (which === "req") { swapTab(); return; }
   loadRes().then(() => which === "new" ? renderResForm() : which === "swap" ? renderSwapLog() : renderResLog());
 }
 $("restab-new").onclick = () => resTab("new");
 $("restab-log").onclick = () => { resLogTeacher = ""; resTab("log"); };
 $("restab-swap").onclick = () => resTab("swap");
+$("restab-req").onclick = () => resTab("req");
 
 async function loadRes(force) {
   if (RES && !force) return RES;
@@ -3646,12 +3651,12 @@ function H(D) {
   // شعار الوزارة يمينًا · شعار التوجيه الفني و«التوجيه الفني للعلوم الشرعية» وصندوق العنوان في الوسط · شعار المعهد يسارًا، ثم خط مزدوج
   // total = عرض المنطقة المكتوبة (≈10000 عمودي، 14400 أفقي)
   // guid = true فقط لما يتعلق بالتوجيه الفني أو الدرجات (المنهج، كشف المتابعة، الزيارة الصفية)؛ غيرها بشعاري الوزارة والمعهد فقط
-  const formHeader = (title, total = 10000, guid = false) => {
+  const formHeader = (title, total = 10000, guid = false, noDept = false) => {
     const side = Math.round(total * 0.26), mid = total - 2 * side;
     return [table([[
       cell([new D.Paragraph({ alignment: C, children: [img(b64ToBytes(MOE_B64), 78, 78, "png")] })], { w: side }),
       cell([...(guid ? [new D.Paragraph({ alignment: C, spacing: { after: 20 }, children: [img(b64ToBytes(GUID_B64), 30, 43, "png")] })] : []),
-        para(guid ? "التوجيه الفني للعلوم الشرعية" : "قسم الحديث الشريف والقرآن الكريم", { size: 22, bold: true, color: NAVY, align: C, after: 40 }),
+        ...(noDept && !guid ? [] : [para(guid ? "التوجيه الفني للعلوم الشرعية" : "قسم الحديث الشريف والقرآن الكريم", { size: 22, bold: true, color: NAVY, align: C, after: 40 })]),
         titleBox(title, Math.min(mid - 400, Math.max(3600, title.length * 230)))], { w: mid }),
       cell([new D.Paragraph({ alignment: C, children: [img(b64ToBytes(LOGO_B64), 80, 83, "png")] })], { w: side })
     ]], [side, mid, side], noBorders), para("", { after: 60, line: 120, rule: true })];
