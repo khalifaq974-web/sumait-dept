@@ -963,30 +963,41 @@ function buildReport(D, rows, week, now, counts, deptFilter) {
   const h = H(D), C = D.AlignmentType.CENTER;
   const cell = (t, o = {}) => h.cell(t, { size: o.size || 18, bold: o.bold, color: o.color, align: o.align, fill: o.fill, m: { top: 50, bottom: 50, left: 80, right: 80 } });
   const colors = { ok: "2F7D4F", late: "B4382B", ahead: "6B4FB5", none: "7D8892" };
-  const F = h.FILL;
-  const header = ["م", "المعلم", "الفصل", "القسم", "آخر ما تم إنجازه", "المقرر حسب الخطة", "الحالة", "ملاحظات"].map(t => h.th(t));
-  const body = rows.map((r, i) => [cell(ar(i + 1), { align: C }), cell(r.teacher), cell(r.label, { align: C }), cell(SUBJECTS[r.dept]),
-    cell(r.doneLabel, { size: 17 }), cell(r.planned, { size: 17 }), cell(r.st.text, { bold: true, color: colors[r.st.kind] }), cell(r.note || "", { size: 17 })]);
-  const widths = [500, 2200, 800, 1300, 3300, 3300, 1300, 1700];
-  const table = new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: widths, width: { size: widths.reduce((a, b) => a + b, 0), type: D.WidthType.DXA },
-    borders: h.softBorders("C9D6E3"), rows: [new D.TableRow({ tableHeader: true, children: header }), ...body.map(r => new D.TableRow({ children: r, cantSplit: true }))] });
+  const grid = (head, body, widths) => new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: widths, width: { size: widths.reduce((a, b) => a + b, 0), type: D.WidthType.DXA },
+    borders: h.softBorders("C9D6E3"), rows: [new D.TableRow({ tableHeader: true, children: head.map(t => h.th(t)) }), ...body.map(r => new D.TableRow({ children: r, cantSplit: true }))] });
   const dateStr = `${ar(now.getDate())}/${ar(now.getMonth() + 1)}/${ar(now.getFullYear())}`;
   const wLabel = week >= 1 && week <= WEEKS ? `الأسبوع ${WEEK_NAMES[week]} (${weekRange(week)})` : week > WEEKS ? "بعد نهاية أسابيع الخطة" : "قبل بداية الفصل";
-  const sw = [2880, 2880, 2880, 2880, 2880];
-  const sumTable = h.table([
-    ["مطابق للخطة", "متأخر", "متقدم", "لم يُحدَّث", "إجمالي الفصول"].map(t => h.th(t)),
-    [counts.ok, counts.late, counts.ahead, counts.none, rows.length].map(n => cell(ar(n), { align: C, bold: true, size: 22 }))
-  ], sw, h.softBorders("C9D6E3"));
   const scope = deptFilter ? "قسم " + SUBJECTS[deptFilter] : "قسما الحديث الشريف والقرآن الكريم";
-  return h.doc([
+  const groups = currByTeacher(rows), sumRow = c => [c.ok, c.late, c.ahead, c.none];
+  const kids = [
     ...h.formHeader("تقرير متابعة تنفيذ خطة المنهج", 14400, true),
     h.para(`${scope} · الفصل الدراسي الأول ١٤٤٨هـ / ٢٠٢٦–٢٠٢٧م`, { size: 21, align: C, after: 40 }),
     h.para(`تاريخ التقرير: ${dateStr} · ${wLabel}`, { size: 21, align: C, after: 160 }),
-    h.heading("أولًا: ملخص الحالة"), sumTable, h.para("", { after: 80 }),
-    h.heading("ثانيًا: تفاصيل ما قُطع من المنهج لكل فصل"), table, h.para("", { after: 80 }),
-    h.para("ملاحظة: تُحسب الحالة بمقارنة عدد الحصص المنجزة بما يقرره توزيع الخطة المعتمد من التوجيه الفني حتى نهاية الأسبوع الحالي.", { size: 17, color: h.MUTED, after: 240 }),
-    h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400)
-  ], { landscape: true });
+    h.heading("أولًا: ملخص الحالة"),
+    grid(["مطابق للخطة", "متأخر", "متقدم", "لم يُحدَّث", "إجمالي الفصول"], [[counts.ok, counts.late, counts.ahead, counts.none, rows.length].map(n => cell(ar(n), { align: C, bold: true, size: 22 }))], [2880, 2880, 2880, 2880, 2880]),
+    h.para("", { after: 80 }),
+    h.heading("ثانيًا: ملخص كل معلم (التفاصيل في الصفحات التالية، كل معلم في صفحة)"),
+    grid(["م", "المعلم", "القسم", "عدد الفصول", "مطابق", "متأخر", "متقدم", "لم يُحدَّث"],
+      groups.map((g, i) => { const c = countsOf(g.rows); return [cell(ar(i + 1), { align: C }), cell("أ. " + g.teacher), cell(SUBJECTS[g.dept]), cell(ar(g.rows.length), { align: C }),
+        ...sumRow(c).map((n, j) => cell(ar(n), { align: C, bold: j === 1 && n > 0, color: j === 1 && n > 0 ? colors.late : undefined }))]; }),
+      [600, 3600, 2000, 1400, 1700, 1700, 1700, 1700]),
+    h.para("", { after: 80 }), h.para(CURR_NOTE, { size: 17, color: h.MUTED, after: 240 }),
+    h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400)];
+  groups.forEach(g => {
+    const c = countsOf(g.rows);
+    kids.push(new D.Paragraph({ children: [new D.PageBreak()] }),
+      ...h.formHeader("تقرير متابعة تنفيذ خطة المنهج", 14400, true),
+      h.para(`أ. ${g.teacher} · قسم ${SUBJECTS[g.dept]}`, { size: 26, bold: true, color: h.NAVY, align: C, after: 60 }),
+      h.para(`الفصل الدراسي الأول ١٤٤٨هـ / ٢٠٢٦–٢٠٢٧م · تاريخ التقرير: ${dateStr} · ${wLabel}`, { size: 19, align: C, after: 120 }),
+      grid(["عدد الفصول", "مطابق للخطة", "متأخر", "متقدم", "لم يُحدَّث"], [[g.rows.length, ...sumRow(c)].map((n, j) => cell(ar(n), { align: C, bold: true, size: 21, color: j === 2 && n > 0 ? colors.late : undefined }))], [2880, 2880, 2880, 2880, 2880]),
+      h.para("", { after: 80 }), h.heading("تفاصيل ما قُطع من المنهج"),
+      grid(["م", "الفصل", "آخر ما تم إنجازه", "المقرر حسب الخطة", "الحالة", "ملاحظات"],
+        g.rows.map((r, i) => [cell(ar(i + 1), { align: C }), cell(r.label, { align: C }), cell(r.doneLabel, { size: 17 }), cell(r.planned, { size: 17 }), cell(r.st.text, { bold: true, color: colors[r.st.kind] }), cell(r.note || "", { size: 17 })]),
+        [600, 1000, 4400, 4400, 1500, 2500]),
+      h.para("", { after: 80 }), h.para(CURR_NOTE, { size: 17, color: h.MUTED, after: 240 }),
+      h.signRow(currSigns(g.teacher), 14400));
+  });
+  return h.doc(kids, { landscape: true });
 }
 /*ENDCORE*/
 
@@ -2152,6 +2163,7 @@ async function buildPdf(spec) {
     if (!html) continue;
     const tmp = document.createElement("div"); tmp.innerHTML = html;
     for (const el of [...tmp.children]) {
+      if (el.classList && el.classList.contains("pgbrk")) { if (body.children.length) body = newPage(true); continue; }
       body.appendChild(el);
       if (!over(body)) continue;
       body.removeChild(el);
@@ -2193,19 +2205,41 @@ async function deliverPdf(specFn, filename, msgEl) {
 }
 
 // ---------- مواصفات PDF لكل تقرير (المحتوى نفسه الذي في الوورد) ----------
+// تجميع فصول التقرير حسب المعلم والقسم (لا يُجمع القسمان في صفحة واحدة)
+function currByTeacher(rows) {
+  const out = [], idx = {};
+  rows.forEach(r => { const k = r.dept + "|" + r.teacher; if (!(k in idx)) { idx[k] = out.length; out.push({ teacher: r.teacher, dept: r.dept, rows: [] }); } out[idx[k]].rows.push(r); });
+  return out;
+}
+const CURR_NOTE = "ملاحظة: تُحسب الحالة بمقارنة عدد الحصص المنجزة بما يقرره توزيع الخطة المعتمد من التوجيه الفني حتى نهاية الأسبوع الحالي.";
+function currSigns(t) { return t === HEAD_NAME ? [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] : [["المعلم", "أ. " + t], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]]; }
+// التقرير: صفحة أولى بالملخص العام، ثم كل معلم في صفحة مستقلة بالديباجة وتوقيعه
 function pdfCurr(rows, week, now, counts, deptFilter) {
   const cls = { ok: "ok", late: "late", ahead: "ahead", none: "none" };
   const scope = deptFilter ? "قسم " + SUBJECTS[deptFilter] : "قسما الحديث الشريف والقرآن الكريم";
   const wLabel = week >= 1 && week <= WEEKS ? `الأسبوع ${WEEK_NAMES[week]} (${weekRange(week)})` : week > WEEKS ? "بعد نهاية أسابيع الخطة" : "قبل بداية الفصل";
   const dateStr = `${ar(now.getDate())}/${ar(now.getMonth() + 1)}/${ar(now.getFullYear())}`;
-  return { box: "تقرير متابعة تنفيذ خطة المنهج", guid: true, landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
+  const groups = currByTeacher(rows), sumRow = c => [c.ok, c.late, c.ahead, c.none];
+  const blocks = [
     P.p(`${scope} · الفصل الدراسي الأول ١٤٤٨هـ / ٢٠٢٦–٢٠٢٧م`, "c"), P.p(`تاريخ التقرير: ${dateStr} · ${wLabel}`, "c"),
     P.h("أولًا: ملخص الحالة"),
     P.grid(P.th(["مطابق للخطة", "متأخر", "متقدم", "لم يُحدَّث", "إجمالي الفصول"]), [P.tr([counts.ok, counts.late, counts.ahead, counts.none, rows.length].map(n => ({ t: ar(n), c: "c b" })))]),
-    P.h("ثانيًا: تفاصيل ما قُطع من المنهج لكل فصل"),
-    P.grid(P.th(["م", "المعلم", "الفصل", "القسم", "آخر ما تم إنجازه", "المقرر حسب الخطة", "الحالة", "ملاحظات"]),
-      rows.map((r, i) => P.tr([{ t: ar(i + 1), c: "c" }, r.teacher, { t: r.label, c: "c" }, SUBJECTS[r.dept], r.doneLabel, r.planned, { t: r.st.text, c: cls[r.st.kind] }, r.note || ""])), "dense"),
-    P.p("ملاحظة: تُحسب الحالة بمقارنة عدد الحصص المنجزة بما يقرره توزيع الخطة المعتمد من التوجيه الفني حتى نهاية الأسبوع الحالي.", "mut")] };
+    P.h("ثانيًا: ملخص كل معلم (التفاصيل في الصفحات التالية، كل معلم في صفحة)"),
+    P.grid(P.th(["م", "المعلم", "القسم", "عدد الفصول", "مطابق", "متأخر", "متقدم", "لم يُحدَّث"]),
+      groups.map((g, i) => { const c = countsOf(g.rows); return P.tr([{ t: ar(i + 1), c: "c" }, "أ. " + g.teacher, SUBJECTS[g.dept], { t: ar(g.rows.length), c: "c" }, ...sumRow(c).map((n, j) => ({ t: ar(n), c: j === 1 && n ? "c late" : "c" }))]); }), "dense"),
+    P.p(CURR_NOTE, "mut"), pdfSigns([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]])];
+  groups.forEach(g => {
+    const c = countsOf(g.rows);
+    blocks.push('<div class="pgbrk"></div>',
+      P.title(`أ. ${g.teacher} · قسم ${SUBJECTS[g.dept]}`),
+      P.info([["المعلم", "أ. " + g.teacher], ["القسم", SUBJECTS[g.dept]], ["الفصل الدراسي", "الأول ١٤٤٨هـ / ٢٠٢٦–٢٠٢٧م"], ["تاريخ التقرير", `${dateStr} · ${wLabel}`]]),
+      P.grid(P.th(["عدد الفصول", "مطابق للخطة", "متأخر", "متقدم", "لم يُحدَّث"]), [P.tr([g.rows.length, ...sumRow(c)].map((n, j) => ({ t: ar(n), c: j === 2 && n ? "c b late" : "c b" })))]),
+      P.h("تفاصيل ما قُطع من المنهج"),
+      P.grid(P.th(["م", "الفصل", "آخر ما تم إنجازه", "المقرر حسب الخطة", "الحالة", "ملاحظات"]),
+        g.rows.map((r, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: r.label, c: "c" }, r.doneLabel, r.planned, { t: r.st.text, c: cls[r.st.kind] }, r.note || ""]))),
+      P.p(CURR_NOTE, "mut"), pdfSigns(currSigns(g.teacher)));
+  });
+  return { box: "تقرير متابعة تنفيذ خطة المنهج", guid: true, landscape: true, signs: [], blocks };
 }
 function pdfAchievement(a, photos) {
   const title = (String(a.report || "").match(/^\s*العنوان\s*:\s*(.+)$/m) || [])[1] || a.title;
