@@ -682,7 +682,7 @@ function deleteVisit(code, id) {
 
 // ======================= الاحتياط (لرئيس الشعبة فقط) =======================
 // الجدول العام للقسم: لكل معلم [اليوم (0 الأحد … 4 الخميس)، الحصة، الفصل]
-// الفصل "R" = حصة احتياط في الجدول، "RF" = احتياط فنية (المعلم متاح ومرشّح أول للتغطية)
+// الفصل "R" = حصة احتياط في الجدول، "RF" = احتياط فنية: حصة للمعلم تحتاج تغطية عند غيابه، وهو فيها متاح للتغطية عن غيره
 // يجب أن يطابق TIMETABLE في index.html
 const TIMETABLE = {
   "خليفة حمد خليفة القصار": [[3,2,"hd:11-1"],[4,5,"hd:11-1"]],
@@ -843,7 +843,8 @@ function saveAbsence(code, a) {
     items.forEach(it => {
       const period = Math.floor(Number(it.period));
       const les = effLesson_(teacher, date, period, ev);
-      if (!les || les[2] === "R" || les[2] === "RF") throw new Error("الحصة " + period + " ليست من حصص المعلم في هذا اليوم.");
+      // حصص الاحتياط والاحتياط الفنية في الجدول العام حصص للمعلم، وتحتاج تغطية عند غيابه (قرار رئيس الشعبة ٢٦/١٠/٢٠٢٦)
+      if (!les) throw new Error("الحصة " + period + " ليست من حصص المعلم في هذا اليوم.");
       if (seen[period]) return; seen[period] = 1;
       let status = [COV_DONE, COV_NONE, COV_PRESENT].indexOf(it.status) !== -1 ? it.status : COV_NONE;
       let sub = String(it.substitute || ""), ret = ["", "", "", ""];

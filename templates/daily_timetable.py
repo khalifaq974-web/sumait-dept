@@ -40,7 +40,12 @@ def cell(t, dept, p, v):
         tag = f'<span class="sub">{SUBJ[s_]}</span>' if s_ != dept else ""
         return f'<td class="cls swin"><b>{g}/{n}</b>{tag}<span class="cov ret">تبديل بدل {html.escape(short(o))}</span></td>'
     if v is None: return '<td class="free"></td>'
-    if v in ("R", "RF"): return f'<td class="res">{"احتياط" if v == "R" else "احتياط فنية"}</td>'
+    if v in ("R", "RF"):
+        lab = "احتياط" if v == "R" else "احتياط فنية"
+        if t in absent:  # حصة الاحتياط حصة للمعلم وتحتاج تغطية عند غيابه
+            sb, sw = subs.get((t, p), ("", False))
+            lab += f'<span class="cov">بديل: {html.escape(short(sb))}</span>' if sb else '<span class="cov none">غير مغطاة</span>'
+        return f'<td class="res">{lab}</td>'
     s, c = v.split(":"); g, n = c.split("-")
     tag = f'<span class="sub">{SUBJ[s]}</span>' if s != dept else ""
     if (t, p) in sw_out:

@@ -1103,7 +1103,7 @@ async function collage(srcs, W = 1400, maxH = 420) {
 }
 function imgSize(src) { return new Promise(res => { const i = new Image(); i.onload = () => res({ w: i.naturalWidth, h: i.naturalHeight }); i.onerror = () => res({ w: 4, h: 3 }); i.src = src; }); }
 function lines(t) { return String(t || "").split(/\n+/).map(s => s.replace(/^\s*[-•*\d٠-٩]+[.)\-–]?\s+/, "").trim()).filter(Boolean); }
-function classLabel(id) { try { return classInfo(id).label; } catch (e) { return id; } }
+function classLabel(id) { if (id === "R") return "احتياط"; if (id === "RF") return "احتياط فنية"; try { return classInfo(id).label; } catch (e) { return id; } }
 function classFull(id) { try { const c = classInfo(id); return `${c.label} · ${SUBJECTS[c.dept]}`; } catch (e) { return id; } }
 
 (function header() {
@@ -3452,7 +3452,6 @@ function renderResItems() {
   const extra = {};
   box.innerHTML = slots.map(({ p, cls, swappedOut, swappedIn }) => {
     if (swappedOut) return `<div class="res-row muted-row"><div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)} · ${subjOf(cls)}</span></div><span class="sub">⇄ يدخلها أ. ${esc(swappedOut)} (تبديل بطلب المعلم) — لا تحتاج تغطية</span></div>`;
-    if (!isLesson([0, p, cls])) return `<div class="res-row muted-row"><div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${cls === "RF" ? "احتياط فنية" : "احتياط"} — لا تحتاج تغطية</span></div></div>`;
     const cands = candidates(date, day, p, cls, t, resEditId, extra);
     const sv = saved.find(c => c.period === p);
     const sel = sv ? (sv.status === COV_DONE ? sv.substitute : sv.status === COV_PRESENT ? "__present" : "__none") : (cands[0] ? cands[0].t : "__none");
@@ -3460,7 +3459,7 @@ function renderResItems() {
     const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 ? "★ الأفضل: " : ""}${esc(c.t)} — ${esc(c.why.join("، "))}</option>`).join("");
     const keep = sv && sv.status === COV_DONE && !cands.some(c => c.t === sv.substitute) ? `<option value="${esc(sv.substitute)}" selected>${esc(sv.substitute)} (مسجّل سابقًا)</option>` : "";
     return `<div class="res-row" data-p="${p}">
-      <div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)} · ${subjOf(cls)}${swappedIn ? ` · ⇄ تبديل مع أ. ${esc(swappedIn)}` : ""}</span></div>
+      <div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)}${subjOf(cls) ? " · " + subjOf(cls) : ""}${swappedIn ? ` · ⇄ تبديل مع أ. ${esc(swappedIn)}` : ""}</span></div>
       <select aria-label="البديل في الحصة ${PERIOD_NAMES[p]}">${keep}${opts}
         <option value="__none"${sel === "__none" ? " selected" : ""}>— لم تُغطَّ —</option>
         <option value="__present"${sel === "__present" ? " selected" : ""}>حضر المعلم هذه الحصة</option></select>
