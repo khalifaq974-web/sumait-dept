@@ -547,6 +547,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <nav class="tabs" role="tablist">
         <button id="restab-new" role="tab" aria-selected="true">تسجيل غياب</button>
         <button id="restab-log" role="tab" aria-selected="false">سجل الغياب والاحتياط</button>
+        <button id="restab-swap" role="tab" aria-selected="false">سجل التبديل</button>
       </nav>
       <section id="res-new">
         <form id="res-form" class="card">
@@ -565,6 +566,16 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="vis-head-row"><h3 id="res-day-title"></h3><span class="row-actions"><button class="btn ghost sm" type="button" id="res-daily-word">كشف الاحتياط اليومي وورد</button><button class="btn ghost sm" type="button" id="res-daily-pdf">PDF</button></span></div>
         <div class="saved" id="res-dmsg"></div>
         <div class="list" id="res-day"></div>
+      </section>
+      <section id="res-swap" hidden>
+        <div class="row-actions" style="margin-top:12px">
+          <select id="swap-filter" aria-label="الحالة"><option value="pending">لم يُرد بعد</option><option value="all" selected>كل التبديلات</option><option value="done">تم الرد</option></select>
+          <button class="btn ghost" id="swap-reload" type="button">تحديث</button>
+          <button class="btn" id="swap-pdf" type="button">تنزيل سجل التبديل PDF</button>
+        </div>
+        <div class="sub" style="margin-top:8px">التبديل: معلم المادة الأخرى في الفصل نفسه يدخل حصة الغائب، ثم يردّ الغائب الحصة بدخول حصة ذلك المعلم في الفصل نفسه في يوم الرد. علّم «تم الرد» بعد أن يردّها.</div>
+        <div class="saved" id="swap-msg"></div>
+        <div id="swap-body"></div>
       </section>
       <section id="res-log" hidden>
         <div class="toolbar">
@@ -2085,7 +2096,7 @@ function pdfDailyReserve(date) {
     P.info([["اليوم", DAYS[isoDay(date)] || ""], ["التاريخ", fmtDate(date)], ["الغائبون", abs.map(a => "أ. " + a.teacher).join("، ") || "—"]], 2),
     P.grid(P.th(["م", "الحصة", "الفصل", "المادة", "المعلم الغائب", "المعلم البديل", "توقيع البديل"]),
       covs.map((c, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: PERIOD_NAMES[c.period], c: "c" }, { t: classLabel(c.classId), c: "c" }, subjOf(c.classId), "أ. " + c.absent,
-        c.status === COV_DONE ? { t: "أ. " + c.substitute, c: "b" } : { t: "لم تُغطَّ", c: "late" }, ""])))] };
+        isCov(c) ? { t: covName(c), c: "b" } : { t: "لم تُغطَّ", c: "late" }, ""])))] };
 }
 function pdfReserveReport(r) {
   const st = resStats(r), det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
@@ -2095,7 +2106,7 @@ function pdfReserveReport(r) {
       st.map(s => P.tr(["أ. " + s.t, ...[s.days, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => ({ t: ar(n), c: i === 3 && n > 0 ? "c late" : "c" })), Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—"]))),
     P.h("ثانيًا: تفاصيل حصص الاحتياط"),
     det.length ? P.grid(P.th(["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"]), det.map(c => P.tr([fmtDate(c.date, true), { t: PERIOD_NAMES[c.period], c: "c" }, { t: classLabel(c.classId), c: "c" }, "أ. " + c.absent,
-      c.status === COV_DONE ? "أ. " + c.substitute : { t: "لم تُغطَّ", c: "late" }])), "dense") : P.p("لا توجد حصص احتياط في هذه الفترة.")] };
+      isCov(c) ? covName(c) : { t: "لم تُغطَّ", c: "late" }])), "dense") : P.p("لا توجد حصص احتياط في هذه الفترة.")] };
 }
 function pdfClassSheet(r) {
   const ci = classInfo(r.cls);
@@ -3037,6 +3048,11 @@ const TIMETABLE = {
   "عبدالله أحمد عبدالمجد الماجد": [[0,2,"qr:11-2"],[0,4,"qr:11-1"],[1,5,"qr:11-3"],[1,6,"R"],[2,2,"qr:11-5"],[2,3,"qr:11-1"],[2,6,"RF"],[3,1,"qr:11-3"],[3,3,"qr:11-4"],[3,6,"qr:11-5"],[4,5,"qr:11-4"],[4,6,"qr:11-2"]]
 };
 const COV_DONE = "مغطاة", COV_NONE = "غير مغطاة", COV_PRESENT = "حضر المعلم";
+// التبديل: معلم المادة الأخرى في الفصل نفسه يدخل حصة الغائب، ثم يردّها الغائب بدخول حصة ذلك المعلم في الفصل نفسه في يوم آخر
+const COV_SWAP = "تبديل", RET_PENDING = "لم يُرد", RET_DONE = "تم الرد";
+function isCov(c) { return c.status === COV_DONE || c.status === COV_SWAP; }
+function covName(c) { return (c.status === COV_SWAP ? "تبديل: " : "") + "أ. " + c.substitute; }
+function shortName(t) { const w = String(t).split(" "); return w.length > 2 ? w[0] + " " + w[w.length - 1] : t; }
 const PERIOD_NAMES = ["", "الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة", "السادسة", "السابعة"];
 let RES = null, resSub = "new", resLogTeacher = "";
 
@@ -3049,11 +3065,12 @@ function subjOf(cls) { return cls && cls.indexOf(":") > 0 ? SUBJECTS[cls.split("
 
 function resTab(which) {
   resSub = which;
-  ["new", "log"].forEach(k => { $("restab-" + k).setAttribute("aria-selected", k === which); $("res-" + k).hidden = k !== which; });
-  loadRes().then(() => which === "new" ? renderResForm() : renderResLog());
+  ["new", "log", "swap"].forEach(k => { $("restab-" + k).setAttribute("aria-selected", k === which); $("res-" + k).hidden = k !== which; });
+  loadRes().then(() => which === "new" ? renderResForm() : which === "swap" ? renderSwapLog() : renderResLog());
 }
 $("restab-new").onclick = () => resTab("new");
 $("restab-log").onclick = () => { resLogTeacher = ""; resTab("log"); };
+$("restab-swap").onclick = () => resTab("swap");
 
 async function loadRes(force) {
   if (RES && !force) return RES;
@@ -3070,7 +3087,7 @@ function nisab(t) { return (TIMETABLE[t] || []).filter(isLesson).length; }
 // extra = احتياطات اختيرت في النموذج نفسه قبل الحفظ، حتى لا تتجمع حصص الغائب كلها على معلم واحد
 function candidates(date, day, period, cls, absent, absenceId, extra) {
   const absentToday = RES.absences.filter(a => a.date === date && a.id !== absenceId).map(a => a.teacher).concat([absent]);
-  const takenNow = RES.covers.filter(c => c.date === date && c.period === period && c.absenceId !== absenceId && c.status === COV_DONE).map(c => c.substitute);
+  const takenNow = RES.covers.filter(c => c.date === date && c.period === period && c.absenceId !== absenceId && isCov(c)).map(c => c.substitute);
   const wk = weekStartISO(date), wkEnd = addDaysISO(wk, 6);
   const list = [];
   for (const t of Object.keys(TIMETABLE)) {
@@ -3088,6 +3105,38 @@ function candidates(date, day, period, cls, absent, absenceId, extra) {
   list.forEach(c => c.why.unshift(RES_LAST_RESORT[c.t] + " — لا يوجد غيره متاح"));
   return list;
 }
+
+// خيارات التبديل لحصة: معلمو المادة الأخرى في الفصل نفسه (من القسمين) الفاضون وقت الحصة،
+// ولكل واحد أقرب حصة له في الفصل نفسه يكون الغائب فاضيًا وقتها (خلال أسبوعين)، مرتبين من الأقرب ردًّا
+// usedRet = أوقات رد اختيرت في النموذج نفسه، حتى لا يتكرر وقت الرد
+function swapOptions(date, day, period, cls, absent, absenceId, usedRet) {
+  if (!RES.swap || !cls || cls.indexOf(":") < 0) return [];
+  const [sj, k] = cls.split(":"), other = (sj === "hd" ? "qr" : "hd") + ":" + k;
+  const absentOn = d => RES.absences.filter(a => a.date === d && a.id !== absenceId).map(a => a.teacher);
+  const takenNow = RES.covers.filter(c => c.date === date && c.period === period && c.absenceId !== absenceId && isCov(c)).map(c => c.substitute);
+  const retBusy = (t, d, p) => usedRet[d + "|" + p] || RES.covers.some(c => c.status === COV_SWAP && c.absenceId !== absenceId && c.retDate === d && c.retPeriod === p && (c.absent === t || c.substitute === t));
+  const out = [];
+  for (const t of Object.keys(TIMETABLE)) {
+    if (t === absent || t === HEAD_NAME) continue;
+    const mine = TIMETABLE[t].filter(x => x[2] === other);
+    if (!mine.length || absentOn(date).indexOf(t) !== -1 || takenNow.indexOf(t) !== -1 || isLesson(slotOf(t, day, period))) continue;
+    const rets = [];
+    for (const [d2, p2] of mine) {
+      if (isLesson(slotOf(absent, d2, p2))) continue;
+      for (let w = 0; w < 2; w++) {
+        const rd = addDaysISO(date, ((d2 - day + 7) % 7 || 7) + 7 * w), off = absentOn(rd);
+        if (off.indexOf(absent) !== -1 || off.indexOf(t) !== -1 || retBusy(absent, rd, p2) || retBusy(t, rd, p2)) continue;
+        rets.push({ date: rd, day: d2, period: p2 }); break;
+      }
+    }
+    if (!rets.length) continue;
+    rets.sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
+    out.push({ t, rets });
+  }
+  return out.sort((a, b) => a.rets[0].date.localeCompare(b.rets[0].date) || nisab(a.t) - nisab(b.t));
+}
+const swapVal = (t, r) => `__swap|${t}|${r.date}|${r.period}`;
+function swapLabel(absent, t, r) { return `⇄ تبديل مع أ. ${shortName(t)} — يردّها أ. ${shortName(absent)} ${DAYS[isoDay(r.date)]} ${fmtDate(r.date)} الحصة ${PERIOD_NAMES[r.period]}`; }
 
 let resEditId = "";
 function renderResForm() {
@@ -3114,21 +3163,28 @@ function renderResItems() {
   const slots = (TIMETABLE[t] || []).filter(x => x[0] === day).sort((a, b) => a[1] - b[1]);
   if (!slots.length) { box.innerHTML = `<div class="empty">ليس لـ أ. ${esc(t)} حصص يوم ${DAYS[day]}.</div>`; $("rf-save").disabled = true; return; }
   $("rf-save").disabled = false;
-  const extra = {};
-  box.innerHTML = slots.map(([d, p, cls]) => {
+  const extra = {}, usedRet = {};
+  box.innerHTML = (RES.swap ? "" : '<div class="sub">خيار التبديل يعمل بعد تحديث كود السيرفر (Code.gs) ونشره.</div>') + slots.map(([d, p, cls]) => {
     if (!isLesson([d, p, cls])) return `<div class="res-row muted-row"><div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${cls === "RF" ? "احتياط فنية" : "احتياط"} — لا تحتاج تغطية</span></div></div>`;
     const cands = candidates(date, day, p, cls, t, resEditId, extra);
+    const swaps = swapOptions(date, day, p, cls, t, resEditId, usedRet);
     const sv = saved.find(c => c.period === p);
-    const sel = sv ? (sv.status === COV_DONE ? sv.substitute : sv.status === COV_PRESENT ? "__present" : "__none") : (cands[0] ? cands[0].t : "__none");
-    if (!sel.startsWith("__")) extra[sel] = (extra[sel] || 0) + 1;
-    const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 ? "★ الأفضل: " : ""}${esc(c.t)} — ${esc(c.why.join("، "))}</option>`).join("");
+    const best = swaps[0] ? swapVal(swaps[0].t, swaps[0].rets[0]) : "";
+    const sel = sv ? (sv.status === COV_DONE ? sv.substitute : sv.status === COV_SWAP ? swapVal(sv.substitute, { date: sv.retDate, period: sv.retPeriod }) : sv.status === COV_PRESENT ? "__present" : "__none")
+      : best || (cands[0] ? cands[0].t : "__none");
+    if (sel.startsWith("__swap|")) { const q = sel.split("|"); usedRet[q[2] + "|" + q[3]] = 1; }
+    else if (!sel.startsWith("__")) extra[sel] = (extra[sel] || 0) + 1;
+    const swapOpts = swaps.flatMap((o, i) => o.rets.map((r, j) => { const v = swapVal(o.t, r); return `<option value="${esc(v)}"${sel === v ? " selected" : ""}>${i === 0 && j === 0 ? "★ الأفضل: " : ""}${esc(swapLabel(t, o.t, r))}</option>`; })).join("");
+    const keepSwap = sv && sv.status === COV_SWAP && !swapOpts.includes(esc(sel)) ? `<option value="${esc(sel)}" selected>${esc(swapLabel(t, sv.substitute, { date: sv.retDate, period: sv.retPeriod }))} (مسجّل سابقًا)</option>` : "";
+    const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 && !best ? "★ الأفضل: " : ""}${esc(c.t)} — ${esc(c.why.join("، "))}</option>`).join("");
     const keep = sv && sv.status === COV_DONE && !cands.some(c => c.t === sv.substitute) ? `<option value="${esc(sv.substitute)}" selected>${esc(sv.substitute)} (مسجّل سابقًا)</option>` : "";
+    const swapGroup = swapOpts || keepSwap ? `<optgroup label="تبديل مع معلم الفصل نفسه (يحتفظ الفصل بحصصه)">${keepSwap}${swapOpts}</optgroup>` : "";
     return `<div class="res-row" data-p="${p}">
       <div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)} · ${subjOf(cls)}</span></div>
-      <select aria-label="البديل في الحصة ${PERIOD_NAMES[p]}">${keep}${opts}
+      <select aria-label="البديل في الحصة ${PERIOD_NAMES[p]}">${swapGroup}<optgroup label="احتياط">${keep}${opts}</optgroup>
         <option value="__none"${sel === "__none" ? " selected" : ""}>— لم تُغطَّ —</option>
         <option value="__present"${sel === "__present" ? " selected" : ""}>حضر المعلم هذه الحصة</option></select>
-      ${cands.length ? "" : '<span class="sub">لا يوجد معلم متاح في هذه الحصة.</span>'}</div>`;
+      ${cands.length || swaps.length ? "" : '<span class="sub">لا يوجد معلم متاح في هذه الحصة.</span>'}</div>`;
   }).join("");
 }
 function renderResDay() {
@@ -3140,7 +3196,7 @@ function renderResDay() {
   box.innerHTML = abs.map(a => {
     const cs = RES.covers.filter(c => c.absenceId === a.id).sort((x, y) => x.period - y.period);
     return `<button class="li li-btn" data-t="${esc(a.teacher)}"><div class="li-main"><b>أ. ${esc(a.teacher)}</b>
-      <span class="sub">${cs.map(c => `${PERIOD_NAMES[c.period]}: ${c.status === COV_DONE ? esc(c.substitute) : c.status}`).join(" · ") || "—"}</span></div><span class="pill ${cs.some(c => c.status === COV_NONE) ? "late" : "ok"}">${cs.some(c => c.status === COV_NONE) ? "فيه حصص بلا تغطية" : "مغطى"}</span></button>`;
+      <span class="sub">${cs.map(c => `${PERIOD_NAMES[c.period]}: ${isCov(c) ? esc(c.status === COV_SWAP ? "⇄ " + c.substitute : c.substitute) : c.status}`).join(" · ") || "—"}</span></div><span class="pill ${cs.some(c => c.status === COV_NONE) ? "late" : "ok"}">${cs.some(c => c.status === COV_NONE) ? "فيه حصص بلا تغطية" : "مغطى"}</span></button>`;
   }).join("");
   box.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { $("rf-teacher").value = b.dataset.t; renderResItems(); window.scrollTo({ top: $("res-form").offsetTop - 10, behavior: "smooth" }); });
 }
@@ -3151,6 +3207,7 @@ $("res-form").addEventListener("submit", async e => {
   const msg = $("rf-msg"), btn = $("rf-save");
   const items = [...document.querySelectorAll("#res-items .res-row[data-p]")].map(r => {
     const v = r.querySelector("select").value;
+    if (v.startsWith("__swap|")) { const q = v.split("|"); return { period: +r.dataset.p, status: COV_SWAP, substitute: q[1], retDate: q[2], retPeriod: +q[3] }; }
     return { period: +r.dataset.p, status: v === "__none" ? COV_NONE : v === "__present" ? COV_PRESENT : COV_DONE, substitute: v.startsWith("__") ? "" : v };
   });
   btn.disabled = true; msg.textContent = "جارٍ الحفظ…";
@@ -3180,9 +3237,9 @@ function resStats(r) {
   const covs = RES.covers.filter(c => c.date >= r.from && c.date <= r.to), abs = RES.absences.filter(a => a.date >= r.from && a.date <= r.to);
   return Object.keys(TIMETABLE).map(t => {
     const mine = covs.filter(c => c.absent === t && c.status !== COV_PRESENT);
-    const by = {}; mine.filter(c => c.status === COV_DONE).forEach(c => by[c.substitute] = (by[c.substitute] || 0) + 1);
+    const by = {}; mine.filter(isCov).forEach(c => by[c.substitute] = (by[c.substitute] || 0) + 1);
     return { t, days: new Set(abs.filter(a => a.teacher === t).map(a => a.date)).size, lessons: mine.length,
-      covered: mine.filter(c => c.status === COV_DONE).length, uncovered: mine.filter(c => c.status === COV_NONE).length,
+      covered: mine.filter(isCov).length, uncovered: mine.filter(c => c.status === COV_NONE).length,
       given: covs.filter(c => c.substitute === t && c.status === COV_DONE).length, by };
   });
 }
@@ -3203,11 +3260,49 @@ function renderResTeacher(r) {
     <dl class="meta-grid" style="margin-top:10px"><div><dt>أيام الغياب</dt><dd>${ar(s.days)}</dd></div><div><dt>حصص غيابه</dt><dd>${ar(s.lessons)}</dd></div><div><dt>غُطّيت / لم تُغطَّ</dt><dd>${ar(s.covered)} / ${ar(s.uncovered)}</dd></div><div><dt>احتياط أخذه</dt><dd>${ar(s.given)}</dd></div></dl>
     <h3 class="list-title">من دخل مكانه</h3>${Object.keys(s.by).length ? `<div class="list">${Object.entries(s.by).sort((a, b) => b[1] - a[1]).map(([n, k]) => `<div class="li"><span>أ. ${esc(n)}</span><span class="pill ok">${ar(k)} ${k === 1 ? "حصة" : "حصص"}</span></div>`).join("")}</div>` : '<div class="empty">—</div>'}
     <h3 class="list-title">أيام غيابه</h3>${abs.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>البديل</th></tr></thead><tbody>${abs.map(a => RES.covers.filter(c => c.absenceId === a.id).sort((x, y) => x.period - y.period).map(c =>
-      `<tr><td>${fmtDate(a.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)}</td><td>${c.status === COV_DONE ? "أ. " + esc(c.substitute) : `<span class="pill ${c.status === COV_NONE ? "late" : "none"}">${c.status}</span>`}</td></tr>`).join("")).join("")}</tbody></table></div>` : '<div class="empty">لم يغب في هذه الفترة.</div>'}
+      `<tr><td>${fmtDate(a.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)}</td><td>${isCov(c) ? esc(covName(c)) : `<span class="pill ${c.status === COV_NONE ? "late" : "none"}">${c.status}</span>`}</td></tr>`).join("")).join("")}</tbody></table></div>` : '<div class="empty">لم يغب في هذه الفترة.</div>'}
     <h3 class="list-title">حصص الاحتياط التي أخذها</h3>${given.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>بدلًا من</th></tr></thead><tbody>${given.map(c =>
       `<tr><td>${fmtDate(c.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)}</td><td>أ. ${esc(c.absent)}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">لم يأخذ احتياطًا في هذه الفترة.</div>'}`;
   $("res-back").onclick = () => { resLogTeacher = ""; renderResLog(); };
 }
+// ---------- سجل التبديل ----------
+function swapList() {
+  const f = $("swap-filter").value;
+  return RES.covers.filter(c => c.status === COV_SWAP && (f === "all" || (f === "done") === (c.retStatus === RET_DONE)))
+    .sort((a, b) => (a.retStatus === RET_DONE) - (b.retStatus === RET_DONE) || a.retDate.localeCompare(b.retDate) || a.retPeriod - b.retPeriod);
+}
+function renderSwapLog() {
+  const box = $("swap-body");
+  if (RES.error) { box.innerHTML = `<div class="empty">${esc(RES.error)}</div>`; return; }
+  if (!RES.swap) { box.innerHTML = '<div class="empty">سجل التبديل يعمل بعد تحديث كود السيرفر (Code.gs) ونشره.</div>'; return; }
+  const list = swapList(), today = todayISO();
+  const all = RES.covers.filter(c => c.status === COV_SWAP), pend = all.filter(c => c.retStatus !== RET_DONE);
+  const stats = `<dl class="meta-grid" style="margin-top:10px"><div><dt>كل التبديلات</dt><dd>${ar(all.length)}</dd></div><div><dt>لم يُرد بعد</dt><dd>${ar(pend.length)}</dd></div><div><dt>فات موعد ردها</dt><dd>${ar(pend.filter(c => c.retDate < today).length)}</dd></div><div><dt>تم الرد</dt><dd>${ar(all.length - pend.length)}</dd></div></dl>`;
+  if (!list.length) { box.innerHTML = stats + '<div class="empty">لا توجد تبديلات هنا.</div>'; return; }
+  box.innerHTML = stats + `<div class="tablebox"><table class="vis-table"><thead><tr><th>يوم الغياب</th><th>الحصة</th><th>الفصل</th><th>الغائب</th><th>دخل مكانه</th><th>يوم الرد</th><th>حصة الرد</th><th>الحالة</th></tr></thead><tbody>${list.map(c => {
+    const done = c.retStatus === RET_DONE, late = !done && c.retDate < today, now = !done && c.retDate === today;
+    return `<tr><td>${fmtDate(c.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)} · ${subjOf(c.classId)}</td><td>أ. ${esc(c.absent)}</td><td>أ. ${esc(c.substitute)}</td>
+      <td>${fmtDate(c.retDate, true)}${now ? ' <span class="pill ok">اليوم</span>' : ""}</td><td>${PERIOD_NAMES[c.retPeriod] || "—"} <span class="sub">(${classLabel(c.retClass)} · ${subjOf(c.retClass)})</span></td>
+      <td><span class="pill ${done ? "ok" : late ? "late" : "none"}">${done ? RET_DONE : late ? "فات موعد الرد" : RET_PENDING}</span>
+        <button class="btn ghost sm" data-swap="${esc(c.id)}" data-done="${done ? "" : "1"}" type="button">${done ? "تراجع" : "تم الرد ✓"}</button></td></tr>`;
+  }).join("")}</tbody></table></div>`;
+  box.querySelectorAll("[data-swap]").forEach(b => b.onclick = async () => {
+    b.disabled = true; $("swap-msg").textContent = "جارٍ الحفظ…";
+    try { await run("setSwapReturn", CODE, b.dataset.swap, !!b.dataset.done); await loadRes(true); renderSwapLog(); $("swap-msg").textContent = "تم الحفظ."; }
+    catch (e) { $("swap-msg").textContent = cleanErr(e); b.disabled = false; }
+  });
+}
+function pdfSwapLog() {
+  const list = swapList(), f = $("swap-filter");
+  return { box: "سجل التبديل", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(f.options[f.selectedIndex].text, "c b"),
+    list.length ? P.grid(P.th(["م", "يوم الغياب", "الحصة", "الفصل", "المعلم الغائب", "دخل مكانه", "يوم الرد", "حصة الرد", "الحالة"]),
+      list.map((c, i) => P.tr([{ t: ar(i + 1), c: "c" }, fmtDate(c.date, true), { t: PERIOD_NAMES[c.period], c: "c" }, { t: classLabel(c.classId) + " " + subjOf(c.classId), c: "c" }, "أ. " + c.absent, "أ. " + c.substitute,
+        fmtDate(c.retDate, true), { t: PERIOD_NAMES[c.retPeriod] || "—", c: "c" }, { t: c.retStatus === RET_DONE ? RET_DONE : RET_PENDING, c: c.retStatus === RET_DONE ? "c" : "c late" }])), "dense")
+      : P.p("لا توجد تبديلات.")] };
+}
+$("swap-filter").onchange = renderSwapLog;
+$("swap-reload").onclick = async () => { await loadRes(true); renderSwapLog(); };
+$("swap-pdf").onclick = () => deliverPdf(() => pdfSwapLog(), "سجل التبديل.pdf", $("swap-msg"));
 $("res-range").onchange = renderResLog;
 $("res-reload").onclick = async () => { await loadRes(true); renderResLog(); };
 $("res-pdf").onclick = () => deliverPdf(() => pdfReserveReport(resRange()), `سجل الغياب والاحتياط - ${resRange().label}.pdf`, $("res-lmsg"));
@@ -3227,7 +3322,7 @@ function buildDailyReserveDoc(D, date) {
     [1600, 3400, 1600, 3400], h.softBorders("C9D6E3"));
   const rows = [[h.th("م", { w: 500 }), h.th("الحصة", { w: 1100 }), h.th("الفصل", { w: 900 }), h.th("المادة", { w: 1400 }), h.th("المعلم الغائب", { w: 2300 }), h.th("المعلم البديل", { w: 2300 }), h.th("توقيع البديل", { w: 1500 })]];
   covs.forEach((c, i) => rows.push([h.cell(ar(i + 1), { align: C, size: 19 }), h.cell(PERIOD_NAMES[c.period], { align: C, size: 19 }), h.cell(classLabel(c.classId), { align: C, size: 19 }), h.cell(subjOf(c.classId), { size: 19 }),
-    h.cell("أ. " + c.absent, { size: 19 }), h.cell(c.status === COV_DONE ? "أ. " + c.substitute : "لم تُغطَّ", { size: 19, bold: true, color: c.status === COV_DONE ? undefined : "B4382B" }), h.cell("", {})]));
+    h.cell("أ. " + c.absent, { size: 19 }), h.cell(isCov(c) ? covName(c) : "لم تُغطَّ", { size: 19, bold: true, color: isCov(c) ? undefined : "B4382B" }), h.cell("", {})]));
   return h.doc([...h.formHeader("كشف الاحتياط اليومي"), info, h.para("", { after: 100 }), h.table(rows, [500, 1100, 900, 1400, 2300, 2300, 1500], h.softBorders("C9D6E3")),
     h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000)]);
 }
@@ -3239,7 +3334,7 @@ function buildReserveReport(D, r) {
   const det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
   const drows = [["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"].map(t => h.th(t)),
     ...det.map(c => [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(PERIOD_NAMES[c.period], { align: C, size: 17 }), h.cell(classLabel(c.classId), { align: C, size: 17 }), h.cell("أ. " + c.absent, { size: 17 }),
-      h.cell(c.status === COV_DONE ? "أ. " + c.substitute : "لم تُغطَّ", { size: 17, bold: c.status !== COV_DONE, color: c.status === COV_DONE ? undefined : "B4382B" })])];
+      h.cell(isCov(c) ? covName(c) : "لم تُغطَّ", { size: 17, bold: !isCov(c), color: isCov(c) ? undefined : "B4382B" })])];
   const kids = [...h.formHeader("سجل الغياب والاحتياط"), h.para(r.label, { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
     h.heading("أولًا: عدّاد الغياب والاحتياط لكل معلم"), h.table(rows, [2600, 900, 950, 850, 950, 1000, 2750], h.softBorders("C9D6E3"))];
   kids.push(h.heading("ثانيًا: تفاصيل حصص الاحتياط"), det.length ? h.table(drows, [2300, 1300, 1000, 2700, 2700], h.softBorders("C9D6E3")) : h.para("لا توجد حصص احتياط في هذه الفترة.", { size: 20 }));

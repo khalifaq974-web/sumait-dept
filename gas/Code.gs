@@ -60,7 +60,7 @@ function doGet() {
 // الصفحة المستضافة خارج جوجل ترسل الطلبات هنا، فلا يتأثر المعلم بتعدد حسابات جوجل في متصفحه.
 const API = { login, saveEntry, headData, submitAchievement, myAchievements, editAchievement, deleteAchievement, allAchievements, saveReport,
   getPhoto, listMinutes, getMinute, saveMinute, deleteMinute, signMinute, mySignature, saveFileToDrive, demoAccounts, demoAction,
-  saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, classesOverview, classSheet, saveGrades,
+  saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, setSwapReturn, classesOverview, classSheet, saveGrades,
   listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport,
   myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
@@ -110,7 +110,7 @@ function setup() {
     "الإيجابيات", "الملاحظات والتوصيات", "توقيع رئيس الشعبة", "تاريخ الإنشاء", "توقيع المعلم", "وقت توقيع المعلم"], true);
   sheet_(SHEET_MAIL, ["الوقت", "إلى", "الموضوع", "النتيجة"], true);
   sheet_(SHEET_ABS, ["المعرف", "التاريخ", "المعلم الغائب", "ملاحظة", "تاريخ التسجيل", "آخر تعديل"], true);
-  sheet_(SHEET_COV, ["المعرف", "معرف الغياب", "التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل", "الحالة", "تاريخ التسجيل"], true);
+  covSheet_();
   sheet_(SHEET_STU, ["الصف", "م", "(بلا أسماء)", "ملاحظة"], true);
   gradesSheet_();
   anonymizeStudents_();
@@ -695,6 +695,20 @@ const TIMETABLE = {
   "عبدالله أحمد عبدالمجد الماجد": [[0,2,"qr:11-2"],[0,4,"qr:11-1"],[1,5,"qr:11-3"],[1,6,"R"],[2,2,"qr:11-5"],[2,3,"qr:11-1"],[2,6,"RF"],[3,1,"qr:11-3"],[3,3,"qr:11-4"],[3,6,"qr:11-5"],[4,5,"qr:11-4"],[4,6,"qr:11-2"]]
 };
 const COV_DONE = "مغطاة", COV_NONE = "غير مغطاة", COV_PRESENT = "حضر المعلم";
+// التبديل: معلم المادة الأخرى في الفصل نفسه يدخل حصة الغائب، ثم يردّها الغائب بدخول حصة ذلك المعلم في الفصل نفسه في يوم آخر
+const COV_SWAP = "تبديل", RET_PENDING = "لم يُرد", RET_DONE = "تم الرد";
+const COV_HEAD = ["المعرف", "معرف الغياب", "التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل", "الحالة", "تاريخ التسجيل",
+  "تاريخ الرد", "حصة الرد", "فصل الرد", "حالة الرد"];
+function covSheet_() {
+  const sh = sheet_(SHEET_COV, COV_HEAD, true), n = COV_HEAD.length;
+  if (sh.getMaxColumns() < n) sh.insertColumnsAfter(sh.getMaxColumns(), n - sh.getMaxColumns());
+  if (sh.getRange(1, 10).getDisplayValue() !== COV_HEAD[9]) {
+    sh.getRange(1, 10, sh.getMaxRows(), n - 9).setNumberFormat("@");
+    sh.getRange(1, 1, 1, n).setValues([COV_HEAD]);
+  }
+  return sh;
+}
+function isCov_(status) { return status === COV_DONE || status === COV_SWAP; }
 
 function dayOf_(iso) {
   const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -705,12 +719,15 @@ function lessonAt_(teacher, day, period) {
   return (TIMETABLE[teacher] || []).find(x => x[0] === day && x[1] === period) || null;
 }
 function absObj_(r) { return { id: r[0], date: r[1], teacher: r[2], note: r[3], createdAt: r[4], updatedAt: r[5] }; }
-function covObj_(r) { return { id: r[0], absenceId: r[1], date: r[2], period: Number(r[3]), classId: r[4], absent: r[5], substitute: r[6], status: r[7] }; }
+function covObj_(r) {
+  return { id: r[0], absenceId: r[1], date: r[2], period: Number(r[3]), classId: r[4], absent: r[5], substitute: r[6], status: r[7],
+    retDate: r[9] || "", retPeriod: Number(r[10]) || 0, retClass: r[11] || "", retStatus: r[12] || "" };
+}
 
 /** كل بيانات الغياب والاحتياط */
 function reserveData(code) {
   head_(code);
-  return { absences: rows_(SHEET_ABS).slice(1).filter(r => r[0]).map(absObj_), covers: rows_(SHEET_COV).slice(1).filter(r => r[0]).map(covObj_) };
+  return { absences: rows_(SHEET_ABS).slice(1).filter(r => r[0]).map(absObj_), covers: covSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(covObj_), swap: true };
 }
 
 /** تسجيل غياب معلم (أو تعديله) مع توزيع حصصه على البدلاء */
@@ -722,7 +739,7 @@ function saveAbsence(code, a) {
   if (day > 4) throw new Error("التاريخ يوم عطلة (جمعة أو سبت).");
   const items = (Array.isArray(a.items) ? a.items : []).slice(0, 7);
   return withLock_(() => {
-    const absSh = sh_(SHEET_ABS), covSh = sh_(SHEET_COV);
+    const absSh = sh_(SHEET_ABS), covSh = covSheet_();
     const absRows = absSh.getDataRange().getDisplayValues();
     let rowIdx = -1, id = String(a.id || "");
     for (let i = 1; i < absRows.length; i++) {
@@ -733,25 +750,30 @@ function saveAbsence(code, a) {
     const absentToday = absRows.slice(1).filter(r => r[0] && r[1] === date && r[0] !== id).map(r => r[2]);
     if (absentToday.indexOf(teacher) !== -1) throw new Error("هذا المعلم مسجّل غائبًا في هذا اليوم.");
     const covRows = covSh.getDataRange().getDisplayValues();
-    const asSub = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && r[7] === COV_DONE && r[6] === teacher);
+    const asSub = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && isCov_(r[7]) && r[6] === teacher);
     if (asSub.length) throw new Error("أ. " + teacher + " مسجّل بديلًا في هذا اليوم (الحصة " + asSub.map(r => r[3]).join("، ") + " بدلًا من أ. " + asSub[0][5] + "). غيّر البديل هناك أولًا.");
-    const busy = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && r[7] === COV_DONE).map(r => r[6] + "|" + r[3]);
+    const busy = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && isCov_(r[7])).map(r => r[6] + "|" + r[3]);
+    // ساعات رد التبديل المحجوزة في تبديلات أخرى: "المعلم|التاريخ|الحصة"
+    const retBusy = [];
+    covRows.slice(1).filter(r => r[0] && r[1] !== id && r[7] === COV_SWAP && r[9]).forEach(r => { retBusy.push(r[5] + "|" + r[9] + "|" + r[10], r[6] + "|" + r[9] + "|" + r[10]); });
+    const absentOn = d => absRows.slice(1).filter(r => r[0] && r[1] === d && r[0] !== id).map(r => r[2]);
     const out = [], seen = {};
     items.forEach(it => {
       const period = Math.floor(Number(it.period));
       const les = lessonAt_(teacher, day, period);
       if (!les || les[2] === "R" || les[2] === "RF") throw new Error("الحصة " + period + " ليست من حصص المعلم في هذا اليوم.");
       if (seen[period]) return; seen[period] = 1;
-      let status = [COV_DONE, COV_NONE, COV_PRESENT].indexOf(it.status) !== -1 ? it.status : COV_NONE;
-      let sub = String(it.substitute || "");
-      if (status === COV_DONE) {
+      let status = [COV_DONE, COV_NONE, COV_PRESENT, COV_SWAP].indexOf(it.status) !== -1 ? it.status : COV_NONE;
+      let sub = String(it.substitute || ""), ret = ["", "", "", ""];
+      if (isCov_(status)) {
         if (!TIMETABLE[sub] || sub === teacher) throw new Error("اختر المعلم البديل للحصة " + period + ".");
         const l2 = lessonAt_(sub, day, period);
         if (l2 && l2[2] !== "R" && l2[2] !== "RF") throw new Error("أ. " + sub + " عنده حصة في الحصة " + period + ".");
         if (absentToday.indexOf(sub) !== -1) throw new Error("أ. " + sub + " غائب في هذا اليوم.");
         if (busy.indexOf(sub + "|" + period) !== -1) throw new Error("أ. " + sub + " مكلّف باحتياط آخر في الحصة " + period + ".");
+        if (status === COV_SWAP) ret = swapReturn_(teacher, sub, les[2], date, it, retBusy, absentOn, period);
       } else sub = "";
-      out.push([newId_(), id, date, String(period), les[2], teacher, sub, status, nowText_()]);
+      out.push([newId_(), id, date, String(period), les[2], teacher, sub, status, nowText_()].concat(ret));
     });
     const now = nowText_();
     const absVals = [id, date, teacher, String(a.note || "").slice(0, 300), rowIdx > 0 ? absRows[rowIdx - 1][4] : now, now];
@@ -762,12 +784,42 @@ function saveAbsence(code, a) {
   });
 }
 
+/** يتحقق من حصة الرد في التبديل ويعيد [تاريخ الرد، حصة الرد، فصل الرد، حالة الرد] */
+function swapReturn_(teacher, sub, cls, date, it, retBusy, absentOn, period) {
+  const k = cls.split(":")[1], other = (cls.split(":")[0] === "hd" ? "qr" : "hd") + ":" + k;
+  if (!(TIMETABLE[sub] || []).some(x => x[2] === other)) throw new Error("التبديل في الحصة " + period + " يكون مع معلم يدرّس الفصل نفسه في المادة الأخرى.");
+  const rd = String(it.retDate || "").slice(0, 10), rp = Math.floor(Number(it.retPeriod));
+  const rday = dayOf_(rd);
+  if (rd <= date || rday > 4) throw new Error("اختر يوم رد صحيحًا للتبديل في الحصة " + period + ".");
+  const l = lessonAt_(sub, rday, rp);
+  if (!l || l[2] !== other) throw new Error("حصة الرد للتبديل في الحصة " + period + " ليست حصة أ. " + sub + " في الفصل نفسه.");
+  const mine = lessonAt_(teacher, rday, rp);
+  if (mine && mine[2] !== "R" && mine[2] !== "RF") throw new Error("أ. " + teacher + " عنده حصة في وقت الرد (الحصة " + period + ").");
+  const off = absentOn(rd);
+  if (off.indexOf(teacher) !== -1 || off.indexOf(sub) !== -1) throw new Error("أحد المعلمَين غائب في يوم الرد (الحصة " + period + ").");
+  if (retBusy.indexOf(teacher + "|" + rd + "|" + rp) !== -1 || retBusy.indexOf(sub + "|" + rd + "|" + rp) !== -1) throw new Error("وقت الرد للحصة " + period + " محجوز في تبديل آخر.");
+  retBusy.push(teacher + "|" + rd + "|" + rp, sub + "|" + rd + "|" + rp);
+  return [rd, String(rp), other, RET_PENDING];
+}
+
+/** تعليم رد التبديل: تم أو لم يتم */
+function setSwapReturn(code, id, done) {
+  head_(code);
+  return withLock_(() => {
+    const sh = covSheet_(), row = findRow_(sh, 1, String(id || ""));
+    if (row < 0) throw new Error("التبديل غير موجود.");
+    if (sh.getRange(row, 8).getDisplayValue() !== COV_SWAP) throw new Error("هذه الحصة ليست تبديلًا.");
+    writeRow_(sh, row, sh.getRange(row, 1, 1, 12).getDisplayValues()[0].concat([done ? RET_DONE : RET_PENDING]));
+    return true;
+  });
+}
+
 function deleteAbsence(code, id) {
   head_(code);
   return withLock_(() => {
     const absSh = sh_(SHEET_ABS), row = findRow_(absSh, 1, id);
     if (row > 0) absSh.deleteRow(row);
-    const covSh = sh_(SHEET_COV), v = covSh.getDataRange().getDisplayValues();
+    const covSh = covSheet_(), v = covSh.getDataRange().getDisplayValues();
     for (let i = v.length - 1; i >= 1; i--) if (v[i][1] === id) covSh.deleteRow(i + 1);
     return true;
   });
