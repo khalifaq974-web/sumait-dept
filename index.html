@@ -2834,7 +2834,7 @@ $("tf-teachers").innerHTML = TEACHERS.filter(t => t[0] !== HEAD_NAME).map(t => t
 document.querySelectorAll("[data-tfall]").forEach(b => b.onclick = () => document.querySelectorAll('input[name="tf-t"]').forEach(c => {
   const k = b.dataset.tfall; c.checked = k === "all" ? !TSK_DEMOS.includes(c.value) : k === "none" ? false : !TSK_DEMOS.includes(c.value) && (DEPT_OF[c.value] || []).includes(k); }));
 const tfDay = () => { const w = $("tf-repeat").checked; $("tf-date-l").textContent = w ? "أول موعد" : "التاريخ"; $("tf-due-w").hidden = w;
-  $("tf-day").textContent = $("tf-date").value ? "(" + (w ? "كل " : "") + dayName($("tf-date").value) + ")" : ""; };
+  $("tf-day").textContent = $("tf-date").value ? "(" + (w ? "كل يوم " : "") + dayName($("tf-date").value) + ")" : ""; };
 $("tf-date").oninput = tfDay; $("tf-repeat").onchange = tfDay;
 $("tf-file").onchange = async e => {
   const f = e.target.files[0]; TSK_FILE = null; if (!f) { $("tf-file-l").textContent = "اختر الملف"; return; }
@@ -2879,7 +2879,7 @@ $("tsk-form").addEventListener("submit", async e => {
   finally { $("tf-send").disabled = false; }
 });
 const TSK_PILL = { "جديدة": "late", "تم الاستلام": "none", "تم التنفيذ": "ok" };
-function tskWhen(t) { return `${t.repeat ? `كل ${dayName(t.date)} · القادمة ${fmtDate(t.occ)}` : dayName(t.date) + " " + fmtDate(t.date)}${t.period ? " · " + t.period : ""}${t.time ? " · " + ar(t.time) : ""}`; }
+function tskWhen(t) { return `${t.repeat ? `كل يوم ${dayName(t.date)} · القادمة ${fmtDate(t.occ)}` : dayName(t.date) + " " + fmtDate(t.date)}${t.period ? " · " + t.period : ""}${t.time ? " · " + ar(t.time) : ""}`; }
 function tskDone(t) { if (t.repeat) return false; return ME.isHead ? t.status.every(s => s.status === "تم التنفيذ") : t.mine && t.mine.status === "تم التنفيذ"; }
 function tskPill(t) {
   const rp = t.repeat ? `<span class="pill none">ثابتة أسبوعيًا</span>` : "";
