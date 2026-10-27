@@ -262,6 +262,11 @@ nav.sections.eleven { grid-template-columns: repeat(6, 1fr); }
 .li.rep-new { border-color: var(--ok); box-shadow: inset -4px 0 0 var(--ok); }
 .li .rev-box { flex-basis: 100%; width: 100%; }
 .li:has(.rev-box:not([hidden])) { flex-wrap: wrap; }
+.res-row .res-x { display: flex; gap: 8px; align-items: center; font-weight: 700; cursor: pointer; }
+.res-row .res-x input { width: 20px; height: 20px; accent-color: #d9822b; }
+.res-row.off select { opacity: .45; pointer-events: none; }
+.res-row.exc { border-color: #d9822b; background: #fff6ea; }
+.pill.exc { background: #fdebd3; color: #9a5300; }
 .tsk-st { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .tsk-new-banner { margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--accent); font-weight: 700; cursor: pointer; }
 @media (max-width: 640px) { nav.sections.nine { grid-template-columns: 1fr 1fr; } }
@@ -681,10 +686,12 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <section id="res-new">
         <form id="res-form" class="card">
           <h2 id="rf-heading">تسجيل غياب</h2>
-          <div class="sub">اختر المعلم الغائب، فتظهر حصصه في ذلك اليوم، ولكل حصة قائمة بالمعلمين الذين ليس عندهم حصة في ذلك الوقت، مرتبين من الأقل نصابًا.</div>
+          <div class="chips" style="margin:6px 0 4px"><label class="chip"><input type="radio" name="rf-kind" value="" checked><span>غياب (يوم كامل)</span></label><label class="chip"><input type="radio" name="rf-kind" value="عذر طارئ"><span>⚡ عذر طارئ (حصص محددة)</span></label></div>
+          <div class="sub" id="rf-intro">اختر المعلم الغائب، فتظهر حصصه في ذلك اليوم، ولكل حصة قائمة بالمعلمين الذين ليس عندهم حصة في ذلك الوقت، مرتبين من الأقل نصابًا.</div>
+          <div id="rf-reasons" hidden><label class="f">سبب العذر</label><div class="chips"><label class="chip"><input type="radio" name="rf-reason" value="ظرف طارئ" checked><span>ظرف طارئ</span></label><label class="chip"><input type="radio" name="rf-reason" value="مراجعة طبية"><span>مراجعة طبية</span></label><label class="chip"><input type="radio" name="rf-reason" value="مهمة رسمية"><span>مهمة رسمية</span></label><label class="chip"><input type="radio" name="rf-reason" value="أخرى"><span>أخرى</span></label></div></div>
           <div class="grid2">
             <div><label class="f" for="rf-date">التاريخ <span class="sub" id="rf-day"></span></label><input type="date" id="rf-date" required></div>
-            <div><label class="f" for="rf-teacher">المعلم الغائب</label><select id="rf-teacher"></select></div>
+            <div><label class="f" for="rf-teacher" id="rf-teacher-l">المعلم الغائب</label><select id="rf-teacher"></select></div>
           </div>
           <div id="res-items" class="res-items"></div>
           <label class="f" for="rf-note">ملاحظة (اختياري)</label>
@@ -2475,10 +2482,14 @@ function pdfVisit(v) {
     `<table class="grid vis" style="table-layout:fixed"><colgroup><col style="width:4%"><col style="width:23%"><col style="width:7%"><col style="width:8.5%"><col style="width:6%"><col style="width:6.5%"><col style="width:15%"><col style="width:30%"></colgroup><thead>${P.th(["م", "البنود", "ممتاز", "جيد جدًا", "جيد", "ضعيف", "ملاحظات", "تقرير رئيس الشعبة"])}</thead><tbody>${rows.join("")}</tbody></table>`,
     ""] };
 }
+function excuseLine(date) {
+  return RES.absences.filter(a => a.date === date && a.kind === ABS_EXCUSE).map(a => "أ. " + a.teacher + " (الحصة " + RES.covers.filter(c => c.absenceId === a.id).sort((x, y) => x.period - y.period).map(c => PERIOD_NAMES[c.period]).join(" و") + ")").join("، ");
+}
 function pdfDailyReserve(date) {
   const abs = RES.absences.filter(a => a.date === date), covs = RES.covers.filter(c => c.date === date && c.status !== COV_PRESENT).sort((a, b) => a.period - b.period || a.absent.localeCompare(b.absent, "ar"));
   return { box: "كشف الاحتياط اليومي", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
-    P.info([["اليوم", DAYS[isoDay(date)] || ""], ["التاريخ", fmtDate(date)], ["الغائبون", abs.map(a => "أ. " + a.teacher).join("، ") || "—"]], 2),
+    P.info([["اليوم", DAYS[isoDay(date)] || ""], ["التاريخ", fmtDate(date)], ["الغائبون", abs.filter(a => a.kind !== ABS_EXCUSE).map(a => "أ. " + a.teacher).join("، ") || "—"],
+      ...(abs.some(a => a.kind === ABS_EXCUSE) ? [["عذر طارئ", excuseLine(date)]] : [])], 2),
     P.grid(P.th(["م", "الحصة", "الفصل", "المادة", "المعلم الغائب", "المعلم البديل", "توقيع البديل"]),
       covs.map((c, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: PERIOD_NAMES[c.period], c: "c" }, { t: classLabel(c.classId), c: "c" }, subjOf(c.classId), "أ. " + c.absent,
         isCov(c) ? { t: covName(c), c: "b" } : { t: "لم تُغطَّ", c: "late" }, ""])))] };
@@ -3988,8 +3999,13 @@ function nisab(t) { return (TIMETABLE[t] || []).filter(isLesson).length; }
 // ترتيب المرشحين لتغطية حصة: المعلمون الذين ليس عندهم حصة في هذا الوقت فقط (رئيس الشعبة مستثنى)،
 // والأفضل = الأقل نصابًا هذا الأسبوع (حصصه في الجدول + ما أخذه من احتياط هذا الأسبوع)، ثم الأقل احتياطًا في الفصل كله
 // extra = احتياطات اختيرت في النموذج نفسه قبل الحفظ، حتى لا تتجمع حصص الغائب كلها على معلم واحد
+const ABS_EXCUSE = "عذر طارئ";
+const rfKind = () => (document.querySelector('input[name="rf-kind"]:checked') || {}).value || "";
 function candidates(date, day, period, cls, absent, absenceId, extra) {
-  const absentToday = RES.absences.filter(a => a.date === date && a.id !== absenceId).map(a => a.teacher).concat([absent]);
+  const absentToday = RES.absences.filter(a => a.date === date && a.id !== absenceId && a.kind !== ABS_EXCUSE).map(a => a.teacher).concat([absent]);
+  // أصحاب العذر الطارئ لا يُختارون بدلاء في حصص عذرهم
+  const excIds = RES.absences.filter(a => a.date === date && a.id !== absenceId && a.kind === ABS_EXCUSE).map(a => a.id);
+  RES.covers.filter(c => excIds.indexOf(c.absenceId) !== -1 && c.period === period).forEach(c => absentToday.push(c.absent));
   const takenNow = RES.covers.filter(c => c.date === date && c.period === period && c.absenceId !== absenceId && isCov(c)).map(c => c.substitute);
   const wk = weekStartISO(date), wkEnd = addDaysISO(wk, 6);
   const list = [];
@@ -4027,9 +4043,14 @@ function renderResItems() {
   if (day > 4) { box.innerHTML = '<div class="empty">هذا اليوم عطلة.</div>'; $("rf-save").disabled = true; return; }
   const existing = RES.absences.find(a => a.date === date && a.teacher === t);
   resEditId = existing ? existing.id : "";
-  $("rf-note").value = existing ? existing.note : "";
-  $("rf-heading").textContent = existing ? "تعديل غياب مسجّل" : "تسجيل غياب";
-  $("rf-delete").hidden = !existing;
+  if (existing && existing.id !== rfLoaded) { rfLoaded = existing.id; const k = document.querySelector(`input[name="rf-kind"][value="${existing.kind || ""}"]`); if (k) k.checked = true; }
+  const exc = rfKind() === ABS_EXCUSE;
+  rfKindUi();
+  let note = existing ? existing.note : "";
+  if (exc) { const m = note.match(/^السبب: ([^—]+?)(?: — (.*))?$/); if (m) { const r = document.querySelector(`input[name="rf-reason"][value="${m[1]}"]`); if (r) r.checked = true; note = m[2] || ""; } }
+  $("rf-note").value = note;
+  $("rf-heading").textContent = existing ? (exc ? "تعديل عذر طارئ مسجّل" : "تعديل غياب مسجّل") : (exc ? "تسجيل عذر طارئ" : "تسجيل غياب");
+  $("rf-delete").hidden = !existing; $("rf-delete").textContent = exc ? "حذف العذر" : "حذف الغياب";
   const saved = existing ? RES.covers.filter(c => c.absenceId === existing.id) : [];
   const ev = swapEv(RES.swaps), slots = effDay(t, date, ev);
   if (!slots.length) { box.innerHTML = `<div class="empty">ليس لـ أ. ${esc(t)} حصص يوم ${DAYS[day]}.</div>`; $("rf-save").disabled = true; return; }
@@ -4040,17 +4061,30 @@ function renderResItems() {
     const cands = candidates(date, day, p, cls, t, resEditId, extra);
     const sv = saved.find(c => c.period === p);
     const sel = sv ? (sv.status === COV_DONE ? sv.substitute : sv.status === COV_PRESENT ? "__present" : "__none") : (cands[0] ? cands[0].t : "__none");
-    if (!sel.startsWith("__")) extra[sel] = (extra[sel] || 0) + 1;
+    const on = !exc || !!sv; // في العذر الطارئ: الحصص المعلَّمة فقط تُبدَّل
+    if (on && !sel.startsWith("__")) extra[sel] = (extra[sel] || 0) + 1;
     const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 ? "★ الأفضل: " : ""}${esc(c.t)} — ${esc(c.why.join("، "))}</option>`).join("");
     const keep = sv && sv.status === COV_DONE && !cands.some(c => c.t === sv.substitute) ? `<option value="${esc(sv.substitute)}" selected>${esc(sv.substitute)} (مسجّل سابقًا)</option>` : "";
-    return `<div class="res-row" data-p="${p}">
+    return `<div class="res-row${exc ? (on ? " exc" : " off") : ""}" data-p="${p}">
+      ${exc ? `<label class="res-x"><input type="checkbox" data-x="${p}"${on ? " checked" : ""}> ما يقدر يدخلها</label>` : ""}
       <div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)}${subjOf(cls) ? " · " + subjOf(cls) : ""}${swappedIn ? ` · ⇄ تبديل مع أ. ${esc(swappedIn)}` : ""}</span></div>
       <select aria-label="البديل في الحصة ${PERIOD_NAMES[p]}">${keep}${opts}
         <option value="__none"${sel === "__none" ? " selected" : ""}>— لم تُغطَّ —</option>
-        <option value="__present"${sel === "__present" ? " selected" : ""}>حضر المعلم هذه الحصة</option></select>
+        ${exc ? "" : `<option value="__present"${sel === "__present" ? " selected" : ""}>حضر المعلم هذه الحصة</option>`}</select>
       ${cands.length ? "" : '<span class="sub">لا يوجد معلم متاح في هذه الحصة.</span>'}</div>`;
   }).join("");
 }
+let rfLoaded = "";
+function rfKindUi() {
+  const exc = rfKind() === ABS_EXCUSE;
+  $("rf-reasons").hidden = !exc;
+  $("rf-teacher-l").textContent = exc ? "المعلم صاحب العذر" : "المعلم الغائب";
+  $("rf-intro").textContent = exc ? "المعلم حاضر في الدوام لكن صار له ظرف: علّم على الحصص اللي ما يقدر يدخلها فقط، واختر البديل لكل حصة. باقي حصصه تبقى باسمه، ولا ينحسب عليه يوم غياب."
+    : "اختر المعلم الغائب، فتظهر حصصه في ذلك اليوم، ولكل حصة قائمة بالمعلمين الذين ليس عندهم حصة في ذلك الوقت، مرتبين من الأقل نصابًا.";
+  $("rf-save").textContent = exc ? "حفظ العذر وتبديل الحصص" : "حفظ الغياب والاحتياط";
+}
+document.querySelectorAll('input[name="rf-kind"]').forEach(r => r.onchange = () => { rfLoaded = resEditId; renderResItems(); });
+$("res-items").addEventListener("change", e => { const x = e.target.closest("[data-x]"); if (!x) return; const row = x.closest(".res-row"); row.classList.toggle("exc", x.checked); row.classList.toggle("off", !x.checked); });
 function renderResDay() {
   const date = $("rf-date").value, box = $("res-day");
   const abs = RES.absences.filter(a => a.date === date);
@@ -4059,23 +4093,26 @@ function renderResDay() {
   $("res-daily-word").disabled = false;
   box.innerHTML = abs.map(a => {
     const cs = RES.covers.filter(c => c.absenceId === a.id).sort((x, y) => x.period - y.period);
-    return `<button class="li li-btn" data-t="${esc(a.teacher)}"><div class="li-main"><b>أ. ${esc(a.teacher)}</b>
+    return `<button class="li li-btn" data-t="${esc(a.teacher)}"><div class="li-main"><b>أ. ${esc(a.teacher)}${a.kind === ABS_EXCUSE ? ' <span class="pill exc">⚡ عذر طارئ</span>' : ""}</b>
       <span class="sub">${cs.map(c => `${PERIOD_NAMES[c.period]}: ${isCov(c) ? esc(c.status === COV_SWAP ? "⇄ " + c.substitute : c.substitute) : c.status}`).join(" · ") || "—"}</span></div><span class="pill ${cs.some(c => c.status === COV_NONE) ? "late" : "ok"}">${cs.some(c => c.status === COV_NONE) ? "فيه حصص بلا تغطية" : "مغطى"}</span></button>`;
   }).join("");
   box.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { $("rf-teacher").value = b.dataset.t; renderResItems(); window.scrollTo({ top: $("res-form").offsetTop - 10, behavior: "smooth" }); });
 }
 $("rf-date").onchange = () => { renderResItems(); renderResDay(); };
-$("rf-teacher").onchange = renderResItems;
+$("rf-teacher").onchange = () => { rfLoaded = ""; renderResItems(); };
 $("res-form").addEventListener("submit", async e => {
   e.preventDefault();
   const msg = $("rf-msg"), btn = $("rf-save");
-  const items = [...document.querySelectorAll("#res-items .res-row[data-p]")].map(r => {
+  const exc = rfKind() === ABS_EXCUSE;
+  const items = [...document.querySelectorAll("#res-items .res-row[data-p]")].filter(r => !exc || (r.querySelector("[data-x]") || {}).checked).map(r => {
     const v = r.querySelector("select").value;
     return { period: +r.dataset.p, status: v === "__none" ? COV_NONE : v === "__present" ? COV_PRESENT : COV_DONE, substitute: v.startsWith("__") ? "" : v };
   });
+  if (exc && !items.length) { msg.textContent = "علّم على الحصة اللي ما يقدر يدخلها."; return; }
+  const note = exc ? "السبب: " + document.querySelector('input[name="rf-reason"]:checked').value + ($("rf-note").value.trim() ? " — " + $("rf-note").value.trim() : "") : $("rf-note").value;
   btn.disabled = true; msg.textContent = "جارٍ الحفظ…";
   try {
-    await run("saveAbsence", CODE, { id: resEditId, date: $("rf-date").value, teacher: $("rf-teacher").value, note: $("rf-note").value, items });
+    await run("saveAbsence", CODE, { id: resEditId, date: $("rf-date").value, teacher: $("rf-teacher").value, note, items, kind: exc ? ABS_EXCUSE : "" });
     await loadRes(true); renderResItems(); renderResDay(); msg.textContent = "تم الحفظ.";
   } catch (x) { msg.textContent = cleanErr(x); } finally { btn.disabled = false; }
 });
@@ -4101,7 +4138,7 @@ function resStats(r) {
   return Object.keys(TIMETABLE).map(t => {
     const mine = covs.filter(c => c.absent === t && c.status !== COV_PRESENT);
     const by = {}; mine.filter(isCov).forEach(c => by[c.substitute] = (by[c.substitute] || 0) + 1);
-    return { t, days: new Set(abs.filter(a => a.teacher === t).map(a => a.date)).size, lessons: mine.length,
+    return { t, days: new Set(abs.filter(a => a.teacher === t && a.kind !== ABS_EXCUSE).map(a => a.date)).size, excuses: abs.filter(a => a.teacher === t && a.kind === ABS_EXCUSE).length, lessons: mine.length,
       covered: mine.filter(isCov).length, uncovered: mine.filter(c => c.status === COV_NONE).length,
       given: covs.filter(c => c.substitute === t && c.status === COV_DONE).length, by };
   });
@@ -4111,8 +4148,8 @@ function renderResLog() {
   if (RES.error) { box.innerHTML = `<div class="empty">${esc(RES.error)}</div>`; return; }
   if (resLogTeacher) return renderResTeacher(r);
   const st = resStats(r);
-  box.innerHTML = `<div class="sub" style="margin-top:8px">${r.label}</div><div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>أيام الغياب</th><th>حصص غيابه</th><th>غُطّيت</th><th>لم تُغطَّ</th><th>حصص احتياط أخذها</th></tr></thead><tbody>${st.map(s =>
-    `<tr data-t="${esc(s.t)}" tabindex="0"><td class="t">${esc(s.t)}</td><td>${ar(s.days)}</td><td>${ar(s.lessons)}</td><td>${ar(s.covered)}</td><td>${s.uncovered ? `<span class="pill late">${ar(s.uncovered)}</span>` : "٠"}</td><td>${ar(s.given)}</td></tr>`).join("")}</tbody></table></div>`;
+  box.innerHTML = `<div class="sub" style="margin-top:8px">${r.label}</div><div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>أيام الغياب</th><th>أعذار طارئة</th><th>حصص غيابه</th><th>غُطّيت</th><th>لم تُغطَّ</th><th>حصص احتياط أخذها</th></tr></thead><tbody>${st.map(s =>
+    `<tr data-t="${esc(s.t)}" tabindex="0"><td class="t">${esc(s.t)}</td><td>${ar(s.days)}</td><td>${ar(s.excuses)}</td><td>${ar(s.lessons)}</td><td>${ar(s.covered)}</td><td>${s.uncovered ? `<span class="pill late">${ar(s.uncovered)}</span>` : "٠"}</td><td>${ar(s.given)}</td></tr>`).join("")}</tbody></table></div>`;
   box.querySelectorAll("tr[data-t]").forEach(tr => { const open = () => { resLogTeacher = tr.dataset.t; renderResLog(); }; tr.onclick = open; tr.onkeydown = e => { if (e.key === "Enter") open(); }; });
 }
 function renderResTeacher(r) {
@@ -4179,7 +4216,8 @@ function buildDailyReserveDoc(D, date) {
   const abs = RES.absences.filter(a => a.date === date);
   const covs = RES.covers.filter(c => c.date === date && c.status !== COV_PRESENT).sort((a, b) => a.period - b.period || a.absent.localeCompare(b.absent, "ar"));
   const info = h.table([[h.lab("اليوم:", { w: 1600 }), h.cell(DAYS[day] || "", { w: 3400, size: 19 }), h.lab("التاريخ:", { w: 1600 }), h.cell(fmtDate(date), { w: 3400, size: 19 })],
-    [h.lab("الغائبون:"), new D.TableCell({ columnSpan: 3, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [h.para(abs.map(a => "أ. " + a.teacher).join("، ") || "—", { size: 19, after: 0 })] })]],
+    [h.lab("الغائبون:"), new D.TableCell({ columnSpan: 3, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [h.para(abs.filter(a => a.kind !== ABS_EXCUSE).map(a => "أ. " + a.teacher).join("، ") || "—", { size: 19, after: 0 })] })],
+    ...(abs.some(a => a.kind === ABS_EXCUSE) ? [[h.lab("عذر طارئ:"), new D.TableCell({ columnSpan: 3, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [h.para(excuseLine(date), { size: 19, after: 0 })] })]] : [])],
     [1600, 3400, 1600, 3400], h.softBorders("C9D6E3"));
   const rows = [[h.th("م", { w: 500 }), h.th("الحصة", { w: 1100 }), h.th("الفصل", { w: 900 }), h.th("المادة", { w: 1400 }), h.th("المعلم الغائب", { w: 2300 }), h.th("المعلم البديل", { w: 2300 }), h.th("توقيع البديل", { w: 1500 })]];
   covs.forEach((c, i) => rows.push([h.cell(ar(i + 1), { align: C, size: 19 }), h.cell(PERIOD_NAMES[c.period], { align: C, size: 19 }), h.cell(classLabel(c.classId), { align: C, size: 19 }), h.cell(subjOf(c.classId), { size: 19 }),

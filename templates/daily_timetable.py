@@ -42,7 +42,7 @@ def cell(t, dept, p, v):
     if v is None: return '<td class="free"></td>'
     if v in ("R", "RF"):
         lab = "احتياط" if v == "R" else "احتياط فنية"
-        if t in absent:  # حصة الاحتياط حصة للمعلم وتحتاج تغطية عند غيابه
+        if t in absent or (t, p) in subs:  # حصة الاحتياط حصة للمعلم وتحتاج تغطية عند غيابه أو عذره
             sb, sw = subs.get((t, p), ("", False))
             lab += f'<span class="cov">بديل: {html.escape(short(sb))}</span>' if sb else '<span class="cov none">غير مغطاة</span>'
         return f'<td class="res">{lab}</td>'
@@ -50,7 +50,7 @@ def cell(t, dept, p, v):
     tag = f'<span class="sub">{SUBJ[s]}</span>' if s != dept else ""
     if (t, p) in sw_out:
         return f'<td class="cls"><b>{g}/{n}</b>{tag}<span class="cov ret">تبديل: يدخلها {html.escape(short(sw_out[(t, p)]))}</span></td>'
-    if t in absent:
+    if t in absent or (t, p) in subs:  # الغياب الكامل، أو «عذر طارئ» في حصص محددة
         sb, sw = subs.get((t, p), ("", False))
         tag += f'<span class="cov">{"تبديل" if sw else "بديل"}: {html.escape(short(sb))}</span>' if sb else '<span class="cov none">غير مغطاة</span>'
     elif (t, p) in rets:

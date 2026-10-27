@@ -799,7 +799,7 @@ function requestSwap(code, q) {
     if (!rl || rl[2] !== otherCls) throw new Error("حصة الرد ليست حصة أ. " + other + " في الفصل نفسه.");
     if (isLes_(effLesson_(teacher, rd, rp, ev))) throw new Error("عندك حصة في وقت الرد.");
     const abs = rows_(SHEET_ABS).slice(1).filter(r => r[0]);
-    if (abs.some(r => (r[1] === date || r[1] === rd) && r[2] === other)) throw new Error("أ. " + other + " مسجّل غائبًا في أحد اليومين.");
+    if (abs.some(r => (r[1] === date || r[1] === rd) && r[2] === other && r[6] !== ABS_EXCUSE)) throw new Error("أ. " + other + " مسجّل غائبًا في أحد اليومين.");
     const id = newId_();
     appendText_(swpSheet_(), [id, date, String(p), les[2], teacher, other, rd, String(rp), otherCls, SWP_ACTIVE, RET_PENDING, nowText_(), me.name]);
     const cl = c => esc_(c.split(":")[1].replace("-", "/")) + " · " + SUBJ[c.split(":")[0]];
@@ -823,7 +823,9 @@ function cancelSwap(code, id) {
   });
 }
 
-function absObj_(r) { return { id: r[0], date: r[1], teacher: r[2], note: r[3], createdAt: r[4], updatedAt: r[5] }; }
+// «عذر طارئ»: المعلم حاضر في الدوام لكن لا يستطيع دخول حصص محددة، فتُبدَّل تلك الحصص فقط (عمود G = النوع)
+const ABS_EXCUSE = "عذر طارئ";
+function absObj_(r) { return { id: r[0], date: r[1], teacher: r[2], note: r[3], createdAt: r[4], updatedAt: r[5], kind: r[6] === ABS_EXCUSE ? ABS_EXCUSE : "" }; }
 function covObj_(r) {
   return { id: r[0], absenceId: r[1], date: r[2], period: Number(r[3]), classId: r[4], absent: r[5], substitute: r[6], status: r[7],
     retDate: r[9] || "", retPeriod: Number(r[10]) || 0, retClass: r[11] || "", retStatus: r[12] || "" };
@@ -842,9 +844,11 @@ function saveAbsence(code, a) {
   if (!TIMETABLE[teacher]) throw new Error("اختر المعلم الغائب.");
   const day = dayOf_(date);
   if (day > 4) throw new Error("التاريخ يوم عطلة (جمعة أو سبت).");
-  const items = (Array.isArray(a.items) ? a.items : []).slice(0, 7);
+  const items = (Array.isArray(a.items) ? a.items : []).slice(0, 7), excuse = a.kind === ABS_EXCUSE;
+  if (excuse && !items.length) throw new Error("اختر الحصة التي لا يستطيع المعلم دخولها.");
   return withLock_(() => {
     const absSh = sh_(SHEET_ABS), covSh = covSheet_(), ev = swapEvents_(swpRows_());
+    if (absSh.getRange(1, 7).getDisplayValue() !== "النوع") absSh.getRange(1, 7).setValue("النوع");
     const absRows = absSh.getDataRange().getDisplayValues();
     let rowIdx = -1, id = String(a.id || "");
     for (let i = 1; i < absRows.length; i++) {
@@ -852,16 +856,20 @@ function saveAbsence(code, a) {
     }
     if (a.id && rowIdx < 0) throw new Error("الغياب غير موجود.");
     if (!id) id = newId_();
-    const absentToday = absRows.slice(1).filter(r => r[0] && r[1] === date && r[0] !== id).map(r => r[2]);
+    const absentToday = absRows.slice(1).filter(r => r[0] && r[1] === date && r[0] !== id && r[6] !== ABS_EXCUSE).map(r => r[2]);
     if (absentToday.indexOf(teacher) !== -1) throw new Error("هذا المعلم مسجّل غائبًا في هذا اليوم.");
     const covRows = covSh.getDataRange().getDisplayValues();
-    const asSub = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && isCov_(r[7]) && r[6] === teacher);
+    // حصص أصحاب الأعذار الطارئة الأخرى في اليوم: لا يُختارون بدلاء فيها
+    const excIds = absRows.slice(1).filter(r => r[0] && r[0] !== id && r[6] === ABS_EXCUSE).map(r => r[0]);
+    const excBusy = covRows.slice(1).filter(r => r[0] && r[2] === date && excIds.indexOf(r[1]) !== -1).map(r => r[5] + "|" + r[3]);
+    const myPeriods = items.map(it => String(Math.floor(Number(it.period))));
+    const asSub = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && isCov_(r[7]) && r[6] === teacher && (!excuse || myPeriods.indexOf(r[3]) !== -1));
     if (asSub.length) throw new Error("أ. " + teacher + " مسجّل بديلًا في هذا اليوم (الحصة " + asSub.map(r => r[3]).join("، ") + " بدلًا من أ. " + asSub[0][5] + "). غيّر البديل هناك أولًا.");
     const busy = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && isCov_(r[7])).map(r => r[6] + "|" + r[3]);
     // ساعات رد التبديل المحجوزة في تبديلات أخرى: "المعلم|التاريخ|الحصة"
     const retBusy = [];
     covRows.slice(1).filter(r => r[0] && r[1] !== id && r[7] === COV_SWAP && r[9]).forEach(r => { retBusy.push(r[5] + "|" + r[9] + "|" + r[10], r[6] + "|" + r[9] + "|" + r[10]); });
-    const absentOn = d => absRows.slice(1).filter(r => r[0] && r[1] === d && r[0] !== id).map(r => r[2]);
+    const absentOn = d => absRows.slice(1).filter(r => r[0] && r[1] === d && r[0] !== id && r[6] !== ABS_EXCUSE).map(r => r[2]);
     const out = [], seen = {};
     items.forEach(it => {
       const period = Math.floor(Number(it.period));
@@ -877,12 +885,13 @@ function saveAbsence(code, a) {
         if (l2 && l2[2] !== "R" && l2[2] !== "RF") throw new Error("أ. " + sub + " عنده حصة في الحصة " + period + ".");
         if (absentToday.indexOf(sub) !== -1) throw new Error("أ. " + sub + " غائب في هذا اليوم.");
         if (busy.indexOf(sub + "|" + period) !== -1) throw new Error("أ. " + sub + " مكلّف باحتياط آخر في الحصة " + period + ".");
+        if (excBusy.indexOf(sub + "|" + period) !== -1) throw new Error("أ. " + sub + " عنده عذر طارئ في الحصة " + period + ".");
         if (status === COV_SWAP) ret = swapReturn_(teacher, sub, les[2], date, it, retBusy, absentOn, period);
       } else sub = "";
       out.push([newId_(), id, date, String(period), les[2], teacher, sub, status, nowText_()].concat(ret));
     });
     const now = nowText_();
-    const absVals = [id, date, teacher, String(a.note || "").slice(0, 300), rowIdx > 0 ? absRows[rowIdx - 1][4] : now, now];
+    const absVals = [id, date, teacher, String(a.note || "").slice(0, 300), rowIdx > 0 ? absRows[rowIdx - 1][4] : now, now, excuse ? ABS_EXCUSE : ""];
     if (rowIdx > 0) writeRow_(absSh, rowIdx, absVals); else appendText_(absSh, absVals);
     for (let i = covRows.length - 1; i >= 1; i--) if (covRows[i][1] === id) covSh.deleteRow(i + 1);
     out.forEach(r => appendText_(covSh, r));
