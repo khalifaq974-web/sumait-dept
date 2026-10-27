@@ -259,6 +259,7 @@ nav.sections.eleven { grid-template-columns: repeat(6, 1fr); }
 .alr-item input { width: 22px; height: 22px; accent-color: var(--ok); }
 .alr-bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 6px; }
 .alr-bar i { display: block; height: 100%; background: var(--ok); }
+.li.rep-new { border-color: var(--ok); box-shadow: inset -4px 0 0 var(--ok); }
 .tsk-st { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .tsk-new-banner { margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--accent); font-weight: 700; cursor: pointer; }
 @media (max-width: 640px) { nav.sections.nine { grid-template-columns: 1fr 1fr; } }
@@ -1143,11 +1144,11 @@ const ACT_TYPES = ["مسابقة", "إذاعة مدرسية", "نشاط صفي",
 // السجلّان يتشاركان الركن نفسه: pd = التنمية المهنية وإنجاز الموظف، act = الأنشطة والمسابقات
 const ACH_UI = {
   pd: { name: "التنمية المهنية وإنجاز الموظف", log: "سجل التنمية المهنية وإنجاز الموظف", h2: "إضافة إنجاز أو تنمية مهنية", types: ACH_TYPES, typeL: "نوع الإنجاز",
-    intro: "ارفع صورًا (شهادة الدورة، صور الورشة أو الزيارة…) واكتب التقرير بأسلوبك. يصل رئيس الشعبة فور الرفع، وتقدر تنزّله PDF أو وورد من القائمة تحت.",
+    intro: "ارفع صورًا (شهادة الدورة، صور الورشة أو الزيارة…) واكتب التقرير بأسلوبك. يصل رئيس الشعبة فور الرفع، ويُصاغ له تقرير رسمي متكامل خلال يوم تطبعه PDF أو وورد من القائمة تحت.",
     titlePh: "مثال: دورة استراتيجيات التعلم النشط", targetL: "الجهة المنظمة أو المكان (اختياري)", targetPh: "مثال: التوجيه الفني للعلوم الشرعية", targetInfo: "الجهة المنظمة",
     descPh: "ما الذي حضرته أو قدّمته؟ ما أبرز ما استفدته أو أفدت به زملاءك؟", photosL: "الصور أو الشهادة", noun: "إنجاز", nounDef: "الإنجاز", mine: "إنجازاتي السابقة", box: "تقرير تنمية مهنية", photosH: "الصور والمرفقات" },
   act: { name: "الأنشطة والمسابقات", log: "سجل الأنشطة والمسابقات", h2: "إضافة نشاط أو مسابقة", types: ACT_TYPES, typeL: "نوع النشاط",
-    intro: "ارفع صور النشاط أو المسابقة واكتب التقرير بأسلوبك والنتائج إن وُجدت. يصل رئيس الشعبة فور الرفع، وتقدر تنزّله PDF أو وورد من القائمة تحت.",
+    intro: "ارفع صور النشاط أو المسابقة واكتب التقرير بأسلوبك والنتائج إن وُجدت. يصل رئيس الشعبة فور الرفع، ويُصاغ له تقرير رسمي متكامل خلال يوم تطبعه PDF أو وورد من القائمة تحت.",
     titlePh: "مثال: مسابقة حفظ الأحاديث النبوية", targetL: "الفئة المستهدفة (اختياري)", targetPh: "مثال: طلاب ١١/٢، أو جميع طلاب المعهد", targetInfo: "الفئة المستهدفة",
     descPh: "ماذا قدّمت؟ من شارك؟ ما الذي تميّز به النشاط؟", photosL: "صور النشاط", noun: "نشاط", nounDef: "النشاط", mine: "أنشطتي السابقة", box: "تقرير نشاط", photosH: "صور من النشاط" }
 };
@@ -2681,22 +2682,43 @@ $("ach-form").addEventListener("submit", async e => {
   try {
     await run("submitAchievement", CODE, { kind: ACH_KIND, dept: $("ach-dept").value, type: $("ach-type").value, title: $("ach-title").value, date: $("ach-date").value, target: $("ach-target").value, desc: $("ach-desc").value, results: ACH_KIND === "act" ? $("ach-results").value : "", photos: PHOTOS });
     PHOTOS = []; renderPreviews(); $("ach-title").value = ""; $("ach-target").value = ""; $("ach-desc").value = ""; $("ach-results").value = ""; $("ach-date").value = todayISO();
-    msg.textContent = ME.isHead ? `تم رفع ${U.nounDef} في «${U.log}»، وسيُصاغ تقريره الرسمي تلقائيًا.` : `تم رفع ${U.nounDef} ووصل لرئيس الشعبة. تقدر تنزّله PDF أو وورد من القائمة تحت.`;
+    msg.textContent = ME.isHead ? `تم رفع ${U.nounDef} في «${U.log}»، وسيُصاغ تقريره الرسمي تلقائيًا.` : `تم رفع ${U.nounDef} ووصل لرئيس الشعبة. يُصاغ تقريره الرسمي خلال يوم، ويظهر لك زر «📄 التقرير المصاغ PDF» في القائمة تحت.`;
     ACH = null; ACH_ALL = null; loadMyAch();
   } catch (x) { msg.textContent = cleanErr(x); }
   finally { btn.disabled = false; }
 });
 
+// التقارير المصاغة الجديدة: لمبة على ركني التنمية المهنية والأنشطة للمعلم حتى ينزّلها
+function repSeenList() { try { return JSON.parse(localStorage.getItem("repSeen") || "[]"); } catch (e) { return []; } }
+function repSeen(a) { return repSeenList().indexOf(a.id + "|" + a.reportedAt) !== -1; }
+function markRepSeen(a) { const l = repSeenList(); if (!repSeen(a)) { l.push(a.id + "|" + a.reportedAt); try { localStorage.setItem("repSeen", JSON.stringify(l.slice(-300))); } catch (e) {} } achLampTeacher(); }
+function achLampTeacher() {
+  if (!ME || ME.isHead || !ACH) return;
+  ["pd", "act"].forEach(k => { const n = ACH.filter(a => a.kind === k && a.status === ST_READY && a.report && !repSeen(a)).length, el = $("lamp-" + (k === "pd" ? "ach" : "act"));
+    el.hidden = !n; el.textContent = n ? ar(n) : ""; });
+}
 async function loadMyAch() {
   const box = $("ach-list");
   if (!ACH) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { ACH = await run("myAchievements", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
+  achLampTeacher();
   const U = ACH_UI[ACH_KIND], mine = ACH.filter(a => a.kind === ACH_KIND);
   if (!mine.length) { box.innerHTML = `<div class="empty">لم ترفع شيئًا في «${U.log}» بعد. استخدم النموذج أعلاه.</div>`; return; }
-  box.innerHTML = mine.map(a => `<div class="li">
-      <div class="li-main"><b>${esc(a.title)}</b><span class="sub">${esc(a.type)} · ${fmtDate(a.date)}${a.photos.length ? " · " + ar(a.photos.length) + " صور" : ""}</span></div>
-      <div class="row-actions">${ME.isHead ? `<span class="pill ok">معتمد</span>` : `<span class="pill ok">وصل لرئيس الشعبة</span>`}
-      ${ME.isHead ? `<button class="btn sm" data-view="${a.id}">عرض</button>` : `<button class="btn sm" data-mpdf="${a.id}">PDF</button><button class="btn ghost sm" data-mword="${a.id}">وورد</button>`}<button class="btn ghost sm" data-edit="${a.id}">تعديل</button>
+  const ready = a => !ME.isHead && a.status === ST_READY && a.report;
+  box.innerHTML = mine.map(a => `<div class="li${ready(a) && !repSeen(a) ? " rep-new" : ""}">
+      <div class="li-main"><b>${esc(a.title)}</b><span class="sub">${esc(a.type)} · ${fmtDate(a.date)}${a.photos.length ? " · " + ar(a.photos.length) + " صور" : ""}</span>
+      ${ME.isHead ? "" : ready(a) ? `<span class="sub" style="color:var(--ok)">✓ التقرير المصاغ جاهز للطباعة${!repSeen(a) ? " — جديد" : ""}</span>` : `<span class="sub">⏳ يُصاغ تقريره الرسمي خلال يوم، وتقدر الحين تنزّل تقريرك بأسلوبك</span>`}</div>
+      <div class="row-actions">${ME.isHead ? `<span class="pill ok">معتمد</span>` : ready(a) ? `<span class="pill ok">التقرير المصاغ جاهز</span>` : `<span class="pill none">وصل لرئيس الشعبة</span>`}
+      ${ME.isHead ? `<button class="btn sm" data-view="${a.id}">عرض</button>` : ready(a)
+        ? `<button class="btn sm" data-rpdf="${a.id}">📄 التقرير المصاغ PDF</button><button class="btn ghost sm" data-rword="${a.id}">وورد</button>`
+        : `<button class="btn sm" data-mpdf="${a.id}">PDF</button><button class="btn ghost sm" data-mword="${a.id}">وورد</button>`}<button class="btn ghost sm" data-edit="${a.id}">تعديل</button>
       <button class="btn ghost sm" data-del="${a.id}">حذف</button></div></div>`).join("") + `<div class="saved" id="ach-mmsg"></div>`;
+  const repPdf = (a, rep, name) => deliverPdf(async () => { const ph = []; for (const x of a.photos) ph.push(await photo(x)); if (ph.length > 1) ph.splice(0, ph.length, await collage(ph)); return pdfAchievement(rep(a), ph); }, name, $("ach-mmsg"));
+  const repWord = async (a, rep, name) => { const m = $("ach-mmsg"); if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
+    m.textContent = "جارٍ إنشاء الملف…";
+    try { const imgs = [], srcs = []; for (const p of a.photos) srcs.push(await photo(p)); if (srcs.length) { const src = await collage(srcs); imgs.push({ data: b64ToBytes(src), ...(await imgSize(src)) }); }
+      await deliver(await window.docx.Packer.toBlob(buildAchievementDoc(window.docx, rep(a), imgs)), name, m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); } };
+  box.querySelectorAll("[data-rpdf]").forEach(b => b.onclick = () => { const a = mine.find(x => x.id === b.dataset.rpdf); markRepSeen(a); repPdf(a, x => x, `تقرير ${a.title} - أ. ${a.teacher}.pdf`); });
+  box.querySelectorAll("[data-rword]").forEach(b => b.onclick = () => { const a = mine.find(x => x.id === b.dataset.rword); markRepSeen(a); repWord(a, x => x, `تقرير ${a.title} - أ. ${a.teacher}.docx`); });
   // المعلم ينزّل ما رفعه بتقريره هو (بأسلوبه) بالديباجة المعتمدة
   const asReport = a => ({ ...a, report: "العنوان: " + a.title + "\n" + (a.desc || "") });
   box.querySelectorAll("[data-mpdf]").forEach(b => b.onclick = () => { const a = mine.find(x => x.id === b.dataset.mpdf);
@@ -3054,7 +3076,7 @@ function tskLampTeacher() {
       ? `💡 تذكير: ${rel(rem[0].occ)} ${dayName(rem[0].occ)} مهمة «${rem[0].title}»${n > 1 ? ` و${ar(n - 1)} غيرها` : ""} — اضغط للاستلام`
       : `💡 لديك ${ar(n)} ${n === 1 ? "مهمة جديدة" : "مهام جديدة"} من رئيس الشعبة — اضغط للاطلاع والاستلام`; else b.remove(); }
 }
-async function tskBadge() { try { TSK = await run("listTasks", CODE); tskLampTeacher(); } catch (e) {} try { ALR = await run("listAlerts", CODE); alrLampTeacher(); } catch (e) {} }
+async function tskBadge() { try { TSK = await run("listTasks", CODE); tskLampTeacher(); } catch (e) {} try { ALR = await run("listAlerts", CODE); alrLampTeacher(); } catch (e) {} try { ACH = await run("myAchievements", CODE); achLampTeacher(); } catch (e) {} }
 async function loadTsk(force) {
   $("tsk-form").hidden = true; $("tsk-detail").hidden = true; $("tsk-listwrap").hidden = false; $("tsk-new").parentElement.hidden = !ME.isHead;
   const box = $("tsk-list");
