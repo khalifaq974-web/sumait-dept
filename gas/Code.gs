@@ -22,6 +22,7 @@ const SHEET_COV = "الاحتياط";
 
 const ST_PENDING = "بانتظار الصياغة";
 const ST_READY = "جاهز";
+const ST_REVIEW = "بانتظار اعتماد رئيس الشعبة"; // صيغ التقرير ولم يعتمده رئيس الشعبة بعد
 
 // التنبيهات بالإيميل (تصل لرئيس الشعبة فقط)
 const HEAD_EMAIL = "khalifaq974@gmail.com";
@@ -66,7 +67,7 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, edi
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
   listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen,
   listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones, phonesList,
-  listAlerts, saveAlert, deleteAlert, tickAlert, approveMyReport, teacherGaps, addInquiry, listInquiries };
+  listAlerts, saveAlert, deleteAlert, tickAlert, teacherGaps, addInquiry, listInquiries };
 
 function doPost(e) {
   let out;
@@ -307,8 +308,8 @@ function submitAchievement(code, a) {
 /** إنجازات المعلم نفسه — بدون نص التقرير */
 function myAchievements(code) {
   const me = who_(code);
-  // التقرير المصاغ يظهر لصاحبه فور صياغته ليراجعه ويعتمده بنفسه، ثم يطبعه PDF
-  return rows_(SHEET_ACH).slice(1).filter(r => r[0] && r[1] === me.name).map(r => { const o = achObj_(r, false); if (r[9]) o.report = r[9]; return o; }).reverse();
+  // التقرير المصاغ لا يظهر للمعلم إلا بعد اعتماد رئيس الشعبة له، ثم يطبعه PDF ويوقَّع يدويًا
+  return rows_(SHEET_ACH).slice(1).filter(r => r[0] && r[1] === me.name).map(r => { const o = achObj_(r, false); if (r[9] && r[8] === ST_READY) o.report = r[9]; return o; }).reverse();
 }
 
 /** تعديل المعلم لما رفعه (النص والصور): يعود «بانتظار الاعتماد» ويصل رئيسَ الشعبة إشعار */
@@ -335,31 +336,12 @@ function editAchievement(code, id, a) {
     r[7] = ids.join(","); r[13] = kind === "act" ? String(a.results || "").trim().slice(0, 1500) : "";
     if (a.dept === "hd" || a.dept === "qr") r[14] = a.dept;
     writeRow_(sh, row, r);
-    if (!me.isHead) { sh.getRange(row, 16).setNumberFormat("@").setValue(nowText_()); sh.getRange(row, 17).setValue(""); } // التعديل يحتاج اعتمادًا جديدًا للتقرير
+    if (!me.isHead) { sh.getRange(row, 16).setNumberFormat("@").setValue(nowText_()); if (r[9]) sh.getRange(row, 9).setValue(ST_REVIEW); } // تعديل المعلم يحتاج اعتمادًا جديدًا من رئيس الشعبة
     return { kind, photos: ids, status: r[8] };
   });
   if (!me.isHead) notify_(me, `تعديل ${res.kind === "act" ? "نشاط" : "إنجاز"} من أ. ${me.name}: ${title}`,
     `<p>عدّل <b>أ. ${esc_(me.name)}</b> ${res.kind === "act" ? "نشاطه" : "إنجازه"} «${esc_(title)}» في سجل «${ACH_KINDS[res.kind]}».</p>`);
   return res;
-}
-
-/** المعلم يراجع التقرير المصاغ (ويعدّله إن أراد) ثم يعتمده بنفسه، فيصل رئيسَ الشعبة إشعار */
-function approveMyReport(code, id, text) {
-  const me = who_(code);
-  text = String(text || "").trim().slice(0, 20000);
-  if (text.length < 30) throw new Error("نص التقرير قصير جدًا.");
-  return withLock_(() => {
-    const sh = sh_(SHEET_ACH), row = findRow_(sh, 1, String(id));
-    if (row < 0) throw new Error("غير موجود.");
-    const r = sh.getRange(row, 1, 1, 10).getDisplayValues()[0];
-    if (r[1] !== me.name) throw new Error("هذا ليس تقريرك.");
-    if (!r[9]) throw new Error("لم يُصغ التقرير بعد.");
-    if (!sh.getRange(1, 17).getDisplayValue()) sh.getRange(1, 17).setValue("اعتماد المعلم");
-    const at = nowText_();
-    sh.getRange(row, 10).setValue(text); sh.getRange(row, 9).setValue(ST_READY);
-    sh.getRange(row, 17).setNumberFormat("@").setValue(at);
-    return { teacherOkAt: at, report: text, kind: sh.getRange(row, 13).getDisplayValue() === "act" ? "act" : "pd", title: r[4] };
-  });
 }
 
 function deleteAchievement(code, id) {
@@ -1516,7 +1498,6 @@ const ACT_LOG = {
   tickAlert: (a, res) => { const r = alrRows_().find(x => x[0] === String(a[1])), it = r ? (JSON.parse(r[2] || "[]")[a[2]] || {}).t : "";
     return { sec: "alr", ref: a[1], text: `${a[3] ? "استكمل" : "ألغى استكمال"}: ${it || "نقص"}${res && res.all ? " — واكتملت جميع النواقص ✓" : ""}` }; },
   saveMyPhone: (a, res) => ({ sec: "wa", text: `سجّل رقم الواتساب${res && res.phone ? ": +" + res.phone : ""}`, key: "wa" }),
-  approveMyReport: (a, res) => ({ sec: res && res.kind === "act" ? "act" : "ach", ref: a[1], text: `اعتمد التقرير المصاغ: ${res && res.title || ""} (جاهز للطباعة والتوقيع)` }),
   ackCircular: a => { const r = nshRows_().find(x => x[0] === String(a[1])); return { sec: "nsh", ref: a[1], text: `اطّلع على ${r ? r[1] + ": " + r[4] : "نشرة"}` }; }
 };
 function logAct_(fn, args, result) {
@@ -1831,7 +1812,6 @@ function teacherGaps(code) {
   const out = {}, add = (t, k, text, ref) => { if (!t || t === HEAD_NAME_ || !tskPool_().includes(t)) return; (out[t] = out[t] || []).push({ k, t: text, ref: ref || "" }); };
   const today = todayIso_(), short = d => arNum_(String(d).slice(8, 10) + "/" + String(d).slice(5, 7));
   // ١) تقارير الأنشطة والإنجازات المصاغة بانتظار اعتماد المعلم
-  rows_(SHEET_ACH).slice(1).filter(r => r[0] && r[9] && !r[16]).forEach(r => add(r[1], r[12] === "act" ? "act" : "ach", `اعتماد التقرير المصاغ: «${r[4]}»`, r[0]));
   // ٢) محاضر الاجتماعات التي لم يطّلع عليها
   const sigs = sigRows_();
   rows_(SHEET_MIN).slice(1).filter(r => r[0] && r[0] !== DEMO_MINUTE).forEach(r => { const m = minObj_(r);
