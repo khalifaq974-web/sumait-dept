@@ -267,6 +267,7 @@ nav.sections.eleven { grid-template-columns: repeat(6, 1fr); }
 .res-row.off select { opacity: .45; pointer-events: none; }
 .res-row.exc { border-color: #d9822b; background: #fff6ea; }
 .pill.exc { background: #fdebd3; color: #9a5300; }
+select.dept-sel { width: auto; min-width: 170px; font-weight: 700; border-color: var(--accent); color: var(--accent); }
 .tsk-st { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .tsk-new-banner { margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--accent); font-weight: 700; cursor: pointer; }
 @media (max-width: 640px) { nav.sections.nine { grid-template-columns: 1fr 1fr; } }
@@ -457,6 +458,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <select id="cls-teacher" class="head-only" hidden aria-label="المعلم"></select>
           <select id="cls-term" aria-label="الفصل الدراسي"><option value="1">الفصل الدراسي الأول</option><option value="2">الفصل الدراسي الثاني</option></select>
           <button class="btn ghost" id="cls-reload" type="button">تحديث</button>
+          <button class="btn ghost head-only" id="cls-logpdf" type="button" hidden>ملخص الرصد والتقارير PDF</button>
         </div>
         <div class="saved" id="cls-lmsg"></div>
         <div id="cls-list"></div>
@@ -639,7 +641,8 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       </form>
       <div id="alr-listwrap">
         <div class="chips" id="alr-filter" style="margin-top:12px"></div>
-        <div class="row-actions" style="margin-top:8px"><button class="btn ghost sm" id="alr-reload" type="button">تحديث</button></div>
+        <div class="row-actions" style="margin-top:8px"><button class="btn ghost sm" id="alr-reload" type="button">تحديث</button><button class="btn ghost sm head-only" id="alr-logpdf" type="button" hidden>سجل التنبيهات PDF</button></div>
+        <div class="saved" id="alr-lmsg"></div>
         <div class="list" id="alr-list"></div>
       </div>
       <div class="card detail" id="alr-detail" hidden></div>
@@ -1496,7 +1499,7 @@ function renderClsList() {
   const sel = $("cls-teacher");
   if (ME.isHead && !ME.isDemo && sel.options.length === 0) sel.innerHTML = `<option value="">كل المعلمين</option>` + TEACHERS.map(([t]) => `<option value="${esc(t)}">أ. ${esc(t)}</option>`).join("");
   sel.value = clsTeacherFilter;
-  const items = CLS.filter(c => !clsTeacherFilter || c.teacher === clsTeacherFilter);
+  const items = CLS.filter(c => (!clsTeacherFilter || c.teacher === clsTeacherFilter) && (!ME.isHead || cIn(c.cls, dF("cls"))));
   const card = c => { const ci = classInfo(c.cls);
     return `<button type="button" class="cls-card" data-cls="${esc(c.cls)}"><span class="cls-top"><b>الصف ${esc(ci.label)}</b><span class="dept-tag ${ci.dept}">${SUBJECTS[ci.dept]}</span></span>
       <span class="sub">${ar(c.students)} متعلمًا</span><span class="cls-prog">${clsProgress(c)}</span></button>`; };
@@ -1684,7 +1687,7 @@ function srepRow(r) {
 }
 function renderSreps() {
   const all = (SREPS || []).filter(r => !srepFilter || SREP_KEY[r.type] === srepFilter);
-  const home = all.filter(r => !clsTeacherFilter || r.teacher === clsTeacherFilter || teacherOfCls(r.cls) === clsTeacherFilter);
+  const home = all.filter(r => (!clsTeacherFilter || r.teacher === clsTeacherFilter || teacherOfCls(r.cls) === clsTeacherFilter) && (!ME.isHead || cIn(r.cls, dF("cls"))));
   $("srep-title").textContent = ME.isHead && !ME.isDemo ? "تقارير المتعلمين الواردة" : "تقاريري عن المتعلمين";
   const byDept = ["hd", "qr"].map(d => [d, home.filter(r => r.cls.indexOf(d + ":") === 0)]).filter(([, l]) => l.length);
   $("srep-list").innerHTML = byDept.map(([d, l]) => `<div class="vis-group">قسم ${SUBJECTS[d]} (${ar(l.length)})</div>` + l.map(srepRow).join("")).join("") || `<div class="empty">لا توجد تقارير${srepFilter ? " من هذا النوع" : ""} بعد.${ME.isHead ? "" : " افتح أحد صفوفك لإرسال تقرير متعلم فائق أو متعثر."}</div>`;
@@ -1694,6 +1697,21 @@ function renderSreps() {
   }
   document.querySelectorAll("[data-srep]").forEach(b => b.onclick = () => openSrep(b.dataset.srep, !$("cls-sheet").hidden ? "sheet" : "home"));
 }
+// ملخص كشوف متابعة المتعلمين: حالة الرصد لكل صف، ثم تقارير المتعلمين الفائقين والمتعثرين (بالأرقام فقط)
+function pdfClsSummary() {
+  const d = dF("cls"), t = c => c["t" + clsTerm] || {};
+  const cls = (CLS || []).filter(c => cIn(c.cls, d)).slice().sort((a, b) => { const x = classInfo(a.cls), y = classInfo(b.cls); return (x.dept === y.dept ? 0 : x.dept === "hd" ? -1 : 1) || x.grade - y.grade || x.num - y.num; });
+  const reps = (SREPS || []).filter(r => cIn(r.cls, d) && !/^تجريبي/.test(r.teacher)).sort((a, b) => a.cls.localeCompare(b.cls) || (+a.student - +b.student));
+  return { box: "ملخص كشوف متابعة المتعلمين", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(`الفصل الدراسي ${TERM_NAMES[clsTerm]}${d ? " · " + dName(d) : ""}`, "c b"),
+    P.h("أولًا: حالة الرصد لكل صف"),
+    P.grid(P.th(["الصف", "المادة", "المعلم", "عدد المتعلمين", "اكتمل رصدهم", "الحالة", "دون ٥٠٪"]), cls.map(c => { const ci = classInfo(c.cls), x = t(c), full = c.students && x.form >= c.students;
+      return P.tr([{ t: ci.label, c: "c b" }, { t: SUBJECTS[ci.dept], c: "c" }, "أ. " + c.teacher, { t: ar(c.students), c: "c" }, { t: ar(x.form || 0), c: "c" }, { t: !x.any ? "لم يبدأ الرصد" : full ? "اكتمل" : "جارٍ", c: !x.any ? "c late" : full ? "c ok" : "c" }, { t: ar(x.low || 0), c: x.low ? "c late" : "c" }]); })),
+    P.h("ثانيًا: تقارير المتعلمين (فائق / متعثر)"),
+    reps.length ? P.grid(P.th(["الصف", "المادة", "رقم المتعلم", "نوع التقرير", "المعلم", "الخطة العلاجية", "تاريخ الإرسال"]), reps.map(r => { const ci = classInfo(r.cls);
+      return P.tr([{ t: ci.label, c: "c" }, { t: SUBJECTS[ci.dept], c: "c" }, { t: ar(r.student), c: "c b" }, { t: r.type, c: "c" }, "أ. " + r.teacher, { t: r.plan ? (r.plan.result || "قيد المتابعة") : "—", c: "c" }, fmtStamp(r.createdAt)]); }), "dense")
+      : P.p("لا توجد تقارير متعلمين.")] };
+}
+$("cls-logpdf").onclick = async () => { if (!SREPS) await loadSreps(true); deliverPdf(() => pdfClsSummary(), `ملخص كشوف متابعة المتعلمين${dFile(dF("cls"))}.pdf`, $("cls-lmsg")); };
 function teacherOfCls(cls) { const t = TEACHERS.find(([, ids]) => ids.indexOf(cls) !== -1); return t ? t[0] : ""; }
 $("srep-filter").onchange = () => { srepFilter = $("srep-filter").value; renderSreps(); };
 
@@ -2191,7 +2209,7 @@ function permRange() {
   return { from: "2026-08-01", to: "2027-07-31", label: "العام الدراسي ٢٠٢٦/٢٠٢٧" };
 }
 function permStats(r) {
-  const list = (PRM || []).filter(p => p.status !== "مرفوض" && p.date >= r.from && p.date <= r.to).sort((a, b) => a.date.localeCompare(b.date) || a.from.localeCompare(b.from));
+  const list = (PRM || []).filter(p => p.status !== "مرفوض" && p.date >= r.from && p.date <= r.to && tIn(p.teacher, dF("prm"))).sort((a, b) => a.date.localeCompare(b.date) || a.from.localeCompare(b.from));
   const by = {};
   list.forEach(p => { const s = by[p.teacher] || (by[p.teacher] = { t: p.teacher, n: 0, min: 0, end: 0 }); s.n++; const m = permMin(p); if (m === null) s.end++; else s.min += m; });
   const order = TEACHERS.map(([t]) => t);
@@ -2200,7 +2218,7 @@ function permStats(r) {
 function sumDur(s) { return (s.min || !s.end ? fmtDur(s.min) : "") + (s.end ? `${s.min ? " + " : ""}${ar(s.end)} حتى نهاية الدوام` : ""); }
 function renderPermLog() {
   const r = permRange(), st = permStats(r);
-  $("prm-log-body").innerHTML = `<h3 class="list-title">${r.label}</h3>
+  $("prm-log-body").innerHTML = `<h3 class="list-title">${r.label}${dF("prm") ? " · " + dName(dF("prm")) : ""}</h3>
     <div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>مرات الاستئذان</th><th>مجموع المدة</th></tr></thead><tbody>
     ${st.sum.map(s => `<tr><td class="t">أ. ${esc(s.t)}</td><td>${ar(s.n)}</td><td>${sumDur(s)}</td></tr>`).join("") || `<tr><td colspan="3" class="sub">لا يوجد استئذان في هذه الفترة (غير المرفوض).</td></tr>`}</tbody></table></div>
     ${st.list.length ? `<div class="tablebox"><table><thead><tr><th>المسلسل</th><th>التاريخ</th><th>المعلم</th><th>النوع</th><th>من</th><th>إلى</th><th>المدة</th><th>السبب</th><th>الحصص</th></tr></thead><tbody>
@@ -2209,10 +2227,10 @@ function renderPermLog() {
 }
 $("prm-range").onchange = renderPermLog;
 $("prm-reload").onclick = async () => { PRM = null; await loadPerms(true); renderPerms(); };
-$("prm-logpdf").onclick = () => deliverPdf(() => pdfPermLog(permRange()), `سجل الاستئذان - ${permRange().label}.pdf`, $("prm-lmsg"));
+$("prm-logpdf").onclick = () => deliverPdf(() => pdfPermLog(permRange()), `سجل الاستئذان${dFile(dF("prm"))} - ${permRange().label}.pdf`, $("prm-lmsg"));
 $("prm-logword").onclick = async () => {
   const m = $("prm-lmsg"); if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
-  try { await deliver(await window.docx.Packer.toBlob(buildPermLogDoc(window.docx, permRange())), `سجل الاستئذان - ${permRange().label}.docx`, m); }
+  try { await deliver(await window.docx.Packer.toBlob(buildPermLogDoc(window.docx, permRange())), `سجل الاستئذان${dFile(dF("prm"))} - ${permRange().label}.docx`, m); }
   catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
 };
 
@@ -2254,7 +2272,7 @@ function buildPermissionDoc(D, p) {
 }
 function buildPermLogDoc(D, r) {
   const h = H(D), C = h.C, st = permStats(r);
-  const kids = [...h.formHeader("سجل الاستئذان", 14400), h.para(r.label, { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
+  const kids = [...h.formHeader("سجل الاستئذان", 14400), h.para(r.label + (dF("prm") ? " · " + dName(dF("prm")) : ""), { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
     h.heading("أولًا: عدد مرات الاستئذان ومجموع مدته لكل معلم"),
     h.table([["المعلم", "مرات الاستئذان", "مجموع المدة"].map(t => h.th(t)),
       ...(st.sum.length ? st.sum.map(s => [h.cell("أ. " + s.t, { size: 19 }), h.cell(ar(s.n), { align: C, size: 20, bold: true }), h.cell(sumDur(s), { align: C, size: 19 })]) : [[h.cell("لا يوجد استئذان في هذه الفترة (غير المرفوض).", { size: 19 }), h.cell("", {}), h.cell("", {})]])],
@@ -2495,8 +2513,8 @@ function pdfDailyReserve(date) {
         isCov(c) ? { t: covName(c), c: "b" } : { t: "لم تُغطَّ", c: "late" }, ""])))] };
 }
 function pdfReserveReport(r) {
-  const st = resStats(r), det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
-  return { box: "سجل الغياب والاحتياط", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label, "c b"),
+  const d = dF("res"), st = resStats(r), det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT && covIn(c, d, c.absent)).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
+  return { box: "سجل الغياب والاحتياط", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label + (d ? " · " + dName(d) : ""), "c b"),
     P.h("أولًا: عدّاد الغياب والاحتياط لكل معلم"),
     P.grid(P.th(["المعلم", "أيام الغياب", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"]),
       st.map(s => P.tr(["أ. " + s.t, ...[s.days, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => ({ t: ar(n), c: i === 3 && n > 0 ? "c late" : "c" })), Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—"]))),
@@ -2573,7 +2591,7 @@ function pdfAchLog(kind, list) {
   const head = P.th(["م", "التاريخ", U.typeL, "العنوان", "المعلم", U.targetInfo, ...(act ? ["النتائج والفائزون"] : [])]);
   const rows = list.map((a, i) => P.tr([{ t: ar(i + 1), c: "c" }, fmtDate(a.date, true), a.type, a.title, "أ. " + a.teacher, a.target || "—", ...(act ? [a.results || "—"] : [])]));
   return { box: U.log, landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]],
-    blocks: [list.length ? P.grid(head, rows) : P.p("لا توجد سجلات بعد."), P.p(`المجموع: ${ar(list.length)}`, "b")] };
+    blocks: [pdfDeptLine(dF("ach")), list.length ? P.grid(head, rows) : P.p("لا توجد سجلات بعد."), P.p(`المجموع: ${ar(list.length)}`, "b")] };
 }
 function pdfNshAck(c, acks) {
   return { box: "كشف اطلاع", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.title(`${c.kind}: ${c.title}`),
@@ -2600,7 +2618,7 @@ function pdfMonthly(r, photos) {
 }
 function pdfPermLog(r) {
   const st = permStats(r);
-  return { box: "سجل الاستئذان", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label, "c b"),
+  return { box: "سجل الاستئذان", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label + (dF("prm") ? " · " + dName(dF("prm")) : ""), "c b"),
     P.h("أولًا: عدد مرات الاستئذان ومجموع مدته لكل معلم"),
     P.grid(P.th(["المعلم", "مرات الاستئذان", "مجموع المدة"]), st.sum.length ? st.sum.map(s => P.tr(["أ. " + s.t, { t: ar(s.n), c: "c b" }, { t: sumDur(s), c: "c" }])) : [P.tr([{ t: "لا يوجد استئذان في هذه الفترة (غير المرفوض)." }, "", ""])]),
     P.h("ثانيًا: تفاصيل الاستئذان"),
@@ -2779,7 +2797,7 @@ let achFilter = "pending";
 async function loadAllAch(force) {
   const box = $("ach-all-list");
   if (!ACH_ALL || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { ACH_ALL = await run("allAchievements", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
-  const ALLK = ACH_ALL.filter(a => a.kind === ACH_KIND);
+  const ALLK = ACH_ALL.filter(a => a.kind === ACH_KIND && (!dF("ach") || a.dept === dF("ach")));
   const pend = ALLK.filter(a => a.status !== ST_READY).length, ready = ALLK.length - pend;
   $("ach-filter").innerHTML = [["pending", "بانتظار الصياغة", pend], ["ready", "جاهزة", ready], ["", "الكل", ALLK.length]]
     .map(([k, t, n]) => `<button data-k="${k}" aria-pressed="${achFilter === k}"><b>${ar(n)}</b><span>${t}</span></button>`).join("");
@@ -2792,11 +2810,11 @@ async function loadAllAch(force) {
   box.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openAch(b.dataset.open));
 }
 $("ach-reload").onclick = () => loadAllAch(true);
-function achLogRows() { return (ACH_ALL || []).filter(a => a.kind === ACH_KIND && !a.demo).slice().sort((x, y) => (x.date || "").localeCompare(y.date || "")); }
-$("ach-logpdf").onclick = () => deliverPdf(() => pdfAchLog(ACH_KIND, achLogRows()), ACH_UI[ACH_KIND].log + ".pdf", $("ach-lmsg"));
+function achLogRows() { return (ACH_ALL || []).filter(a => a.kind === ACH_KIND && !a.demo && (!dF("ach") || a.dept === dF("ach"))).slice().sort((x, y) => (x.date || "").localeCompare(y.date || "")); }
+$("ach-logpdf").onclick = () => deliverPdf(() => pdfAchLog(ACH_KIND, achLogRows()), ACH_UI[ACH_KIND].log + dFile(dF("ach")) + ".pdf", $("ach-lmsg"));
 $("ach-logword").onclick = async () => {
   const m = $("ach-lmsg"); if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
-  try { await deliver(await window.docx.Packer.toBlob(buildAchLogDoc(window.docx, ACH_KIND, achLogRows())), ACH_UI[ACH_KIND].log + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
+  try { await deliver(await window.docx.Packer.toBlob(buildAchLogDoc(window.docx, ACH_KIND, achLogRows())), ACH_UI[ACH_KIND].log + dFile(dF("ach")) + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
 };
 
 async function photo(id) {
@@ -2975,7 +2993,40 @@ function openMrp(id) {
 // يقسم نص التقرير إلى نصوص وأماكن صور: [[صور:معرف]]
 function mrpParts(text) { return String(text || "").split(/^\s*\[\[صور:\s*([^\]]+?)\s*\]\]\s*$/m).map((x, i) => i % 2 ? { photos: x.trim() } : { text: x }); }
 
+// ================= فصل السجلات حسب القسم (للإحصائية والسجل النهائي) =================
+// أ. منذر يدرّس القسمين: يظهر في السجلين، ويُحسب له في كل سجل ما يخص فصول ذلك القسم فقط.
+let DEPTF = {}; try { DEPTF = JSON.parse(localStorage.getItem("deptF") || "{}"); } catch (e) {}
+function dF(k) { return DEPTF[k] || ""; }
+function tIn(n, d) { return !d || (DEPT_OF[n] || []).indexOf(d) !== -1; }
+function cIn(c, d) { return !d || String(c || "").indexOf(d + ":") === 0; }
+function dName(d) { return d ? "قسم " + SUBJECTS[d] : ""; }
+function dFile(d) { return d ? " - " + dName(d) : ""; }
+const DEPT_SEL_RENDER = {};
+function mountDept(k, anchorId, render) {
+  const a = $(anchorId); if (!a) return;
+  (DEPT_SEL_RENDER[k] = DEPT_SEL_RENDER[k] || []).push(render);
+  const sel = document.createElement("select"); sel.className = "dept-sel"; sel.dataset.dsel = k; sel.setAttribute("aria-label", "القسم");
+  sel.innerHTML = [["", "القسمان معًا"], ["hd", "قسم الحديث الشريف"], ["qr", "قسم القرآن الكريم"]].map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+  sel.value = dF(k);
+  sel.onchange = () => { DEPTF[k] = sel.value; try { localStorage.setItem("deptF", JSON.stringify(DEPTF)); } catch (e) {}
+    document.querySelectorAll(`select[data-dsel="${k}"]`).forEach(x => x.value = sel.value);
+    DEPT_SEL_RENDER[k].forEach(f => { try { f(); } catch (e) {} }); };
+  a.parentElement.insertBefore(sel, a);
+}
+// سطر القسم في رأس السجل المطبوع
+const pdfDeptLine = d => d ? P.p(dName(d), "c b") : "";
+
 // ================= واتساب: إرسال بضغطة من رئيس الشعبة =================
+setTimeout(() => {
+  mountDept("res", "res-reload", () => renderResLog());
+  mountDept("res", "swap-reload", () => renderSwapLog());
+  mountDept("ach", "ach-reload", () => loadAllAch());
+  mountDept("prm", "prm-reload", () => renderPermLog());
+  mountDept("tsk", "tsk-reload", () => loadTsk());
+  mountDept("alr", "alr-reload", () => loadAlr());
+  mountDept("cls", "cls-reload", () => { renderClsList(); renderSreps(); });
+  document.querySelectorAll('select[data-dsel="tsk"], select[data-dsel="alr"], select[data-dsel="cls"]').forEach(x => { x.classList.add("head-only"); x.hidden = true; });
+}, 0);
 /** لوحة رئيس الشعبة: من سجّل رقمه ومن باقي */
 async function openWaPanel() {
   $("act-panel").hidden = true; const p = $("wa-panel"); p.hidden = false; $("wa-rows").innerHTML = '<div class="empty">جارٍ التحميل…</div>';
@@ -3116,7 +3167,8 @@ async function loadTsk(force) {
   const F = [["open", "قيد التنفيذ"], ["done", "المنفّذة"], ["all", "الكل"]];
   $("tsk-filter").innerHTML = F.map(([k, l]) => `<label class="chip"><input type="radio" name="tsk-f" value="${k}"${k === tskFilter ? " checked" : ""}><span>${l} (${ar(TSK.filter(t => k === "all" || (k === "done") === tskDone(t)).length)})</span></label>`).join("");
   document.querySelectorAll('input[name="tsk-f"]').forEach(r => r.onchange = () => { tskFilter = r.value; loadTsk(); });
-  const list = TSK.filter(t => tskFilter === "all" || (tskFilter === "done") === tskDone(t));
+  const tdf = ME.isHead ? dF("tsk") : "";
+  const list = TSK.filter(t => (tskFilter === "all" || (tskFilter === "done") === tskDone(t)) && (!tdf || t.teachers.some(n => tIn(n, tdf))));
   if (!list.length) { box.innerHTML = `<div class="empty">${TSK.length ? "لا توجد مهام هنا." : ME.isHead ? "لا توجد تكاليف بعد. اضغط «+ تكليف جديد»." : "لا توجد مهام مكلَّف بها حاليًا."}</div>`; return; }
   box.innerHTML = list.map(t => `<button class="li li-btn" data-tsk="${esc(t.id)}"><div class="li-main"><b>${esc(t.type)}: ${esc(t.title)}</b>
     <span class="sub">${tskWhen(t)}${ME.isHead ? " · " + t.teachers.map(n => TSK_DEMOS.includes(n) ? n : "أ. " + n.split(" ")[0] + " " + n.split(" ").slice(-1)[0]).join("، ") : ""}${t.due ? " · آخر موعد " + fmtDate(t.due) : ""}</span></div>${tskPill(t)}</button>`).join("");
@@ -3200,14 +3252,16 @@ function pdfTask(t) {
     P.p(`شاكرين ${who.length === 1 ? "لك" : "لكم"} حسن تعاونكم، وجزاكم الله خيرًا.`)] };
 }
 function pdfTskLog(list) {
-  return { box: "سجل المهام والتكاليف", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
+  const d = dF("tsk");
+  list = list.filter(t => !d || t.teachers.some(n => tIn(n, d))).map(t => d ? { ...t, status: t.status.filter(s => tIn(s.teacher, d)) } : t);
+  return { box: "سجل المهام والتكاليف", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [pdfDeptLine(d),
     list.length ? P.grid(P.th(["م", "النوع", "المهمة", "اليوم والتاريخ", "المكلَّفون", "الحالة"]),
       list.map((t, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: t.type, c: "c" }, t.title, tskWhen(t),
         t.status.map(s => "أ. " + s.teacher.split(" ")[0] + " " + s.teacher.split(" ").slice(-1)[0]).join("، "),
         { t: t.status.map(s => s.status).every(x => x === "تم التنفيذ") ? "نُفّذت" : `نفّذ ${ar(t.status.filter(s => s.status === "تم التنفيذ").length)} من ${ar(t.status.length)}`, c: "c" }])))
       : P.p("لا توجد تكاليف بعد."), P.p(`المجموع: ${ar(list.length)}`, "b")] };
 }
-$("tsk-logpdf").onclick = () => deliverPdf(() => pdfTskLog((TSK || []).filter(t => !t.status.every(s => s.demo)).slice().sort((a, b) => a.date.localeCompare(b.date))), "سجل المهام والتكاليف.pdf", $("tsk-lmsg"));
+$("tsk-logpdf").onclick = () => deliverPdf(() => pdfTskLog((TSK || []).filter(t => !t.status.every(s => s.demo)).slice().sort((a, b) => a.date.localeCompare(b.date))), `سجل المهام والتكاليف${dFile(dF("tsk"))}.pdf`, $("tsk-lmsg"));
 
 
 // ================= تنبيهات الاستكمال =================
@@ -3278,13 +3332,30 @@ async function loadAlr(force) {
   const F = [["open", "لم تكتمل"], ["done", "المكتملة"], ["all", "الكل"]];
   $("alr-filter").innerHTML = F.map(([k, l]) => `<label class="chip"><input type="radio" name="alr-f" value="${k}"${k === alrFilter ? " checked" : ""}><span>${l} (${ar(ALR.filter(a => k === "all" || (k === "done") === alrDone(a)).length)})</span></label>`).join("");
   document.querySelectorAll('input[name="alr-f"]').forEach(r => r.onchange = () => { alrFilter = r.value; loadAlr(); });
-  const list = ALR.filter(a => alrFilter === "all" || (alrFilter === "done") === alrDone(a));
+  const adf = ME.isHead ? dF("alr") : "";
+  const list = ALR.filter(a => (alrFilter === "all" || (alrFilter === "done") === alrDone(a)) && (!adf || a.teachers.some(n => tIn(n, adf))));
   if (!list.length) { box.innerHTML = `<div class="empty">${ALR.length ? "لا توجد تنبيهات هنا." : ME.isHead ? "لا توجد تنبيهات بعد. اضغط «🔔 تنبيه جديد»." : "لا توجد نواقص مطلوبة منك. بارك الله فيك."}</div>`; return; }
   box.innerHTML = list.map(a => `<button class="li li-btn" data-alr="${esc(a.id)}"><div class="li-main"><b>${ME.isHead ? a.teachers.map(n => TSK_DEMOS.includes(n) ? n : "أ. " + shortName(n)).join("، ") : "تنبيه من رئيس الشعبة"}</b>
     <span class="sub">${ar(a.items.length)} ${a.items.length === 1 ? "نقص" : "نواقص"}: ${esc(a.items.slice(0, 3).map(x => x.t).join("، "))}${a.items.length > 3 ? "…" : ""} · ${fmtStamp(a.createdAt)}${a.due ? " · آخر موعد " + fmtDate(a.due) : ""}</span></div>${alrPill(a)}</button>`).join("");
   box.querySelectorAll("[data-alr]").forEach(b => b.onclick = () => openAlr(b.dataset.alr));
 }
 $("alr-reload").onclick = () => loadAlr(true);
+// سجل التنبيهات: إحصائية لكل معلم ثم تفاصيل كل تنبيه
+function pdfAlrLog() {
+  const d = dF("alr"), list = (ALR || []).filter(a => !d || a.teachers.some(n => tIn(n, d))).slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const by = {};
+  list.forEach(a => a.status.filter(s => !s.demo && tIn(s.teacher, d)).forEach(s => { const x = by[s.teacher] || (by[s.teacher] = { n: 0, items: 0, done: 0, full: 0 }); x.n++; x.items += a.items.length; x.done += a.items.length - alrLeft(a, s); if (!alrLeft(a, s)) x.full++; }));
+  const rows = [];
+  list.forEach(a => a.status.filter(s => !s.demo && tIn(s.teacher, d)).forEach(s => rows.push(P.tr([fmtStamp(a.createdAt), "أ. " + s.teacher, a.items.map(x => x.t).join("، "), { t: a.due ? fmtDate(a.due) : "—", c: "c" },
+    { t: alrLeft(a, s) ? `باقي ${ar(alrLeft(a, s))} من ${ar(a.items.length)}` : "اكتمل ✓", c: alrLeft(a, s) ? "c late" : "c ok" }]))));
+  return { box: "سجل تنبيهات الاستكمال", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [pdfDeptLine(d),
+    P.h("أولًا: إحصائية لكل معلم"),
+    Object.keys(by).length ? P.grid(P.th(["المعلم", "عدد التنبيهات", "النواقص المطلوبة", "استُكمل منها", "تنبيهات اكتملت"]),
+      TEACHERS.map(([t]) => t).filter(t => by[t]).map(t => P.tr(["أ. " + t, { t: ar(by[t].n), c: "c" }, { t: ar(by[t].items), c: "c" }, { t: ar(by[t].done), c: "c b" }, { t: ar(by[t].full), c: "c" }]))) : P.p("لا توجد تنبيهات."),
+    P.h("ثانيًا: تفاصيل التنبيهات"),
+    rows.length ? P.grid(P.th(["تاريخ التنبيه", "المعلم", "النواقص", "آخر موعد", "الحالة"]), rows, "dense") : P.p("لا توجد تنبيهات.")] };
+}
+$("alr-logpdf").onclick = () => deliverPdf(() => pdfAlrLog(), `سجل تنبيهات الاستكمال${dFile(dF("alr"))}.pdf`, $("alr-lmsg"));
 function alrWaText(a, n) {
   return waMsg(n, `🔔 تنبيه لاستكمال النواقص التالية:\n${a.items.map((x, i) => `${ar(i + 1)}. ${x.t}`).join("\n")}${a.due ? `\n\nآخر موعد للاستكمال: ${dayName(a.due)} ${a.due}` : ""}${a.note ? "\n\n" + a.note : ""}\n\nبعد الاستكمال علّم على كل نقص «تم» في ركن «تنبيهات الاستكمال».`, "alr=" + a.id);
 }
@@ -3738,11 +3809,11 @@ async function loadVisits(which, force) {
     box.innerHTML = VIS.length ? `<div class="vv-list">${VIS.map(visLi).join("")}</div>` : '<div class="empty">لا توجد زيارات صفية مسجلة لك بعد.</div>';
   } else if (!visTeacherFilter) {
     $("vis-log-head").innerHTML = "";
-    const names = visTeachers(), real = names.filter(n => !DEMO_CLASSES[n]), realVis = VIS.filter(v => !v.demo);
+    const names = visTeachers(), real = names.filter(n => !DEMO_CLASSES[n] && tIn(n, visDept)), realVis = VIS.filter(v => !v.demo && cIn(v.classId, visDept));
     const visited = real.filter(n => realVis.some(v => v.teacher === n)), notYet = real.length - visited.length;
     const unread = realVis.filter(v => !v.teacherSignedAt).length;
-    const card = n => {
-      const vs = VIS.filter(v => v.teacher === n), last = vs[0], lv = visLevel(vs), pend = vs.filter(v => !v.teacherSignedAt).length;
+    const card = (n, gd) => {
+      const vs = VIS.filter(v => v.teacher === n && cIn(v.classId, gd)), last = vs[0], lv = visLevel(vs), pend = vs.filter(v => !v.teacherSignedAt).length;
       const subj = [...new Set(teacherClasses(n).map(c => c.split(":")[0]))].map(d => SUBJECTS[d]).join(" · ");
       return `<button type="button" class="vt-card${vs.length ? "" : " todo"}" data-t="${esc(n)}">
         <div class="vt-top"><b>أ. ${esc(n)}</b>${DEMO_CLASSES[n] ? ' <span class="pill none">تجريبي</span>' : ""}<span class="vt-count">${ar(vs.length)}<small>${vs.length === 1 ? "زيارة" : "زيارات"}</small></span></div>
@@ -3751,8 +3822,8 @@ async function loadVisits(which, force) {
           ${lv ? `<span class="pill ${lv[1]}">${lv[0]}</span>` : ""}${pend ? `<span class="pill none">لم يطّلع على ${ar(pend)}</span>` : ""}</div></button>`;
     };
     const order = list => list.slice().sort((a, b) => { const la = (VIS.find(v => v.teacher === a) || {}).date || "", lb = (VIS.find(v => v.teacher === b) || {}).date || ""; return la.localeCompare(lb) || a.localeCompare(b, "ar"); });
-    const group = (title, list) => list.length ? `<div class="vis-group">${title} <span class="sub">(${ar(list.length)})</span></div><div class="vt-grid">${order(list).map(card).join("")}</div>` : "";
-    const hd = real.filter(n => DEPT_OF[n][0] === "hd"), qr = real.filter(n => DEPT_OF[n][0] === "qr");
+    const group = (title, list, gd) => list.length ? `<div class="vis-group">${title} <span class="sub">(${ar(list.length)})</span></div><div class="vt-grid">${order(list).map(n => card(n, gd)).join("")}</div>` : "";
+    const hd = real.filter(n => tIn(n, "hd")), qr = real.filter(n => tIn(n, "qr"));
     box.innerHTML = `<div class="vstats">
         <div><b>${ar(realVis.length)}</b><span>زيارة مسجلة</span></div>
         <div><b>${ar(visited.length)}<small> من ${ar(real.length)}</small></b><span>معلمًا تمت زيارتهم</span></div>
@@ -3760,8 +3831,10 @@ async function loadVisits(which, force) {
         <div><b>${ar(unread)}</b><span>لم يطّلع عليها المعلم</span></div></div>
       <div class="seg" role="group" aria-label="القسم">${[["", "الكل"], ["hd", "الحديث الشريف"], ["qr", "القرآن الكريم"]].map(([k, t]) => `<button type="button" data-d="${k}" aria-pressed="${visDept === k}">${t}</button>`).join("")}</div>
       <div class="sub" style="margin-top:6px">مرتبة من الأحوج للزيارة: من لم يُزر، ثم الأقدم زيارة.</div>
-      ${visDept !== "qr" ? group("قسم الحديث الشريف", hd) : ""}${visDept !== "hd" ? group("قسم القرآن الكريم", qr) : ""}${!visDept ? group("الحسابات التجريبية", names.filter(n => DEMO_CLASSES[n])) : ""}`;
+      <div class="row-actions" style="margin-top:8px"><button class="btn ghost sm" type="button" id="vis-logpdf">سجل الزيارات الصفية PDF${visDept ? " (" + dName(visDept) + ")" : ""}</button></div><div class="saved" id="vis-lmsg"></div>
+      ${visDept !== "qr" ? group("قسم الحديث الشريف", hd, "hd") : ""}${visDept !== "hd" ? group("قسم القرآن الكريم", qr, "qr") : ""}${!visDept ? group("الحسابات التجريبية", names.filter(n => DEMO_CLASSES[n])) : ""}`;
     box.querySelectorAll(".seg button").forEach(b => b.onclick = () => { visDept = b.dataset.d; loadVisits("log"); });
+    $("vis-logpdf").onclick = () => deliverPdf(() => pdfVisLog(visDept), `سجل الزيارات الصفية${dFile(visDept)}.pdf`, $("vis-lmsg"));
     box.querySelectorAll(".vt-card").forEach(c => c.onclick = () => { visTeacherFilter = c.dataset.t; loadVisits("log"); window.scrollTo({ top: $("sec-vis").offsetTop - 10 }); });
     return;
   } else {
@@ -3776,6 +3849,19 @@ async function loadVisits(which, force) {
     $("vis-new-for").onclick = () => { visTab("new"); initVisForm(); $("vf-teacher").value = n; fillVisClasses(""); };
   }
   box.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openVisit(b.dataset.open));
+}
+// سجل الزيارات الصفية: إحصائية لكل معلم ثم تفاصيل الزيارات
+function pdfVisLog(d) {
+  const vs = (VIS || []).filter(v => !v.demo && cIn(v.classId, d)).slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  const ts = TEACHERS.map(([t]) => t).filter(t => t !== HEAD_NAME && tIn(t, d));
+  return { box: "سجل الزيارات الصفية", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [pdfDeptLine(d),
+    P.h("أولًا: إحصائية لكل معلم"),
+    P.grid(P.th(["المعلم", "عدد الزيارات", "آخر زيارة", "المستوى العام", "لم يطّلع عليها"]), ts.map(t => { const m = vs.filter(v => v.teacher === t), lv = visLevel(m), last = m[m.length - 1];
+      return P.tr(["أ. " + t, { t: ar(m.length), c: "c b" }, { t: last ? fmtDate(last.date, true) : "لم يُزر بعد", c: last ? "c" : "c late" }, { t: lv ? lv[0] : "—", c: "c" }, { t: ar(m.filter(v => !v.teacherSignedAt).length), c: "c" }]); })),
+    P.h("ثانيًا: تفاصيل الزيارات"),
+    vs.length ? P.grid(P.th(["التاريخ", "المعلم", "الصف", "الحصة", "رقم الزيارة", "نوع الزيارة", "الموضوع", "المستوى", "اطلاع المعلم"]),
+      vs.map(v => { const lv = visLevel([v]); return P.tr([fmtDate(v.date, true), "أ. " + v.teacher, { t: classFull(v.classId), c: "c" }, { t: v.period ? ar(v.period) : "—", c: "c" }, { t: ar(v.number || ""), c: "c" }, v.visitType || "—", v.topic || "—", { t: lv ? lv[0] : "—", c: "c" }, { t: v.teacherSignedAt ? "اطّلع" : "لم يطّلع", c: v.teacherSignedAt ? "c" : "c late" }]); }), "dense")
+      : P.p("لا توجد زيارات مسجلة.")] };
 }
 function visLi(v) {
   const pill = v.teacherSignedAt ? '<span class="pill ok">اطّلع المعلم</span>' : (ME.isHead ? '<span class="pill none">لم يطّلع بعد</span>' : '<span class="pill late">بانتظار اطلاعك</span>');
@@ -4136,9 +4222,12 @@ function resRange() {
   if (k === "month") { const s = today.slice(0, 8) + "01"; return { from: s, to: today.slice(0, 8) + "31", label: "شهر " + ar(+today.slice(5, 7)) + "/" + ar(today.slice(0, 4)) }; }
   return { from: "0000", to: "9999", label: "الفصل الدراسي الأول ٢٠٢٦/٢٠٢٧" };
 }
+// حصة الاحتياط (R/RF) بلا فصل: تتبع قسم المعلم
+function covIn(c, d, who) { return !d || (/:/.test(c.classId) ? cIn(c.classId, d) : tIn(who, d)); }
 function resStats(r) {
-  const covs = RES.covers.filter(c => c.date >= r.from && c.date <= r.to), abs = RES.absences.filter(a => a.date >= r.from && a.date <= r.to);
-  return Object.keys(TIMETABLE).map(t => {
+  const d = dF("res");
+  const covs = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && covIn(c, d, c.absent)), abs = RES.absences.filter(a => a.date >= r.from && a.date <= r.to && tIn(a.teacher, d));
+  return Object.keys(TIMETABLE).filter(t => tIn(t, d)).map(t => {
     const mine = covs.filter(c => c.absent === t && c.status !== COV_PRESENT);
     const by = {}; mine.filter(isCov).forEach(c => by[c.substitute] = (by[c.substitute] || 0) + 1);
     return { t, days: new Set(abs.filter(a => a.teacher === t && a.kind !== ABS_EXCUSE).map(a => a.date)).size, excuses: abs.filter(a => a.teacher === t && a.kind === ABS_EXCUSE).length, lessons: mine.length,
@@ -4151,18 +4240,18 @@ function renderResLog() {
   if (RES.error) { box.innerHTML = `<div class="empty">${esc(RES.error)}</div>`; return; }
   if (resLogTeacher) return renderResTeacher(r);
   const st = resStats(r);
-  box.innerHTML = `<div class="sub" style="margin-top:8px">${r.label}</div><div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>أيام الغياب</th><th>أعذار طارئة</th><th>حصص غيابه</th><th>غُطّيت</th><th>لم تُغطَّ</th><th>حصص احتياط أخذها</th></tr></thead><tbody>${st.map(s =>
+  box.innerHTML = `<div class="sub" style="margin-top:8px">${r.label}${dF("res") ? " · " + dName(dF("res")) : ""}</div><div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>أيام الغياب</th><th>أعذار طارئة</th><th>حصص غيابه</th><th>غُطّيت</th><th>لم تُغطَّ</th><th>حصص احتياط أخذها</th></tr></thead><tbody>${st.map(s =>
     `<tr data-t="${esc(s.t)}" tabindex="0"><td class="t">${esc(s.t)}</td><td>${ar(s.days)}</td><td>${ar(s.excuses)}</td><td>${ar(s.lessons)}</td><td>${ar(s.covered)}</td><td>${s.uncovered ? `<span class="pill late">${ar(s.uncovered)}</span>` : "٠"}</td><td>${ar(s.given)}</td></tr>`).join("")}</tbody></table></div>`;
   box.querySelectorAll("tr[data-t]").forEach(tr => { const open = () => { resLogTeacher = tr.dataset.t; renderResLog(); }; tr.onclick = open; tr.onkeydown = e => { if (e.key === "Enter") open(); }; });
 }
 function renderResTeacher(r) {
   const t = resLogTeacher, box = $("res-log-body"), s = resStats(r).find(x => x.t === t);
-  const abs = RES.absences.filter(a => a.teacher === t && a.date >= r.from && a.date <= r.to).sort((a, b) => b.date.localeCompare(a.date));
-  const given = RES.covers.filter(c => c.substitute === t && c.status === COV_DONE && c.date >= r.from && c.date <= r.to).sort((a, b) => b.date.localeCompare(a.date) || a.period - b.period);
+  const dd = dF("res"), abs = RES.absences.filter(a => a.teacher === t && a.date >= r.from && a.date <= r.to).sort((a, b) => b.date.localeCompare(a.date));
+  const given = RES.covers.filter(c => c.substitute === t && c.status === COV_DONE && c.date >= r.from && c.date <= r.to && covIn(c, dd, c.substitute)).sort((a, b) => b.date.localeCompare(a.date) || a.period - b.period);
   box.innerHTML = `<div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="res-back">→ كل المعلمين</button><b>أ. ${esc(t)}</b></div>
     <dl class="meta-grid" style="margin-top:10px"><div><dt>أيام الغياب</dt><dd>${ar(s.days)}</dd></div><div><dt>حصص غيابه</dt><dd>${ar(s.lessons)}</dd></div><div><dt>غُطّيت / لم تُغطَّ</dt><dd>${ar(s.covered)} / ${ar(s.uncovered)}</dd></div><div><dt>احتياط أخذه</dt><dd>${ar(s.given)}</dd></div></dl>
     <h3 class="list-title">من دخل مكانه</h3>${Object.keys(s.by).length ? `<div class="list">${Object.entries(s.by).sort((a, b) => b[1] - a[1]).map(([n, k]) => `<div class="li"><span>أ. ${esc(n)}</span><span class="pill ok">${ar(k)} ${k === 1 ? "حصة" : "حصص"}</span></div>`).join("")}</div>` : '<div class="empty">—</div>'}
-    <h3 class="list-title">أيام غيابه</h3>${abs.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>البديل</th></tr></thead><tbody>${abs.map(a => RES.covers.filter(c => c.absenceId === a.id).sort((x, y) => x.period - y.period).map(c =>
+    <h3 class="list-title">أيام غيابه</h3>${abs.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>البديل</th></tr></thead><tbody>${abs.map(a => RES.covers.filter(c => c.absenceId === a.id && covIn(c, dd, a.teacher)).sort((x, y) => x.period - y.period).map(c =>
       `<tr><td>${fmtDate(a.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)}</td><td>${isCov(c) ? esc(covName(c)) : `<span class="pill ${c.status === COV_NONE ? "late" : "none"}">${c.status}</span>`}</td></tr>`).join("")).join("")}</tbody></table></div>` : '<div class="empty">لم يغب في هذه الفترة.</div>'}
     <h3 class="list-title">حصص الاحتياط التي أخذها</h3>${given.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>بدلًا من</th></tr></thead><tbody>${given.map(c =>
       `<tr><td>${fmtDate(c.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)}</td><td>أ. ${esc(c.absent)}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">لم يأخذ احتياطًا في هذه الفترة.</div>'}`;
@@ -4170,7 +4259,7 @@ function renderResTeacher(r) {
 }
 // ---------- سجل التبديل (تبديلات المعلمين من حساباتهم) ----------
 function swapList() {
-  const f = $("swap-filter").value, all = (RES.swaps || []);
+  const f = $("swap-filter").value, all = (RES.swaps || []).filter(x => cIn(x.cls, dF("res")));
   return all.filter(x => f === "cancel" ? x.status === SWP_CANCEL : x.status === SWP_ACTIVE && (f === "all" || (f === "done") === (x.retStatus === RET_DONE)))
     .sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
 }
@@ -4195,7 +4284,7 @@ function renderSwapLog() {
 }
 function pdfSwapLog() {
   const list = swapList(), f = $("swap-filter");
-  return { box: "سجل التبديل", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(f.options[f.selectedIndex].text, "c b"),
+  return { box: "سجل التبديل", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(f.options[f.selectedIndex].text + (dF("res") ? " · " + dName(dF("res")) : ""), "c b"),
     list.length ? P.grid(P.th(["م", "الفصل", "صاحب الطلب", "يوم الحصة", "الحصة", "يدخلها", "يوم الرد", "حصة الرد", "الحالة"]),
       list.map((x, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: classLabel(x.cls), c: "c" }, "أ. " + x.teacher, fmtDate(x.date, true), { t: PERIOD_NAMES[x.period], c: "c" }, "أ. " + x.other,
         fmtDate(x.retDate, true), { t: PERIOD_NAMES[x.retPeriod], c: "c" }, { t: x.status === SWP_CANCEL ? "ملغى" : x.retStatus === RET_DONE ? RET_DONE : RET_PENDING, c: x.retStatus === RET_DONE ? "c" : "c late" }])), "dense")
@@ -4203,13 +4292,13 @@ function pdfSwapLog() {
 }
 $("swap-filter").onchange = renderSwapLog;
 $("swap-reload").onclick = async () => { await loadRes(true); renderSwapLog(); };
-$("swap-pdf").onclick = () => deliverPdf(() => pdfSwapLog(), "سجل التبديل.pdf", $("swap-msg"));
+$("swap-pdf").onclick = () => deliverPdf(() => pdfSwapLog(), `سجل التبديل${dFile(dF("res"))}.pdf`, $("swap-msg"));
 $("res-range").onchange = renderResLog;
 $("res-reload").onclick = async () => { await loadRes(true); renderResLog(); };
-$("res-pdf").onclick = () => deliverPdf(() => pdfReserveReport(resRange()), `سجل الغياب والاحتياط - ${resRange().label}.pdf`, $("res-lmsg"));
+$("res-pdf").onclick = () => deliverPdf(() => pdfReserveReport(resRange()), `سجل الغياب والاحتياط${dFile(dF("res"))} - ${resRange().label}.pdf`, $("res-lmsg"));
 $("res-word").onclick = async () => {
   const m = $("res-lmsg"); m.textContent = "جارٍ إنشاء الملف…";
-  try { await deliver(await window.docx.Packer.toBlob(buildReserveReport(window.docx, resRange())), `سجل الغياب والاحتياط - ${resRange().label}.docx`, m); }
+  try { await deliver(await window.docx.Packer.toBlob(buildReserveReport(window.docx, resRange())), `سجل الغياب والاحتياط${dFile(dF("res"))} - ${resRange().label}.docx`, m); }
   catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
 };
 
@@ -4233,11 +4322,11 @@ function buildReserveReport(D, r) {
   const head = ["المعلم", "أيام الغياب", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"].map(t => h.th(t));
   const rows = [head, ...st.map(s => [h.cell("أ. " + s.t, { size: 18 }), ...[s.days, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => h.cell(ar(n), { align: C, size: 19, bold: i === 3 && n > 0, color: i === 3 && n > 0 ? "B4382B" : undefined })),
     h.cell(Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—", { size: 16 })])];
-  const det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
+  const det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT && covIn(c, dF("res"), c.absent)).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
   const drows = [["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"].map(t => h.th(t)),
     ...det.map(c => [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(PERIOD_NAMES[c.period], { align: C, size: 17 }), h.cell(classLabel(c.classId), { align: C, size: 17 }), h.cell("أ. " + c.absent, { size: 17 }),
       h.cell(isCov(c) ? covName(c) : "لم تُغطَّ", { size: 17, bold: !isCov(c), color: isCov(c) ? undefined : "B4382B" })])];
-  const kids = [...h.formHeader("سجل الغياب والاحتياط"), h.para(r.label, { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
+  const kids = [...h.formHeader("سجل الغياب والاحتياط"), h.para(r.label + (dF("res") ? " · " + dName(dF("res")) : ""), { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
     h.heading("أولًا: عدّاد الغياب والاحتياط لكل معلم"), h.table(rows, [2600, 900, 950, 850, 950, 1000, 2750], h.softBorders("C9D6E3"))];
   kids.push(h.heading("ثانيًا: تفاصيل حصص الاحتياط"), det.length ? h.table(drows, [2300, 1300, 1000, 2700, 2700], h.softBorders("C9D6E3")) : h.para("لا توجد حصص احتياط في هذه الفترة.", { size: 20 }));
   kids.push(h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
@@ -4354,7 +4443,7 @@ function buildAchLogDoc(D, kind, list) {
   const h = H(D), C = h.C, U = ACH_UI[kind], act = kind === "act";
   const heads = ["م", "التاريخ", U.typeL, "العنوان", "المعلم", U.targetInfo, ...(act ? ["النتائج والفائزون"] : [])];
   const W = act ? [500, 1900, 1700, 3000, 2500, 2000, 2800] : [500, 2100, 2000, 4400, 2900, 2500];
-  const kids = [...h.formHeader(U.log, 14400)];
+  const kids = [...h.formHeader(U.log, 14400), ...(dF("ach") ? [h.para(dName(dF("ach")), { size: 22, bold: true, color: h.NAVY, align: C, after: 120 })] : [])];
   if (list.length) kids.push(h.table([heads.map(t => h.th(t, { size: 17 })), ...list.map((a, i) => [ar(i + 1), fmtDate(a.date, true), a.type, a.title, "أ. " + a.teacher, a.target || "—", ...(act ? [a.results || "—"] : [])]
     .map((t, j) => h.cell(t, { size: 17, align: j === 0 ? C : undefined })))], W, h.softBorders("C9D6E3")));
   else kids.push(h.para("لا توجد سجلات بعد.", { size: 20 }));
