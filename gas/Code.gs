@@ -65,7 +65,8 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, edi
   myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
   listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen,
-  listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones };
+  listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones,
+  listAlerts, saveAlert, deleteAlert, tickAlert };
 
 function doPost(e) {
   let out;
@@ -119,7 +120,7 @@ function setup() {
   srepSheet_();
   profSheet_();
   permSheet_();
-  tskSheet_(); tskStSheet_();
+  tskSheet_(); tskStSheet_(); alrSheet_(); alrStSheet_();
   ensureDemoMinute_();
   folder_();
   const first = ss.getSheets()[0];
@@ -1483,6 +1484,8 @@ const ACT_LOG = {
   cancelSwap: () => ({ sec: "res", ref: "swap", text: "ألغى تبديل حصة" }),
   respondTask: (a, res) => { const r = tskRows_().find(x => x[0] === String(a[1])), t = r ? `«${r[1]}: ${r[2]}»` : "مهمة";
     return { sec: "tsk", ref: a[1], text: a[2] === "done" ? `نفّذ المهمة ${t}${res && res.note ? " — " + res.note : ""}` : a[2] === "undo" ? `تراجع عن تنفيذ المهمة ${t}` : `استلم المهمة ${t}` }; },
+  tickAlert: (a, res) => { const r = alrRows_().find(x => x[0] === String(a[1])), it = r ? (JSON.parse(r[2] || "[]")[a[2]] || {}).t : "";
+    return { sec: "alr", ref: a[1], text: `${a[3] ? "استكمل" : "ألغى استكمال"}: ${it || "نقص"}${res && res.all ? " — واكتملت جميع النواقص ✓" : ""}` }; },
   ackCircular: a => { const r = nshRows_().find(x => x[0] === String(a[1])); return { sec: "nsh", ref: a[1], text: `اطّلع على ${r ? r[1] + ": " + r[4] : "نشرة"}` }; }
 };
 function logAct_(fn, args, result) {
@@ -1513,7 +1516,7 @@ function listActivity(code, limit) {
   return { items, unread: v.filter(r => r[0] > seen).length, seen, secSeen };
 }
 /** اللمبة الزرقاء: فتح الركن يصفّر عدّاد تحديثاته فقط */
-const ACT_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk"];
+const ACT_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk", "alr"];
 function markSectionSeen(code, sec) {
   head_(code);
   if (ACT_SECS.indexOf(sec) === -1) throw new Error("ركن غير معروف.");
@@ -1540,7 +1543,7 @@ const SHEET_TSKST = "حالة التكاليف";
 const TSK_HEAD = ["المعرف", "النوع", "العنوان", "التفاصيل", "التاريخ", "الحصة", "الوقت", "المكان", "الفئة المستهدفة", "آخر موعد للتنفيذ",
   "المكلفون", "الملف", "اسم الملف", "نوع الملف", "وقت الإنشاء", "آخر تعديل", "التكرار", "السجل المطلوب"];
 const TSKST_HEAD = ["المهمة", "المعلم", "وقت الاستلام", "وقت التنفيذ", "ملاحظة المعلم", "الحالة"];
-const TSK_TYPES = ["تنبيه لاستكمال سجل", "نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
+const TSK_TYPES = ["نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
 const TSK_NEW = "جديدة", TSK_GOT = "تم الاستلام", TSK_DONE = "تم التنفيذ";
 function tskSheet_() {
   const sh = sheet_(SHEET_TSK, TSK_HEAD, true);
@@ -1681,3 +1684,76 @@ function saveMyPhone(code, phone) {
 }
 /** لرئيس الشعبة: أرقام المعلمين */
 function teacherPhones(code) { head_(code); return phones_(); }
+
+
+// ======================= تنبيهات الاستكمال =======================
+// رئيس الشعبة يختار معلمًا أو أكثر وعدة نواقص، فيعلّم المعلم على كل نقص «تم» على حدة.
+// «تنبيهات الاستكمال»: 0 المعرف | 1 المعلمون (مفصولون بـ |) | 2 النواقص JSON [{k: الركن أو "", t: النص}] | 3 ملاحظة | 4 آخر موعد | 5 وقت الإنشاء | 6 آخر تعديل
+// «حالة الاستكمال»:    0 التنبيه | 1 المعلم | 2 المستكمل JSON {رقم النقص: الوقت} | 3 وقت اكتمال الكل | 4 أول اطلاع
+const SHEET_ALR = "تنبيهات الاستكمال", SHEET_ALRST = "حالة الاستكمال";
+function alrSheet_() { return sheet_(SHEET_ALR, ["المعرف", "المعلمون", "النواقص", "ملاحظة", "آخر موعد", "وقت الإنشاء", "آخر تعديل"], true); }
+function alrStSheet_() { return sheet_(SHEET_ALRST, ["التنبيه", "المعلم", "المستكمل", "اكتمل الكل", "أول اطلاع"], true); }
+function alrRows_() { return alrSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]); }
+function alrSts_() { return alrStSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]); }
+function jsonOr_(s, d) { try { return JSON.parse(s); } catch (e) { return d; } }
+function alrObj_(r, sts, me) {
+  const who = r[1].split("|").filter(Boolean), items = jsonOr_(r[2], []);
+  const st = who.map(t => { const x = sts.find(y => y[0] === r[0] && y[1] === t) || []; const done = jsonOr_(x[2] || "{}", {});
+    return { teacher: t, demo: isDemo_(t), done, doneCount: Object.keys(done).length, allAt: x[3] || "" }; });
+  const o = { id: r[0], teachers: who, items, note: r[3], due: r[4], createdAt: r[5], updatedAt: r[6] };
+  if (me.isHead) o.status = st; else o.mine = st.find(x => x.teacher === me.name) || null;
+  return o;
+}
+function listAlerts(code) {
+  const me = who_(code), sts = alrSts_();
+  return alrRows_().map(r => alrObj_(r, sts, me)).filter(o => me.isHead ? !me.isDemo : !!o.mine).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+function saveAlert(code, a) {
+  const me = head_(code); if (me.isDemo) throw new Error("غير متاح في الحساب التجريبي.");
+  const pool = tskPool_(), who = (Array.isArray(a.teachers) ? a.teachers : []).map(String).filter((x, i, l) => pool.indexOf(x) !== -1 && l.indexOf(x) === i);
+  if (!who.length) throw new Error("اختر المعلم.");
+  const items = (Array.isArray(a.items) ? a.items : []).slice(0, 40).map(x => ({ k: ACT_SECS.indexOf(x && x.k) !== -1 ? x.k : "", t: String(x && x.t || "").trim().slice(0, 200) })).filter(x => x.t);
+  if (!items.length) throw new Error("اختر نقصًا واحدًا على الأقل.");
+  const due = String(a.due || "").slice(0, 10); if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new Error("آخر موعد غير صحيح.");
+  const note = String(a.note || "").trim().slice(0, 1500);
+  return withLock_(() => {
+    const sh = alrSheet_(), at = nowText_();
+    if (a.id) {
+      const row = findRow_(sh, 1, String(a.id)); if (row < 0) throw new Error("التنبيه غير موجود.");
+      const old = sh.getRange(row, 1, 1, 7).getDisplayValues()[0];
+      writeRow_(sh, row, [old[0], who.join("|"), JSON.stringify(items), note, due, old[5], at]);
+      // تعديل النواقص يعيد المتابعة من جديد
+      const st = alrStSheet_(), v = st.getDataRange().getDisplayValues();
+      for (let i = v.length - 1; i >= 1; i--) if (v[i][0] === old[0]) st.deleteRow(i + 1);
+      return { id: old[0] };
+    }
+    const id = newId_(); appendText_(sh, [id, who.join("|"), JSON.stringify(items), note, due, at, at]); return { id };
+  });
+}
+function deleteAlert(code, id) {
+  head_(code);
+  return withLock_(() => {
+    const sh = alrSheet_(), row = findRow_(sh, 1, String(id)); if (row < 0) throw new Error("التنبيه غير موجود.");
+    sh.deleteRow(row);
+    const st = alrStSheet_(), v = st.getDataRange().getDisplayValues();
+    for (let i = v.length - 1; i >= 1; i--) if (v[i][0] === String(id)) st.deleteRow(i + 1);
+    return true;
+  });
+}
+/** المعلم يعلّم نقصًا واحدًا: تم أو لم يتم */
+function tickAlert(code, id, idx, done) {
+  const me = who_(code); if (me.isHead) throw new Error("هذا للمعلم المنبَّه.");
+  const r = alrRows_().find(x => x[0] === String(id));
+  if (!r || r[1].split("|").indexOf(me.name) === -1) throw new Error("التنبيه غير موجود.");
+  const items = jsonOr_(r[2], []); idx = Math.floor(Number(idx)); if (!(idx >= 0 && idx < items.length)) throw new Error("النقص غير موجود.");
+  return withLock_(() => {
+    const st = alrStSheet_(), v = st.getDataRange().getDisplayValues(), at = nowText_();
+    const i = v.findIndex((x, k) => k > 0 && x[0] === r[0] && x[1] === me.name);
+    const cur = i > 0 ? v[i].slice(0, 5) : [r[0], me.name, "{}", "", at];
+    const d = jsonOr_(cur[2] || "{}", {});
+    if (done) d[idx] = at; else delete d[idx];
+    cur[2] = JSON.stringify(d); const all = Object.keys(d).length >= items.length; cur[3] = all ? (cur[3] || at) : "";
+    if (i > 0) writeRow_(st, i + 1, cur); else appendText_(st, cur);
+    return { done: d, all, allAt: cur[3] };
+  });
+}

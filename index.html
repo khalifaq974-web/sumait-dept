@@ -238,7 +238,7 @@ nav.sections.six { grid-template-columns: repeat(6, 1fr); }
 nav.sections.seven { grid-template-columns: repeat(7, 1fr); }
 nav.sections.eight { grid-template-columns: repeat(4, 1fr); }
 nav.sections.nine { grid-template-columns: repeat(5, 1fr); }
-nav.sections.ten { grid-template-columns: repeat(5, 1fr); }
+nav.sections.ten { grid-template-columns: repeat(6, 1fr); }
 nav.sections.eleven { grid-template-columns: repeat(6, 1fr); }
 @media (max-width: 900px) { nav.sections.ten, nav.sections.eleven { grid-template-columns: repeat(4, 1fr); } }
 @media (max-width: 640px) { nav.sections.ten, nav.sections.eleven { grid-template-columns: 1fr 1fr 1fr; } }
@@ -247,6 +247,17 @@ nav.sections.eleven { grid-template-columns: repeat(6, 1fr); }
 .btn.wa-btn { background: #1f9d55; color: #fff; text-decoration: none; white-space: nowrap; }
 .btn.wa-btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .wa-card { margin-top: 12px; border-color: #1f9d55; }
+.af-grp { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin-top: 8px; background: var(--surface); }
+.af-grp > b { display: block; font-family: var(--f-display); font-size: 13.5px; color: var(--accent); margin-bottom: 4px; }
+.af-grp label { display: flex; gap: 8px; align-items: center; padding: 3px 0; font-size: 14px; cursor: pointer; }
+.af-grp input { width: 18px; height: 18px; accent-color: var(--accent); }
+.alr-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 8px; background: var(--surface); }
+.alr-item.done { background: var(--ok-soft); border-color: var(--ok); }
+.alr-item.done .alr-t { text-decoration: line-through; color: var(--muted); }
+.alr-item label { display: flex; gap: 10px; align-items: center; cursor: pointer; flex: 1; }
+.alr-item input { width: 22px; height: 22px; accent-color: var(--ok); }
+.alr-bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 6px; }
+.alr-bar i { display: block; height: 100%; background: var(--ok); }
 .tsk-st { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .tsk-new-banner { margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--accent); font-weight: 700; cursor: pointer; }
 @media (max-width: 640px) { nav.sections.nine { grid-template-columns: 1fr 1fr; } }
@@ -385,6 +396,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <button id="nav-nsh" aria-selected="false"><b>سجل النشرات والتعاميم</b><span>الاطلاع والتوقيع</span><i class="lamp" id="lamp-nsh" hidden></i></button>
       <button id="nav-res" aria-selected="false"><b>سجل الغياب والاحتياط</b><span id="nav-res-sub">الغياب والبدلاء وتبديل الحصص</span><i class="lamp" id="lamp-res" hidden></i></button>
       <button id="nav-tsk" aria-selected="false"><b>المهام والتكاليف</b><span id="nav-tsk-sub">تكليف المعلمين ومتابعة التنفيذ</span><i class="lamp" id="lamp-tsk" hidden></i></button>
+      <button id="nav-alr" aria-selected="false"><b>تنبيهات الاستكمال</b><span id="nav-alr-sub">تنبيه المعلمين بالنواقص</span><i class="lamp" id="lamp-alr" hidden></i></button>
       <button id="nav-mrp" aria-selected="false" class="head-only" hidden><b>إنجازات القسم</b><span>التقارير الشهرية</span></button>
     </nav>
     <div class="card wa-card" id="wa-card" hidden>
@@ -555,7 +567,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
     <!-- سجل النشرات والتعاميم -->
     <!-- المهام والتكاليف: رئيس الشعبة يكلّف، والمعلم يستلم وينفّذ -->
     <section id="sec-tsk" hidden>
-      <div class="row-actions head-only" hidden style="margin-top:14px"><button class="btn" id="tsk-new" type="button">+ تكليف جديد</button><button class="btn ghost" id="tsk-alert" type="button">🔔 تنبيه معلم لاستكمال سجل</button></div>
+      <div class="row-actions head-only" hidden style="margin-top:14px"><button class="btn" id="tsk-new" type="button">+ تكليف جديد</button></div>
       <form class="card" id="tsk-form" hidden>
         <h2 id="tf-h">تكليف جديد</h2>
         <label class="f">نوع التكليف</label>
@@ -591,6 +603,31 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="list" id="tsk-list"></div>
       </div>
       <div class="card detail" id="tsk-detail" hidden></div>
+    </section>
+    <!-- تنبيهات الاستكمال: رئيس الشعبة ينبّه المعلم بعدة نواقص، والمعلم يعلّم على كل نقص -->
+    <section id="sec-alr" hidden>
+      <div class="row-actions head-only" hidden style="margin-top:14px" id="alr-newwrap"><button class="btn" id="alr-new" type="button">🔔 تنبيه جديد</button></div>
+      <form class="card" id="alr-form" hidden>
+        <h2 id="af-h">تنبيه جديد لاستكمال النواقص</h2>
+        <label class="f">المعلم</label>
+        <div class="chips" style="margin-bottom:6px"><button class="btn ghost sm" type="button" data-afall="hd">معلمو الحديث</button><button class="btn ghost sm" type="button" data-afall="qr">معلمو القرآن</button><button class="btn ghost sm" type="button" data-afall="all">الجميع</button><button class="btn ghost sm" type="button" data-afall="none">إلغاء التحديد</button></div>
+        <div class="chips" id="af-teachers"></div>
+        <label class="f">النواقص المطلوب استكمالها <span class="sub">(اختر كل ما ينطبق)</span></label>
+        <div id="af-items"></div>
+        <label class="f" for="af-other">نواقص أخرى (اختياري: كل نقص في سطر)</label>
+        <textarea id="af-other" rows="2" maxlength="1000" placeholder="مثال: تصوير كراسات الصف ١٠/٢"></textarea>
+        <div class="grid3"><div><label class="f" for="af-due">آخر موعد للاستكمال (اختياري)</label><input type="date" id="af-due"></div></div>
+        <label class="f" for="af-note">ملاحظة للمعلم (اختياري)</label>
+        <textarea id="af-note" rows="2" maxlength="1500"></textarea>
+        <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="af-send">إرسال التنبيه</button><button class="btn ghost" type="button" id="af-cancel">إلغاء</button><span class="sub" id="af-count"></span></div>
+        <div class="saved" id="af-msg"></div>
+      </form>
+      <div id="alr-listwrap">
+        <div class="chips" id="alr-filter" style="margin-top:12px"></div>
+        <div class="row-actions" style="margin-top:8px"><button class="btn ghost sm" id="alr-reload" type="button">تحديث</button></div>
+        <div class="list" id="alr-list"></div>
+      </div>
+      <div class="card detail" id="alr-detail" hidden></div>
     </section>
     <section id="sec-nsh" hidden>
       <details class="card head-only" id="nsh-add" hidden>
@@ -1220,6 +1257,7 @@ async function doLogin(code, silent) {
     document.querySelectorAll(".teacher-only").forEach(el => el.hidden = r.isHead);
     document.querySelector("nav.sections").classList.toggle("ten", !r.isHead);
     document.querySelector("nav.sections").classList.toggle("eleven", !!r.isHead);
+    $("nav-alr-sub").textContent = r.isHead ? "تنبيه المعلمين بالنواقص" : "النواقص المطلوب استكمالها";
     $("nav-tsk-sub").textContent = r.isHead ? "تكليف المعلمين ومتابعة التنفيذ" : "مهامك المكلَّف بها";
     $("nav-res-sub").textContent = r.isHead ? "الغياب والبدلاء وتبديل الحصص" : "طلب تبديل حصة";
     $("demo-note").hidden = !r.isDemo;
@@ -1238,13 +1276,13 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); TSK = null; PHONES = null; $("wa-card").hidden = true; $("tsk-form").hidden = true; $("tsk-banner") && $("tsk-banner").remove(); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); TSK = null; ALR = null; $("alr-banner") && $("alr-banner").remove(); PHONES = null; $("wa-card").hidden = true; $("tsk-form").hidden = true; $("tsk-banner") && $("tsk-banner").remove(); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
 };
 
-const SECTIONS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk", "mrp"];
+const SECTIONS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk", "alr", "mrp"];
 function go(sec, byUser) {
   if (SECTIONS.indexOf(sec) === -1 || (sec === "mrp" && !ME.isHead)) sec = "curr";
   const shown = sec === "act" ? "ach" : sec;
@@ -1270,6 +1308,7 @@ function go(sec, byUser) {
   if (sec === "vis") visTab(ME.isHead ? (visSub === "mine" ? "new" : visSub) : "mine");
   if (sec === "res") resTab(resSub);
   if (sec === "tsk") { TSK = null; loadTsk(); }
+  if (sec === "alr") { ALR = null; loadAlr(); }
 }
 SECTIONS.forEach(s => $("nav-" + s).onclick = () => go(s, true));
 
@@ -2754,11 +2793,11 @@ async function openAch(id) {
 }
 
 // ================= الإشعارات (رئيس الشعبة) =================
-const SEC_NAMES_AR = { curr: "ما قطع من المنهج", cls: "كشف متابعة المتعلمين", ach: "التنمية المهنية وإنجاز الموظف", act: "سجل الأنشطة والمسابقات", min: "محاضر الاجتماعات", vis: "الزيارات الصفية", prm: "الاستئذان", nsh: "سجل النشرات والتعاميم", res: "سجل الغياب والاحتياط", tsk: "المهام والتكاليف" };
+const SEC_NAMES_AR = { curr: "ما قطع من المنهج", cls: "كشف متابعة المتعلمين", ach: "التنمية المهنية وإنجاز الموظف", act: "سجل الأنشطة والمسابقات", min: "محاضر الاجتماعات", vis: "الزيارات الصفية", prm: "الاستئذان", nsh: "سجل النشرات والتعاميم", res: "سجل الغياب والاحتياط", tsk: "المهام والتكاليف", alr: "تنبيهات الاستكمال" };
 let ACT = null, actTimer = null;
 function actWhen(t) { const d = new Date(String(t).replace(" ", "T") + "+03:00"), mins = Math.round((Date.now() - d) / 60000);
   if (mins < 1) return "الآن"; if (mins < 60) return `قبل ${ar(mins)} دقيقة`; if (mins < 1440) return `قبل ${ar(Math.round(mins / 60))} ساعة`; return fmtStamp(String(t).slice(0, 16)); }
-const LAMP_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk"];
+const LAMP_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk", "alr"];
 let SEC_SEEN = {}, FLASH_CID = "", flashT = null;
 function lsSeen() { try { return JSON.parse(localStorage.getItem("secSeen") || "{}"); } catch (e) { return {}; } }
 function lsRead() { try { return JSON.parse(localStorage.getItem("actRead") || "[]"); } catch (e) { return []; } }
@@ -2815,6 +2854,7 @@ async function openRef(sec, r0) {
     else if (a.sec === "nsh" && ref) { if (await waitFor(() => NSH)) openNsh(ref); }
     else if (a.sec === "res") resTab("swap");
     else if (a.sec === "tsk" && ref) { if (await waitFor(() => TSK)) openTsk(ref); }
+    else if (a.sec === "alr" && ref) { if (await waitFor(() => ALR)) openAlr(ref); }
   } catch (e) {}
 }
 function renderAct() {
@@ -2899,7 +2939,7 @@ async function waPanel(box, names, textFn, pill) {
 
 // ================= المهام والتكاليف =================
 const TSK_ALERT = "تنبيه لاستكمال سجل";
-const TSK_TYPES = [TSK_ALERT, "نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
+const TSK_TYPES = ["نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
 const TSK_PERIODS = ["", "الطابور الصباحي", "الحصة الأولى", "الحصة الثانية", "الحصة الثالثة", "الحصة الرابعة", "الحصة الخامسة", "الحصة السادسة", "الحصة السابعة", "الفرصة", "بعد نهاية الدوام", "طوال اليوم"];
 const TSK_DEMOS = ["تجريبي ١", "تجريبي ٢"];
 let TSK = null, TSK_FILE = null, TSK_EDIT = null, tskFilter = "open";
@@ -2947,7 +2987,7 @@ function tskForm(t, type) {
   $("tsk-form").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 $("tsk-new").onclick = () => tskForm();
-$("tsk-alert").onclick = () => tskForm(null, TSK_ALERT);
+
 $("tf-cancel").onclick = () => loadTsk();
 $("tsk-form").addEventListener("submit", async e => {
   e.preventDefault();
@@ -2990,7 +3030,7 @@ function tskLampTeacher() {
       ? `💡 تذكير: ${rel(rem[0].occ)} ${dayName(rem[0].occ)} مهمة «${rem[0].title}»${n > 1 ? ` و${ar(n - 1)} غيرها` : ""} — اضغط للاستلام`
       : `💡 لديك ${ar(n)} ${n === 1 ? "مهمة جديدة" : "مهام جديدة"} من رئيس الشعبة — اضغط للاطلاع والاستلام`; else b.remove(); }
 }
-async function tskBadge() { try { TSK = await run("listTasks", CODE); tskLampTeacher(); } catch (e) {} }
+async function tskBadge() { try { TSK = await run("listTasks", CODE); tskLampTeacher(); } catch (e) {} try { ALR = await run("listAlerts", CODE); alrLampTeacher(); } catch (e) {} }
 async function loadTsk(force) {
   $("tsk-form").hidden = true; $("tsk-detail").hidden = true; $("tsk-listwrap").hidden = false; $("tsk-new").parentElement.hidden = !ME.isHead;
   const box = $("tsk-list");
@@ -3091,6 +3131,120 @@ function pdfTskLog(list) {
 }
 $("tsk-logpdf").onclick = () => deliverPdf(() => pdfTskLog((TSK || []).filter(t => !t.status.every(s => s.demo)).slice().sort((a, b) => a.date.localeCompare(b.date))), "سجل المهام والتكاليف.pdf", $("tsk-lmsg"));
 
+
+// ================= تنبيهات الاستكمال =================
+const ALR_ITEMS = [
+  ["curr", "ما قطع من المنهج", ["تحديث ما قطع من المنهج"]],
+  ["cls", "كشف متابعة المتعلمين", ["رصد درجات كشف متابعة المتعلمين", "تقرير المتعلم الفائق", "تقرير المتعلم المتعثر", "الخطة العلاجية للمتعلم المتعثر"]],
+  ["ach", "التنمية المهنية وإنجاز الموظف", ["رفع إنجاز التنمية المهنية (دورة أو ورشة)"]],
+  ["act", "سجل الأنشطة والمسابقات", ["رفع نشاط أو مسابقة مع الصور"]],
+  ["min", "محاضر الاجتماعات", ["الاطلاع على محضر الاجتماع"]],
+  ["vis", "الزيارات الصفية", ["الاطلاع على بطاقة الزيارة الصفية"]],
+  ["nsh", "سجل النشرات والتعاميم", ["الاطلاع على النشرات والتعاميم"]],
+  ["tsk", "المهام والتكاليف", ["تأكيد استلام المهمة المكلَّف بها", "تسجيل تنفيذ المهمة"]],
+  ["", "ملفات وسجلات ورقية (خارج الموقع)", ["دفتر التحضير", "الخطة الفصلية", "سجل الدرجات الورقي", "ملف الإنجاز", "متابعة كراسات المتعلمين", "توقيع كشف أو نموذج"]]
+];
+let ALR = null, ALR_EDIT = null, alrFilter = "open";
+$("af-teachers").innerHTML = TEACHERS.filter(t => t[0] !== HEAD_NAME).map(t => t[0]).concat(TSK_DEMOS)
+  .map(n => `<label class="chip"><input type="checkbox" name="af-t" value="${esc(n)}"><span>${TSK_DEMOS.includes(n) ? esc(n) + " (للتجربة)" : "أ. " + esc(shortName(n))}</span></label>`).join("");
+$("af-items").innerHTML = ALR_ITEMS.map(([k, g, list], gi) => `<div class="af-grp"><b>${esc(g)}</b>${list.map((t, i) => `<label><input type="checkbox" name="af-i" data-k="${k}" value="${esc(t)}"> ${esc(t)}</label>`).join("")}</div>`).join("");
+document.querySelectorAll("[data-afall]").forEach(b => b.onclick = () => document.querySelectorAll('input[name="af-t"]').forEach(c => {
+  const k = b.dataset.afall; c.checked = k === "all" ? !TSK_DEMOS.includes(c.value) : k === "none" ? false : !TSK_DEMOS.includes(c.value) && (DEPT_OF[c.value] || []).includes(k); }));
+const afItems = () => [...document.querySelectorAll('input[name="af-i"]:checked')].map(c => ({ k: c.dataset.k, t: c.value }))
+  .concat($("af-other").value.split("\n").map(x => x.trim()).filter(Boolean).map(t => ({ k: "", t })));
+const afCount = () => { const n = afItems().length; $("af-count").textContent = n ? `${ar(n)} ${n === 1 ? "نقص" : "نواقص"}` : ""; };
+$("af-items").onchange = afCount; $("af-other").oninput = afCount;
+function alrForm(a, teacher) {
+  ALR_EDIT = a || null;
+  $("af-h").textContent = a ? "تعديل التنبيه" : "تنبيه جديد لاستكمال النواقص"; $("af-send").textContent = a ? "حفظ التعديل" : "إرسال التنبيه";
+  document.querySelectorAll('input[name="af-t"]').forEach(c => c.checked = a ? a.teachers.includes(c.value) : c.value === teacher);
+  const known = new Set();
+  document.querySelectorAll('input[name="af-i"]').forEach(c => { c.checked = !!a && a.items.some(x => x.t === c.value); if (c.checked) known.add(c.value); });
+  $("af-other").value = a ? a.items.filter(x => !known.has(x.t)).map(x => x.t).join("\n") : "";
+  $("af-due").value = a ? a.due : ""; $("af-note").value = a ? a.note : ""; $("af-msg").textContent = ""; afCount();
+  $("alr-form").hidden = false; $("alr-listwrap").hidden = true; $("alr-detail").hidden = true; $("alr-newwrap").hidden = true;
+  $("alr-form").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("alr-new").onclick = () => alrForm();
+$("af-cancel").onclick = () => loadAlr();
+$("alr-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const m = $("af-msg"), teachers = [...document.querySelectorAll('input[name="af-t"]:checked')].map(c => c.value), items = afItems();
+  if (!teachers.length) { m.textContent = "اختر المعلم."; return; }
+  if (!items.length) { m.textContent = "اختر نقصًا واحدًا على الأقل."; return; }
+  $("af-send").disabled = true; m.textContent = "جارٍ الإرسال…";
+  try { const r = await run("saveAlert", CODE, { id: ALR_EDIT ? ALR_EDIT.id : "", teachers, items, due: $("af-due").value, note: $("af-note").value });
+    ALR = null; await loadAlr(); openAlr(r.id, true); }
+  catch (x) { m.textContent = cleanErr(x); } finally { $("af-send").disabled = false; }
+});
+const alrLeft = (a, s) => a.items.length - Object.keys((s || {}).done || {}).filter(i => +i < a.items.length).length;
+function alrDone(a) { return ME.isHead ? a.status.every(s => alrLeft(a, s) === 0) : alrLeft(a, a.mine) === 0; }
+function alrPill(a) {
+  if (!ME.isHead) { const left = alrLeft(a, a.mine); return left ? `<span class="pill late">باقي ${ar(left)} من ${ar(a.items.length)}</span>` : `<span class="pill ok">اكتمل ✓</span>`; }
+  const full = a.status.filter(s => alrLeft(a, s) === 0).length;
+  return full === a.status.length ? `<span class="pill ok">اكتمل ✓</span>` : `<span class="pill ${full ? "ahead" : "none"}">اكتمل ${ar(full)} من ${ar(a.status.length)}</span>`;
+}
+function alrLampTeacher() {
+  if (!ME || ME.isHead || !ALR) return;
+  const open = ALR.filter(a => a.mine && alrLeft(a, a.mine) > 0), n = open.reduce((m, a) => m + alrLeft(a, a.mine), 0), el = $("lamp-alr");
+  el.hidden = !n; el.textContent = n ? ar(n) : "";
+  let b = $("alr-banner");
+  if (n && !b) { b = document.createElement("div"); b.id = "alr-banner"; b.className = "tsk-new-banner"; b.onclick = () => go("alr"); document.querySelector("nav.sections").after(b); }
+  if (b) { if (n) b.textContent = `🔔 لديك ${ar(n)} ${n === 1 ? "نقص مطلوب استكماله" : "نواقص مطلوب استكمالها"} من رئيس الشعبة — اضغط للاطلاع`; else b.remove(); }
+}
+async function loadAlr(force) {
+  $("alr-form").hidden = true; $("alr-detail").hidden = true; $("alr-listwrap").hidden = false; $("alr-newwrap").hidden = !ME.isHead;
+  const box = $("alr-list");
+  if (!ALR || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { ALR = await run("listAlerts", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
+  alrLampTeacher();
+  const F = [["open", "لم تكتمل"], ["done", "المكتملة"], ["all", "الكل"]];
+  $("alr-filter").innerHTML = F.map(([k, l]) => `<label class="chip"><input type="radio" name="alr-f" value="${k}"${k === alrFilter ? " checked" : ""}><span>${l} (${ar(ALR.filter(a => k === "all" || (k === "done") === alrDone(a)).length)})</span></label>`).join("");
+  document.querySelectorAll('input[name="alr-f"]').forEach(r => r.onchange = () => { alrFilter = r.value; loadAlr(); });
+  const list = ALR.filter(a => alrFilter === "all" || (alrFilter === "done") === alrDone(a));
+  if (!list.length) { box.innerHTML = `<div class="empty">${ALR.length ? "لا توجد تنبيهات هنا." : ME.isHead ? "لا توجد تنبيهات بعد. اضغط «🔔 تنبيه جديد»." : "لا توجد نواقص مطلوبة منك. بارك الله فيك."}</div>`; return; }
+  box.innerHTML = list.map(a => `<button class="li li-btn" data-alr="${esc(a.id)}"><div class="li-main"><b>${ME.isHead ? a.teachers.map(n => TSK_DEMOS.includes(n) ? n : "أ. " + shortName(n)).join("، ") : "تنبيه من رئيس الشعبة"}</b>
+    <span class="sub">${ar(a.items.length)} ${a.items.length === 1 ? "نقص" : "نواقص"}: ${esc(a.items.slice(0, 3).map(x => x.t).join("، "))}${a.items.length > 3 ? "…" : ""} · ${fmtStamp(a.createdAt)}${a.due ? " · آخر موعد " + fmtDate(a.due) : ""}</span></div>${alrPill(a)}</button>`).join("");
+  box.querySelectorAll("[data-alr]").forEach(b => b.onclick = () => openAlr(b.dataset.alr));
+}
+$("alr-reload").onclick = () => loadAlr(true);
+function alrWaText(a, n) {
+  return waMsg(n, `🔔 تنبيه لاستكمال النواقص التالية:\n${a.items.map((x, i) => `${ar(i + 1)}. ${x.t}`).join("\n")}${a.due ? `\n\nآخر موعد للاستكمال: ${dayName(a.due)} ${a.due}` : ""}${a.note ? "\n\n" + a.note : ""}\n\nبعد الاستكمال علّم على كل نقص «تم» في ركن «تنبيهات الاستكمال».`, "alr=" + a.id);
+}
+function openAlr(id, justSent) {
+  const a = ALR && ALR.find(x => x.id === id); if (!a) return loadAlr();
+  $("alr-listwrap").hidden = true; $("alr-form").hidden = true; $("alr-newwrap").hidden = true;
+  const d = $("alr-detail"); d.hidden = false;
+  const head = `<button class="btn ghost sm" id="alr-back" type="button">→ رجوع للقائمة</button>
+    ${justSent ? `<div class="saved" style="margin-top:10px">✓ تم إرسال التنبيه، وظهر للمعلم في الموقع بلمبة زرقاء. أرسله له واتساب من الأزرار أدناه.</div><div id="alr-wa-top"></div>` : ""}
+    <h2 style="margin-top:10px">تنبيه لاستكمال النواقص</h2>
+    <div class="sub">أُرسل ${fmtStamp(a.createdAt)}${a.due ? ` · آخر موعد للاستكمال: ${dayName(a.due)} ${fmtDate(a.due)}` : ""}</div>
+    ${a.note ? `<h3>ملاحظة رئيس الشعبة</h3><p class="teacher-desc">${esc(a.note)}</p>` : ""}`;
+  if (!ME.isHead) {
+    const s = a.mine, left = alrLeft(a, s), pct = Math.round(100 * (a.items.length - left) / a.items.length);
+    d.innerHTML = head + `<h3>النواقص (${left ? `باقي ${ar(left)} من ${ar(a.items.length)}` : "اكتملت جميعها ✓"})</h3><div class="alr-bar"><i style="width:${pct}%"></i></div>
+      ${a.items.map((x, i) => { const at = (s.done || {})[i]; return `<div class="alr-item${at ? " done" : ""}"><label><input type="checkbox" data-ai="${i}"${at ? " checked" : ""}><span><span class="alr-t">${esc(x.t)}</span>${at ? `<br><span class="sub">تم ${fmtStamp(at)}</span>` : ""}</span></label>${x.k && SEC_NAMES_AR[x.k] ? `<button class="btn ghost sm" type="button" data-ago="${x.k}">افتح السجل ←</button>` : ""}</div>`; }).join("")}
+      <div class="sub" style="margin-top:10px">علّم على النقص بعد ما تستكمله، ويوصل لرئيس الشعبة تلقائيًا.</div><div class="saved" id="alr-amsg"></div>`;
+    $("alr-back").onclick = () => loadAlr();
+    d.querySelectorAll("[data-ago]").forEach(b => b.onclick = () => { go(b.dataset.ago, true); window.scrollTo({ top: $("sec-" + (b.dataset.ago === "act" ? "ach" : b.dataset.ago)).offsetTop - 10, behavior: "smooth" }); });
+    d.querySelectorAll("[data-ai]").forEach(c => c.onchange = async () => {
+      const m = $("alr-amsg"); c.disabled = true; m.textContent = "جارٍ الحفظ…";
+      try { const r = await run("tickAlert", CODE, a.id, +c.dataset.ai, c.checked); a.mine.done = r.done; a.mine.allAt = r.allAt; alrLampTeacher(); openAlr(a.id); if (r.all) $("alr-amsg").textContent = "✓ اكتملت جميع النواقص، جزاك الله خيرًا."; }
+      catch (e) { m.textContent = cleanErr(e); c.checked = !c.checked; c.disabled = false; }
+    });
+    return;
+  }
+  d.innerHTML = head + `<h3>متابعة الاستكمال</h3>
+    ${a.status.map(s => { const l = alrLeft(a, s); return `<div class="af-grp"><b>${s.demo ? esc(s.teacher) + ' <span class="pill none">تجريبي</span>' : "أ. " + esc(s.teacher)} ${l ? `<span class="pill late">باقي ${ar(l)} من ${ar(a.items.length)}</span>` : `<span class="pill ok">اكتمل ✓ ${s.allAt ? fmtStamp(s.allAt) : ""}</span>`}</b>
+      <div class="alr-bar"><i style="width:${Math.round(100 * (a.items.length - l) / a.items.length)}%"></i></div>
+      ${a.items.map((x, i) => { const at = s.done[i]; return `<div class="alr-item${at ? " done" : ""}"><span class="alr-t">${esc(x.t)}</span>${at ? `<span class="pill ok">✓ ${fmtStamp(at)}</span>` : `<span class="pill late">لم يُستكمل</span>`}</div>`; }).join("")}</div>`; }).join("")}
+    <div class="row-actions" style="margin-top:12px"><button class="btn" id="alr-edit" type="button">تعديل</button><button class="btn ghost" id="alr-del" type="button">حذف</button></div>
+    <div class="saved" id="alr-amsg"></div><div id="alr-wa"></div>`;
+  $("alr-back").onclick = () => loadAlr();
+  $("alr-edit").onclick = () => alrForm(a);
+  $("alr-del").onclick = () => confirmInline($("alr-del"), "اضغط مرة ثانية للتأكيد", async () => { try { await run("deleteAlert", CODE, a.id); ALR = ALR.filter(x => x.id !== a.id); loadAlr(); } catch (e) { $("alr-amsg").textContent = cleanErr(e); } });
+  waPanel(justSent ? $("alr-wa-top") : $("alr-wa"), a.teachers, n => alrWaText(a, n),
+    n => { const s = a.status.find(y => y.teacher === n), l = s ? alrLeft(a, s) : a.items.length; return l ? `<span class="pill late">باقي ${ar(l)}</span>` : '<span class="pill ok">اكتمل</span>'; });
+}
 // ================= سجل النشرات والتعاميم =================
 const NSH_SOURCES = ["التوجيه الفني للعلوم الشرعية", "إدارة المعهد", "وزارة التربية", "رئيس الشعبة", "أخرى"];
 let NSH = null, NSH_FILE = null;
