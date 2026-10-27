@@ -238,6 +238,12 @@ nav.sections.six { grid-template-columns: repeat(6, 1fr); }
 nav.sections.seven { grid-template-columns: repeat(7, 1fr); }
 nav.sections.eight { grid-template-columns: repeat(4, 1fr); }
 nav.sections.nine { grid-template-columns: repeat(5, 1fr); }
+nav.sections.ten { grid-template-columns: repeat(5, 1fr); }
+nav.sections.eleven { grid-template-columns: repeat(6, 1fr); }
+@media (max-width: 900px) { nav.sections.ten, nav.sections.eleven { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 640px) { nav.sections.ten, nav.sections.eleven { grid-template-columns: 1fr 1fr 1fr; } }
+.tsk-st { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.tsk-new-banner { margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--accent); font-weight: 700; cursor: pointer; }
 @media (max-width: 640px) { nav.sections.nine { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) { nav.sections.eight, nav.sections.nine { grid-template-columns: 1fr 1fr 1fr; } }
 @media (max-width: 640px) { nav.sections.seven { grid-template-columns: 1fr 1fr 1fr; } }
@@ -370,6 +376,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <button id="nav-prm" aria-selected="false"><b>الاستئذان</b><span>طلب الاستئذان والسجل</span><i class="lamp" id="lamp-prm" hidden></i></button>
       <button id="nav-nsh" aria-selected="false"><b>سجل النشرات والتعاميم</b><span>الاطلاع والتوقيع</span><i class="lamp" id="lamp-nsh" hidden></i></button>
       <button id="nav-res" aria-selected="false"><b>سجل الغياب والاحتياط</b><span id="nav-res-sub">الغياب والبدلاء وتبديل الحصص</span><i class="lamp" id="lamp-res" hidden></i></button>
+      <button id="nav-tsk" aria-selected="false"><b>المهام والتكاليف</b><span id="nav-tsk-sub">تكليف المعلمين ومتابعة التنفيذ</span><i class="lamp" id="lamp-tsk" hidden></i></button>
       <button id="nav-mrp" aria-selected="false" class="head-only" hidden><b>إنجازات القسم</b><span>التقارير الشهرية</span></button>
     </nav>
 
@@ -532,6 +539,43 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <div class="card detail" id="mrp-detail" hidden></div>
     </section>
     <!-- سجل النشرات والتعاميم -->
+    <!-- المهام والتكاليف: رئيس الشعبة يكلّف، والمعلم يستلم وينفّذ -->
+    <section id="sec-tsk" hidden>
+      <div class="row-actions head-only" hidden style="margin-top:14px"><button class="btn" id="tsk-new" type="button">+ تكليف جديد</button></div>
+      <form class="card" id="tsk-form" hidden>
+        <h2 id="tf-h">تكليف جديد</h2>
+        <label class="f">نوع التكليف</label>
+        <div class="chips" id="tf-types"></div>
+        <label class="f" for="tf-title">عنوان المهمة</label>
+        <input type="text" id="tf-title" maxlength="200" placeholder="مثال: إذاعة الصباح عن فضل الصلاة على النبي ﷺ">
+        <label class="f">المعلم المكلَّف</label>
+        <div class="chips" style="margin-bottom:6px"><button class="btn ghost sm" type="button" data-tfall="hd">معلمو الحديث</button><button class="btn ghost sm" type="button" data-tfall="qr">معلمو القرآن</button><button class="btn ghost sm" type="button" data-tfall="all">الجميع</button><button class="btn ghost sm" type="button" data-tfall="none">إلغاء التحديد</button></div>
+        <div class="chips" id="tf-teachers"></div>
+        <div class="grid3">
+          <div><label class="f" for="tf-date">التاريخ <span class="sub" id="tf-day"></span></label><input type="date" id="tf-date"></div>
+          <div><label class="f" for="tf-period">الحصة (اختياري)</label><select id="tf-period"></select></div>
+          <div><label class="f" for="tf-time">الوقت (اختياري)</label><input type="text" id="tf-time" maxlength="40" placeholder="مثال: ٧:١٥ صباحًا"></div>
+        </div>
+        <div class="grid3">
+          <div><label class="f" for="tf-place">المكان (اختياري)</label><input type="text" id="tf-place" maxlength="100" placeholder="مثال: ساحة المعهد"></div>
+          <div><label class="f" for="tf-target">الفئة المستهدفة (اختياري)</label><input type="text" id="tf-target" maxlength="150" placeholder="مثال: طلاب الصف العاشر"></div>
+          <div><label class="f" for="tf-due">آخر موعد للتنفيذ (اختياري)</label><input type="date" id="tf-due"></div>
+        </div>
+        <label class="f" for="tf-details">التفاصيل والتوجيهات</label>
+        <textarea id="tf-details" rows="4" maxlength="3000" placeholder="ما المطلوب من المعلم بالتحديد…"></textarea>
+        <label class="f" for="tf-file">مرفق (اختياري: PDF أو صورة)</label>
+        <label class="upload" for="tf-file"><span id="tf-file-l">اختر الملف</span><input type="file" id="tf-file" accept="application/pdf,image/*"></label>
+        <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="tf-send">إرسال التكليف</button><button class="btn ghost" type="button" id="tf-cancel">إلغاء</button></div>
+        <div class="saved" id="tf-msg"></div>
+      </form>
+      <div id="tsk-listwrap">
+        <div class="chips" id="tsk-filter" style="margin-top:12px"></div>
+        <div class="row-actions" style="margin-top:8px"><button class="btn ghost sm" id="tsk-reload" type="button">تحديث</button><button class="btn ghost sm head-only" id="tsk-logpdf" type="button" hidden>سجل المهام PDF</button></div>
+        <div class="saved" id="tsk-lmsg"></div>
+        <div class="list" id="tsk-list"></div>
+      </div>
+      <div class="card detail" id="tsk-detail" hidden></div>
+    </section>
     <section id="sec-nsh" hidden>
       <details class="card head-only" id="nsh-add" hidden>
         <summary><b>إضافة نشرة أو تعميم</b></summary>
@@ -1149,8 +1193,9 @@ async function doLogin(code, silent) {
     $("me-name").textContent = "أ. " + r.name;
     document.querySelectorAll(".head-only").forEach(el => el.hidden = !r.isHead);
     document.querySelectorAll(".teacher-only").forEach(el => el.hidden = r.isHead);
-    document.querySelector("nav.sections").classList.toggle("eight", !r.isHead);
-    document.querySelector("nav.sections").classList.toggle("nine", !!r.isHead);
+    document.querySelector("nav.sections").classList.toggle("ten", !r.isHead);
+    document.querySelector("nav.sections").classList.toggle("eleven", !!r.isHead);
+    $("nav-tsk-sub").textContent = r.isHead ? "تكليف المعلمين ومتابعة التنفيذ" : "مهامك المكلَّف بها";
     $("nav-res-sub").textContent = r.isHead ? "الغياب والبدلاء وتبديل الحصص" : "طلب تبديل حصة";
     $("demo-note").hidden = !r.isDemo;
     startActPoll();
@@ -1166,13 +1211,13 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); TSK = null; $("tsk-form").hidden = true; $("tsk-banner") && $("tsk-banner").remove(); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
 };
 
-const SECTIONS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "mrp"];
+const SECTIONS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk", "mrp"];
 function go(sec) {
   if (SECTIONS.indexOf(sec) === -1 || (sec === "mrp" && !ME.isHead)) sec = "curr";
   const shown = sec === "act" ? "ach" : sec;
@@ -1197,6 +1242,7 @@ function go(sec) {
   if (sec === "min") loadMinutes();
   if (sec === "vis") visTab(ME.isHead ? (visSub === "mine" ? "new" : visSub) : "mine");
   if (sec === "res") resTab(resSub);
+  if (sec === "tsk") { TSK = null; loadTsk(); }
 }
 SECTIONS.forEach(s => $("nav-" + s).onclick = () => go(s));
 
@@ -2680,11 +2726,11 @@ async function openAch(id) {
 }
 
 // ================= الإشعارات (رئيس الشعبة) =================
-const SEC_NAMES_AR = { curr: "ما قطع من المنهج", cls: "كشف متابعة المتعلمين", ach: "التنمية المهنية وإنجاز الموظف", act: "سجل الأنشطة والمسابقات", min: "محاضر الاجتماعات", vis: "الزيارات الصفية", prm: "الاستئذان", nsh: "سجل النشرات والتعاميم", res: "سجل الغياب والاحتياط" };
+const SEC_NAMES_AR = { curr: "ما قطع من المنهج", cls: "كشف متابعة المتعلمين", ach: "التنمية المهنية وإنجاز الموظف", act: "سجل الأنشطة والمسابقات", min: "محاضر الاجتماعات", vis: "الزيارات الصفية", prm: "الاستئذان", nsh: "سجل النشرات والتعاميم", res: "سجل الغياب والاحتياط", tsk: "المهام والتكاليف" };
 let ACT = null, actTimer = null;
 function actWhen(t) { const d = new Date(String(t).replace(" ", "T") + "+03:00"), mins = Math.round((Date.now() - d) / 60000);
   if (mins < 1) return "الآن"; if (mins < 60) return `قبل ${ar(mins)} دقيقة`; if (mins < 1440) return `قبل ${ar(Math.round(mins / 60))} ساعة`; return fmtStamp(String(t).slice(0, 16)); }
-const LAMP_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res"];
+const LAMP_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk"];
 let SEC_SEEN = {};
 function lsSeen() { try { return JSON.parse(localStorage.getItem("secSeen") || "{}"); } catch (e) { return {}; } }
 function itemUnread(a) { const s = SEC_SEEN[a.sec] || ""; return a.at > (ACT.seen || "") && a.at > s; }
@@ -2732,7 +2778,7 @@ $("bell").onclick = async () => {
 };
 $("act-close").onclick = () => { $("act-panel").hidden = true; loadAct(); };
 $("act-reload").onclick = () => loadAct(true);
-function startActPoll() { clearInterval(actTimer); if (!ME || !ME.isHead) return; loadAct(); actTimer = setInterval(() => { if (!document.hidden && ME && ME.isHead) loadAct(!$("act-panel").hidden); }, 60000); }
+function startActPoll() { clearInterval(actTimer); if (ME && !ME.isHead) { tskBadge(); actTimer = setInterval(() => { if (!document.hidden && ME && !ME.isHead) tskBadge(); }, 120000); return; } if (!ME || !ME.isHead) return; loadAct(); actTimer = setInterval(() => { if (!document.hidden && ME && ME.isHead) loadAct(!$("act-panel").hidden); }, 60000); }
 
 // ================= إنجازات القسم (التقارير الشهرية) =================
 const MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
@@ -2774,6 +2820,172 @@ function openMrp(id) {
 }
 // يقسم نص التقرير إلى نصوص وأماكن صور: [[صور:معرف]]
 function mrpParts(text) { return String(text || "").split(/^\s*\[\[صور:\s*([^\]]+?)\s*\]\]\s*$/m).map((x, i) => i % 2 ? { photos: x.trim() } : { text: x }); }
+
+// ================= المهام والتكاليف =================
+const TSK_TYPES = ["نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
+const TSK_PERIODS = ["", "الطابور الصباحي", "الحصة الأولى", "الحصة الثانية", "الحصة الثالثة", "الحصة الرابعة", "الحصة الخامسة", "الحصة السادسة", "الحصة السابعة", "الفسحة", "بعد نهاية الدوام", "طوال اليوم"];
+const TSK_DEMOS = ["تجريبي ١", "تجريبي ٢"];
+let TSK = null, TSK_FILE = null, TSK_EDIT = null, tskFilter = "open";
+$("tf-types").innerHTML = TSK_TYPES.map((t, i) => `<label class="chip"><input type="radio" name="tf-type" value="${t}"${i ? "" : " checked"}><span>${t}</span></label>`).join("");
+$("tf-period").innerHTML = TSK_PERIODS.map(p => `<option value="${p}">${p || "—"}</option>`).join("");
+$("tf-teachers").innerHTML = TEACHERS.filter(t => t[0] !== HEAD_NAME).map(t => t[0]).concat(TSK_DEMOS)
+  .map(n => `<label class="chip"><input type="checkbox" name="tf-t" value="${esc(n)}"><span>${TSK_DEMOS.includes(n) ? esc(n) + " (للتجربة)" : "أ. " + esc(n.split(" ").slice(0, 1).concat(n.split(" ").slice(-1)).join(" "))}</span></label>`).join("");
+document.querySelectorAll("[data-tfall]").forEach(b => b.onclick = () => document.querySelectorAll('input[name="tf-t"]').forEach(c => {
+  const k = b.dataset.tfall; c.checked = k === "all" ? !TSK_DEMOS.includes(c.value) : k === "none" ? false : !TSK_DEMOS.includes(c.value) && (DEPT_OF[c.value] || []).includes(k); }));
+const tfDay = () => { $("tf-day").textContent = $("tf-date").value ? "(" + dayName($("tf-date").value) + ")" : ""; };
+$("tf-date").oninput = tfDay;
+$("tf-file").onchange = async e => {
+  const f = e.target.files[0]; TSK_FILE = null; if (!f) { $("tf-file-l").textContent = "اختر الملف"; return; }
+  if (f.size > 10 * 1024 * 1024) { $("tf-msg").textContent = "حجم الملف كبير (الحد ١٠ ميغابايت)."; e.target.value = ""; return; }
+  try {
+    if (f.type === "application/pdf") TSK_FILE = { name: f.name, mime: f.type, data: await blobToDataURL(f) };
+    else if (/^image\//.test(f.type)) TSK_FILE = { name: f.name.replace(/\.\w+$/, "") + ".jpg", mime: "image/jpeg", data: await compress(f) };
+    else { $("tf-msg").textContent = "المرفق لازم يكون PDF أو صورة."; e.target.value = ""; return; }
+    $("tf-file-l").textContent = "✓ " + f.name; $("tf-msg").textContent = "";
+  } catch (x) { $("tf-msg").textContent = "تعذّر قراءة الملف."; }
+};
+function tskForm(t) {
+  TSK_EDIT = t || null; TSK_FILE = null; $("tf-file").value = "";
+  $("tf-h").textContent = t ? "تعديل التكليف" : "تكليف جديد"; $("tf-send").textContent = t ? "حفظ التعديل وإشعار المعلمين" : "إرسال التكليف";
+  const ty = document.querySelector(`input[name="tf-type"][value="${t ? t.type : TSK_TYPES[0]}"]`); if (ty) ty.checked = true;
+  $("tf-title").value = t ? t.title : ""; $("tf-date").value = t ? t.date : todayISO(); $("tf-period").value = t ? t.period : ""; $("tf-time").value = t ? t.time : "";
+  $("tf-place").value = t ? t.place : ""; $("tf-target").value = t ? t.target : ""; $("tf-due").value = t ? t.due : ""; $("tf-details").value = t ? t.details : "";
+  $("tf-file-l").textContent = t && t.hasFile ? "المرفق الحالي: " + t.fileName + " (اختر ملفًا لاستبداله)" : "اختر الملف";
+  document.querySelectorAll('input[name="tf-t"]').forEach(c => c.checked = !!t && t.teachers.includes(c.value));
+  tfDay(); $("tf-msg").textContent = "";
+  $("tsk-form").hidden = false; $("tsk-listwrap").hidden = true; $("tsk-detail").hidden = true; $("tsk-new").parentElement.hidden = true;
+  $("tsk-form").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("tsk-new").onclick = () => tskForm();
+$("tf-cancel").onclick = () => loadTsk();
+$("tsk-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const m = $("tf-msg"), teachers = [...document.querySelectorAll('input[name="tf-t"]:checked')].map(c => c.value);
+  if ($("tf-title").value.trim().length < 3) { m.textContent = "اكتب عنوان المهمة."; return; }
+  if (!teachers.length) { m.textContent = "اختر المعلم المكلَّف."; return; }
+  if (!$("tf-date").value) { m.textContent = "اختر تاريخ المهمة."; return; }
+  if ($("tf-due").value && $("tf-due").value < $("tf-date").value) { m.textContent = "آخر موعد للتنفيذ قبل تاريخ المهمة."; return; }
+  $("tf-send").disabled = true; m.textContent = "جارٍ الإرسال…";
+  try {
+    const r = await run("saveTask", CODE, { id: TSK_EDIT ? TSK_EDIT.id : "", type: document.querySelector('input[name="tf-type"]:checked').value, title: $("tf-title").value,
+      teachers, date: $("tf-date").value, period: $("tf-period").value, time: $("tf-time").value, place: $("tf-place").value, target: $("tf-target").value,
+      due: $("tf-due").value, details: $("tf-details").value, ...(TSK_FILE ? { fileName: TSK_FILE.name, mime: TSK_FILE.mime, data: TSK_FILE.data } : {}) });
+    TSK = null; await loadTsk(); openTsk(r.id, true);
+  } catch (x) { m.textContent = cleanErr(x); }
+  finally { $("tf-send").disabled = false; }
+});
+const TSK_PILL = { "جديدة": "late", "تم الاستلام": "none", "تم التنفيذ": "ok", "اعتذر": "late" };
+function tskWhen(t) { return `${dayName(t.date)} ${fmtDate(t.date)}${t.period ? " · " + t.period : ""}${t.time ? " · " + ar(t.time) : ""}`; }
+function tskDone(t) { return ME.isHead ? t.status.every(s => s.status === "تم التنفيذ") : t.mine && t.mine.status === "تم التنفيذ"; }
+function tskPill(t) {
+  if (!ME.isHead) { const s = t.mine.status; return `<span class="pill ${TSK_PILL[s]}">${s === "جديدة" ? "جديدة — بانتظار استلامك" : s}</span>`; }
+  const n = t.status.length, got = t.status.filter(s => s.status !== "جديدة" && s.status !== "اعتذر").length, done = t.status.filter(s => s.status === "تم التنفيذ").length, sorry = t.status.filter(s => s.status === "اعتذر").length;
+  return `<span class="tsk-st">${done === n ? `<span class="pill ok">نُفّذت</span>` : `<span class="pill none">استلم ${ar(got)} من ${ar(n)}</span><span class="pill ${done ? "ok" : "none"}">نفّذ ${ar(done)}</span>`}${sorry ? `<span class="pill late">اعتذر ${ar(sorry)}</span>` : ""}</span>`;
+}
+/** لمبة المعلم: عدد المهام الجديدة التي لم يستلمها */
+function tskLampTeacher() {
+  if (!ME || ME.isHead || !TSK) return;
+  const n = TSK.filter(t => t.mine && t.mine.status === "جديدة").length, el = $("lamp-tsk");
+  el.hidden = !n; el.textContent = n ? ar(n) : ""; $("nav-tsk").title = n ? `لديك ${n} مهمة جديدة` : "";
+  let b = $("tsk-banner");
+  if (n && !b) { b = document.createElement("div"); b.id = "tsk-banner"; b.className = "tsk-new-banner"; b.onclick = () => go("tsk"); document.querySelector("nav.sections").after(b); }
+  if (b) { if (n) b.textContent = `💡 لديك ${ar(n)} ${n === 1 ? "مهمة جديدة" : "مهام جديدة"} من رئيس الشعبة — اضغط للاطلاع والاستلام`; else b.remove(); }
+}
+async function tskBadge() { try { TSK = await run("listTasks", CODE); tskLampTeacher(); } catch (e) {} }
+async function loadTsk(force) {
+  $("tsk-form").hidden = true; $("tsk-detail").hidden = true; $("tsk-listwrap").hidden = false; $("tsk-new").parentElement.hidden = !ME.isHead;
+  const box = $("tsk-list");
+  if (!TSK || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { TSK = await run("listTasks", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
+  tskLampTeacher();
+  const F = [["open", "قيد التنفيذ"], ["done", "المنفّذة"], ["all", "الكل"]];
+  $("tsk-filter").innerHTML = F.map(([k, l]) => `<label class="chip"><input type="radio" name="tsk-f" value="${k}"${k === tskFilter ? " checked" : ""}><span>${l} (${ar(TSK.filter(t => k === "all" || (k === "done") === tskDone(t)).length)})</span></label>`).join("");
+  document.querySelectorAll('input[name="tsk-f"]').forEach(r => r.onchange = () => { tskFilter = r.value; loadTsk(); });
+  const list = TSK.filter(t => tskFilter === "all" || (tskFilter === "done") === tskDone(t));
+  if (!list.length) { box.innerHTML = `<div class="empty">${TSK.length ? "لا توجد مهام هنا." : ME.isHead ? "لا توجد تكاليف بعد. اضغط «+ تكليف جديد»." : "لا توجد مهام مكلَّف بها حاليًا."}</div>`; return; }
+  box.innerHTML = list.map(t => `<button class="li li-btn" data-tsk="${esc(t.id)}"><div class="li-main"><b>${esc(t.type)}: ${esc(t.title)}</b>
+    <span class="sub">${tskWhen(t)}${ME.isHead ? " · " + t.teachers.map(n => TSK_DEMOS.includes(n) ? n : "أ. " + n.split(" ")[0] + " " + n.split(" ").slice(-1)[0]).join("، ") : ""}${t.due ? " · آخر موعد " + fmtDate(t.due) : ""}</span></div>${tskPill(t)}</button>`).join("");
+  box.querySelectorAll("[data-tsk]").forEach(b => b.onclick = () => openTsk(b.dataset.tsk));
+}
+$("tsk-reload").onclick = () => loadTsk(true);
+function tskShare(t) {
+  return `السلام عليكم ورحمة الله وبركاته\nتكليف من رئيس الشعبة — قسم الحديث الشريف والقرآن الكريم\n\nالمهمة: ${t.type} — ${t.title}\nاليوم والتاريخ: ${dayName(t.date)} ${t.date}${t.period ? "\nالموعد: " + t.period : ""}${t.time ? " " + t.time : ""}${t.place ? "\nالمكان: " + t.place : ""}${t.target ? "\nالفئة المستهدفة: " + t.target : ""}${t.due ? "\nآخر موعد للتنفيذ: " + t.due : ""}${t.details ? "\n\nالتفاصيل: " + t.details : ""}\n\nيرجى الدخول إلى موقع القسم وتأكيد الاستلام من ركن «المهام والتكاليف».\n${location.origin + location.pathname}\n\nرئيس الشعبة: ${HEAD_SIGN}`;
+}
+function openTsk(id, justSent) {
+  const t = TSK && TSK.find(x => x.id === id); if (!t) return loadTsk();
+  $("tsk-listwrap").hidden = true; $("tsk-form").hidden = true; $("tsk-new").parentElement.hidden = true;
+  const d = $("tsk-detail"); d.hidden = false;
+  d.innerHTML = `<button class="btn ghost sm" id="tsk-back" type="button">→ رجوع للقائمة</button>
+    ${justSent ? `<div class="saved" style="margin-top:10px">✓ تم إرسال التكليف، وظهر للمعلمين في الموقع بلمبة زرقاء. يمكنك أيضًا إرساله لهم واتساب من الزر أدناه.</div>` : ""}
+    <h2 style="margin-top:10px">${esc(t.type)}: ${esc(t.title)}</h2>
+    <dl class="meta-grid"><div><dt>نوع التكليف</dt><dd>${esc(t.type)}</dd></div><div><dt>اليوم والتاريخ</dt><dd>${dayName(t.date)} ${fmtDate(t.date)}</dd></div>
+      ${t.period ? `<div><dt>الموعد</dt><dd>${esc(t.period)}</dd></div>` : ""}${t.time ? `<div><dt>الوقت</dt><dd>${esc(ar(t.time))}</dd></div>` : ""}
+      ${t.place ? `<div><dt>المكان</dt><dd>${esc(t.place)}</dd></div>` : ""}${t.target ? `<div><dt>الفئة المستهدفة</dt><dd>${esc(t.target)}</dd></div>` : ""}
+      ${t.due ? `<div><dt>آخر موعد للتنفيذ</dt><dd>${dayName(t.due)} ${fmtDate(t.due)}</dd></div>` : ""}</dl>
+    ${t.details ? `<h3>التفاصيل والتوجيهات</h3><p class="teacher-desc">${esc(t.details)}</p>` : ""}
+    <div class="row-actions" style="margin-top:12px">${t.hasFile ? `<button class="btn ghost" id="tsk-file" type="button">المرفق</button>` : ""}<button class="btn ghost" id="tsk-pdf" type="button">خطاب التكليف PDF</button>${ME.isHead ? `<button class="btn ghost" id="tsk-wa" type="button">إرسال واتساب</button>` : ""}</div>
+    <div class="saved" id="tsk-fmsg"></div><div id="tsk-act"></div>`;
+  $("tsk-back").onclick = () => loadTsk();
+  if (t.hasFile) $("tsk-file").onclick = async () => { const m = $("tsk-fmsg"); m.textContent = "جارٍ تحميل المرفق…";
+    try { const f = await run("getTaskFile", CODE, t.id); await deliver(new Blob([b64ToBytes(f.data)], { type: f.mime }), f.name, m); } catch (e) { m.textContent = cleanErr(e); } };
+  $("tsk-pdf").onclick = () => deliverPdf(() => pdfTask(t), `تكليف - ${t.type} - ${t.title}.pdf`, $("tsk-fmsg"));
+  const act = $("tsk-act");
+  if (!ME.isHead) {
+    const s = t.mine, done = s.status === "تم التنفيذ";
+    act.innerHTML = `<h3>حالتك: <span class="pill ${TSK_PILL[s.status]}">${esc(s.status)}</span></h3>
+      ${s.gotAt ? `<div class="sub">استلمت المهمة ${fmtStamp(s.gotAt)}${done ? " · نُفّذت " + fmtStamp(s.doneAt) : ""}</div>` : ""}
+      ${s.sorry ? `<div class="sub">سبب الاعتذار: ${esc(s.sorry)}</div>` : ""}
+      ${done ? `${s.note ? `<p class="teacher-desc">${esc(s.note)}</p>` : ""}<div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="tsk-undo" type="button">التراجع عن «تم التنفيذ»</button></div>`
+      : `${s.status === "جديدة" || s.status === "اعتذر" ? `<div class="row-actions" style="margin-top:10px"><button class="btn" id="tsk-got" type="button">✓ استلمت المهمة</button></div>` : ""}
+        <label class="f" for="tsk-note">ملاحظة عن التنفيذ أو سبب الاعتذار</label><textarea id="tsk-note" rows="2" maxlength="1000" placeholder="مثال: نُفّذت الإذاعة بمشاركة ٦ طلاب من ١٠/٢"></textarea>
+        <div class="row-actions" style="margin-top:10px"><button class="btn" id="tsk-done" type="button">تم التنفيذ</button>${s.status !== "اعتذر" ? `<button class="btn ghost" id="tsk-sorry" type="button">اعتذار</button>` : ""}</div>`}
+      <div class="saved" id="tsk-amsg"></div>`;
+    const go2 = async (a, btn) => { const m = $("tsk-amsg"), note = $("tsk-note") ? $("tsk-note").value : "";
+      if (a === "sorry" && note.trim().length < 3) { m.textContent = "اكتب سبب الاعتذار في الخانة أعلاه."; return; }
+      btn.disabled = true; m.textContent = "جارٍ الحفظ…";
+      try { t.mine = { ...s, ...(await run("respondTask", CODE, t.id, a, note)) }; tskLampTeacher(); openTsk(t.id); } catch (e) { m.textContent = cleanErr(e); btn.disabled = false; } };
+    if ($("tsk-got")) $("tsk-got").onclick = e => go2("got", e.target);
+    if ($("tsk-done")) $("tsk-done").onclick = e => go2("done", e.target);
+    if ($("tsk-sorry")) $("tsk-sorry").onclick = e => go2("sorry", e.target);
+    if ($("tsk-undo")) $("tsk-undo").onclick = e => go2("undo", e.target);
+    return;
+  }
+  $("tsk-wa").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(tskShare(t)), "_blank");
+  act.innerHTML = `<h3>متابعة التنفيذ</h3>
+    <div class="tablebox"><table><thead><tr><th>م</th><th>المعلم</th><th>الحالة</th><th>الاستلام</th><th>التنفيذ وملاحظة المعلم</th></tr></thead><tbody>
+    ${t.status.map((s, i) => `<tr><td>${ar(i + 1)}</td><td class="t">${s.demo ? esc(s.teacher) + ' <span class="pill none">تجريبي</span>' : "أ. " + esc(s.teacher)}</td><td><span class="pill ${TSK_PILL[s.status]}">${esc(s.status)}</span></td>
+      <td>${s.gotAt ? fmtStamp(s.gotAt) : "—"}</td><td>${s.doneAt ? fmtStamp(s.doneAt) + (s.note ? "<br>" + esc(s.note) : "") : s.sorry ? "اعتذار: " + esc(s.sorry) : "—"}</td></tr>`).join("")}</tbody></table></div>
+    <div class="row-actions" style="margin-top:12px"><button class="btn" id="tsk-edit" type="button">تعديل</button><button class="btn ghost" id="tsk-del" type="button">حذف</button></div>
+    <div class="saved" id="tsk-amsg"></div>`;
+  $("tsk-edit").onclick = () => tskForm(t);
+  $("tsk-del").onclick = () => confirmInline($("tsk-del"), "اضغط مرة ثانية للتأكيد", async () => {
+    try { await run("deleteTask", CODE, t.id); TSK = TSK.filter(x => x.id !== t.id); loadTsk(); } catch (e) { $("tsk-amsg").textContent = cleanErr(e); } });
+}
+// خطاب التكليف بالديباجة المعتمدة: بيانات المهمة ثم جدول المكلفين بخانة توقيع لكل معلم
+function pdfTask(t) {
+  const who = ME.isHead ? t.teachers : [ME.name];
+  const info = [["نوع التكليف", t.type], ["اليوم والتاريخ", `${dayName(t.date)} ${fmtDate(t.date)}`]];
+  if (t.period || t.time) info.push(["الموعد", [t.period, ar(t.time || "")].filter(Boolean).join(" · ")]);
+  if (t.place) info.push(["المكان", t.place]); if (t.target) info.push(["الفئة المستهدفة", t.target]); if (t.due) info.push(["آخر موعد للتنفيذ", `${dayName(t.due)} ${fmtDate(t.due)}`]);
+  return { box: "خطاب تكليف", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
+    P.title(t.title),
+    P.p(who.length === 1 ? `الأستاذ الفاضل / ${who[0]}     المحترم` : "الإخوة المعلمون الأفاضل     المحترمون"),
+    P.p("السلام عليكم ورحمة الله وبركاته، وبعد:"),
+    P.p(`نظرًا لما عهدناه ${who.length === 1 ? "فيك" : "فيكم"} من حرص وتميز، ${who.length === 1 ? "تُكلَّف" : "تُكلَّفون"} بالمهمة الآتية:`),
+    P.info(info, 2),
+    t.details ? P.h("التفاصيل والتوجيهات") + P.text(t.details) : "",
+    P.h("المكلَّفون"),
+    P.grid(P.th(["م", "المعلم", "التوقيع بالعلم"]), who.map((n, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: "أ. " + n, c: "b" }, ""])), "vis"),
+    P.p(`شاكرين ${who.length === 1 ? "لك" : "لكم"} حسن تعاونكم، وجزاكم الله خيرًا.`)] };
+}
+function pdfTskLog(list) {
+  return { box: "سجل المهام والتكاليف", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
+    list.length ? P.grid(P.th(["م", "النوع", "المهمة", "اليوم والتاريخ", "المكلَّفون", "الحالة"]),
+      list.map((t, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: t.type, c: "c" }, t.title, tskWhen(t),
+        t.status.map(s => "أ. " + s.teacher.split(" ")[0] + " " + s.teacher.split(" ").slice(-1)[0]).join("، "),
+        { t: t.status.map(s => s.status).every(x => x === "تم التنفيذ") ? "نُفّذت" : `نفّذ ${ar(t.status.filter(s => s.status === "تم التنفيذ").length)} من ${ar(t.status.length)}`, c: "c" }])))
+      : P.p("لا توجد تكاليف بعد."), P.p(`المجموع: ${ar(list.length)}`, "b")] };
+}
+$("tsk-logpdf").onclick = () => deliverPdf(() => pdfTskLog((TSK || []).filter(t => !t.status.every(s => s.demo)).slice().sort((a, b) => a.date.localeCompare(b.date))), "سجل المهام والتكاليف.pdf", $("tsk-lmsg"));
 
 // ================= سجل النشرات والتعاميم =================
 const NSH_SOURCES = ["التوجيه الفني للعلوم الشرعية", "إدارة المعهد", "وزارة التربية", "رئيس الشعبة", "أخرى"];

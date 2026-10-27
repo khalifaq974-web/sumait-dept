@@ -64,7 +64,8 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, edi
   listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport, saveRemedialPlan,
   myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
-  listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen };
+  listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen,
+  listTasks, saveTask, deleteTask, getTaskFile, respondTask };
 
 function doPost(e) {
   let out;
@@ -118,6 +119,7 @@ function setup() {
   srepSheet_();
   profSheet_();
   permSheet_();
+  tskSheet_(); tskStSheet_();
   ensureDemoMinute_();
   folder_();
   const first = ss.getSheets()[0];
@@ -1478,6 +1480,8 @@ const ACT_LOG = {
   saveRemedialPlan: () => ({ sec: "cls", text: "حدّث الخطة العلاجية لمتعلم متعثر" }),
   requestSwap: a => ({ sec: "res", text: `طلب تبديل حصة مع أ. ${a[1] && a[1].other || ""} ليوم ${a[1] && a[1].date || ""}` }),
   cancelSwap: () => ({ sec: "res", text: "ألغى تبديل حصة" }),
+  respondTask: (a, res) => { const r = tskRows_().find(x => x[0] === String(a[1])), t = r ? `«${r[1]}: ${r[2]}»` : "مهمة";
+    return { sec: "tsk", text: a[2] === "done" ? `نفّذ المهمة ${t}${res && res.note ? " — " + res.note : ""}` : a[2] === "sorry" ? `اعتذر عن المهمة ${t}: ${res && res.sorry || ""}` : a[2] === "undo" ? `تراجع عن تنفيذ المهمة ${t}` : `استلم المهمة ${t}` }; },
   ackCircular: a => { const r = nshRows_().find(x => x[0] === String(a[1])); return { sec: "nsh", text: `اطّلع على ${r ? r[1] + ": " + r[4] : "نشرة"}` }; }
 };
 function logAct_(fn, args, result) {
@@ -1508,7 +1512,7 @@ function listActivity(code, limit) {
   return { items, unread: v.filter(r => r[0] > seen).length, seen, secSeen };
 }
 /** اللمبة الزرقاء: فتح الركن يصفّر عدّاد تحديثاته فقط */
-const ACT_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res"];
+const ACT_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk"];
 function markSectionSeen(code, sec) {
   head_(code);
   if (ACT_SECS.indexOf(sec) === -1) throw new Error("ركن غير معروف.");
@@ -1520,3 +1524,116 @@ function markSectionSeen(code, sec) {
   });
 }
 function markActivitySeen(code) { head_(code); const t = stamp_(); PropertiesService.getScriptProperties().setProperty("actSeen", t); return { seen: t }; }
+
+
+// ======================= المهام والتكاليف =======================
+// يكلّف رئيس الشعبة معلمًا أو أكثر بمهمة (نشاط، إذاعة، ورشة…)، فتصل للمعلم في الموقع بلمبة زرقاء،
+// ويؤكد المعلم الاستلام ثم يسجّل التنفيذ، وكل ذلك يصل لرئيس الشعبة في الإشعارات.
+// «المهام والتكاليف»: 0 المعرف | 1 النوع | 2 العنوان | 3 التفاصيل | 4 التاريخ | 5 الحصة | 6 الوقت | 7 المكان | 8 الفئة المستهدفة
+//                     9 آخر موعد للتنفيذ | 10 المكلفون (مفصولون بـ |) | 11 الملف | 12 اسم الملف | 13 نوع الملف | 14 وقت الإنشاء | 15 آخر تعديل
+// «حالة التكاليف»:    0 المهمة | 1 المعلم | 2 وقت الاستلام | 3 وقت التنفيذ | 4 ملاحظة المعلم | 5 الحالة | 6 سبب الاعتذار
+const SHEET_TSK = "المهام والتكاليف";
+const SHEET_TSKST = "حالة التكاليف";
+const TSK_HEAD = ["المعرف", "النوع", "العنوان", "التفاصيل", "التاريخ", "الحصة", "الوقت", "المكان", "الفئة المستهدفة", "آخر موعد للتنفيذ",
+  "المكلفون", "الملف", "اسم الملف", "نوع الملف", "وقت الإنشاء", "آخر تعديل"];
+const TSKST_HEAD = ["المهمة", "المعلم", "وقت الاستلام", "وقت التنفيذ", "ملاحظة المعلم", "الحالة", "سبب الاعتذار"];
+const TSK_TYPES = ["نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
+const TSK_NEW = "جديدة", TSK_GOT = "تم الاستلام", TSK_DONE = "تم التنفيذ", TSK_SORRY = "اعتذر";
+function tskSheet_() { return sheet_(SHEET_TSK, TSK_HEAD, true); }
+function tskStSheet_() { return sheet_(SHEET_TSKST, TSKST_HEAD, true); }
+function tskRows_() { return tskSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]); }
+function tskSts_() { return tskStSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]); }
+/** من يمكن تكليفه: معلمو الشعبة (بدون الرئيس) والحسابات التجريبية للتجربة */
+function tskPool_() { return TEACHERS.filter(t => !t[2]).map(t => t[0]).concat(Object.keys(DEMOS)); }
+function tskObj_(r, sts, me) {
+  const who = r[10].split("|").filter(Boolean);
+  const st = who.map(t => { const s = sts.find(x => x[0] === r[0] && x[1] === t) || [];
+    return { teacher: t, demo: isDemo_(t), gotAt: s[2] || "", doneAt: s[3] || "", note: s[4] || "", status: s[5] || TSK_NEW, sorry: s[6] || "" }; });
+  const o = { id: r[0], type: r[1], title: r[2], details: r[3], date: r[4], period: r[5], time: r[6], place: r[7], target: r[8], due: r[9],
+    fileName: r[12], mime: r[13], hasFile: !!r[11], createdAt: r[14], updatedAt: r[15], teachers: who };
+  if (me.isHead) o.status = st; else o.mine = st.find(x => x.teacher === me.name) || null;
+  return o;
+}
+function listTasks(code) {
+  const me = who_(code), sts = tskSts_();
+  return tskRows_().map(r => tskObj_(r, sts, me)).filter(o => me.isHead ? !me.isDemo : !!o.mine)
+    .sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
+}
+function saveTask(code, t) {
+  const me = head_(code);
+  if (me.isDemo) throw new Error("غير متاح في الحساب التجريبي.");
+  const type = TSK_TYPES.indexOf(t.type) !== -1 ? t.type : "أخرى";
+  const title = String(t.title || "").trim().slice(0, 200); if (title.length < 3) throw new Error("اكتب عنوان المهمة.");
+  const date = String(t.date || "").slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("اختر تاريخ المهمة.");
+  const due = String(t.due || "").slice(0, 10); if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new Error("آخر موعد غير صحيح.");
+  const pool = tskPool_(), who = (Array.isArray(t.teachers) ? t.teachers : []).map(String).filter((x, i, a) => pool.indexOf(x) !== -1 && a.indexOf(x) === i);
+  if (!who.length) throw new Error("اختر المعلم المكلَّف.");
+  const s = (v, n) => String(v || "").trim().slice(0, n);
+  const row = [s(t.id, 20) || newId_(), type, title, s(t.details, 3000), date, s(t.period, 20), s(t.time, 40), s(t.place, 100), s(t.target, 150), due, who.join("|"), "", "", "", "", ""];
+  let file = null;
+  if (t.data) {
+    const mime = String(t.mime || ""); if (!/^(application\/pdf|image\/(jpeg|png))$/.test(mime)) throw new Error("المرفق لازم يكون PDF أو صورة.");
+    const data = String(t.data).replace(/^data:[^,]+,/, ""); if (data.length > 14000000) throw new Error("حجم المرفق كبير (الحد ١٠ ميغابايت).");
+    const name = s(t.fileName, 120) || "مرفق";
+    file = { id: folder_().createFile(Utilities.newBlob(Utilities.base64Decode(data), mime, `${row[0]} - ${name}`)).getId(), name, mime };
+  }
+  return withLock_(() => {
+    const sh = tskSheet_(), at = nowText_(), idx = t.id ? findRow_(sh, 1, row[0]) : -1;
+    if (t.id && idx < 0) throw new Error("المهمة غير موجودة.");
+    if (idx > 0) {
+      const old = sh.getRange(idx, 1, 1, TSK_HEAD.length).getDisplayValues()[0];
+      if (file) { if (old[11]) { try { DriveApp.getFileById(old[11]).setTrashed(true); } catch (e) {} } row[11] = file.id; row[12] = file.name; row[13] = file.mime; }
+      else if (t.removeFile) { if (old[11]) { try { DriveApp.getFileById(old[11]).setTrashed(true); } catch (e) {} } }
+      else { row[11] = old[11]; row[12] = old[12]; row[13] = old[13]; }
+      row[14] = old[14]; row[15] = at;
+      writeRow_(sh, idx, row);
+      // من أُزيل من التكليف تُحذف حالته، والمهمة المعدّلة تعود «جديدة» عند الباقين حتى يطّلعوا على التعديل
+      const st = tskStSheet_(), v = st.getDataRange().getDisplayValues();
+      for (let i = v.length - 1; i >= 1; i--) if (v[i][0] === row[0]) {
+        if (who.indexOf(v[i][1]) === -1) st.deleteRow(i + 1);
+        else if (v[i][5] === TSK_GOT || v[i][5] === TSK_SORRY) writeRow_(st, i + 1, [row[0], v[i][1], "", "", "", TSK_NEW, ""]);
+      }
+    } else {
+      if (file) { row[11] = file.id; row[12] = file.name; row[13] = file.mime; }
+      row[14] = at; row[15] = at; appendText_(sh, row);
+    }
+    return { id: row[0] };
+  });
+}
+function deleteTask(code, id) {
+  head_(code);
+  return withLock_(() => {
+    const sh = tskSheet_(), row = findRow_(sh, 1, String(id)); if (row < 0) throw new Error("المهمة غير موجودة.");
+    const fid = sh.getRange(row, 12).getDisplayValue(); if (fid) { try { DriveApp.getFileById(fid).setTrashed(true); } catch (e) {} }
+    sh.deleteRow(row);
+    const st = tskStSheet_(), v = st.getDataRange().getDisplayValues();
+    for (let i = v.length - 1; i >= 1; i--) if (v[i][0] === String(id)) st.deleteRow(i + 1);
+    return true;
+  });
+}
+function getTaskFile(code, id) {
+  const me = who_(code), r = tskRows_().find(x => x[0] === String(id));
+  if (!r || !r[11] || (!(me.isHead && !me.isDemo) && r[10].split("|").indexOf(me.name) === -1)) throw new Error("المرفق غير موجود.");
+  return { name: r[12], mime: r[13], data: Utilities.base64Encode(DriveApp.getFileById(r[11]).getBlob().getBytes()) };
+}
+/** المعلم: act = got (استلمت) · done (تم التنفيذ مع ملاحظة) · sorry (اعتذار مع السبب) */
+function respondTask(code, id, act, note) {
+  const me = who_(code);
+  if (me.isHead) throw new Error("هذا الإجراء للمعلم المكلَّف.");
+  const r = tskRows_().find(x => x[0] === String(id));
+  if (!r || r[10].split("|").indexOf(me.name) === -1) throw new Error("المهمة غير موجودة.");
+  note = String(note || "").trim().slice(0, 1000);
+  if (act === "sorry" && note.length < 3) throw new Error("اكتب سبب الاعتذار.");
+  return withLock_(() => {
+    const st = tskStSheet_(), v = st.getDataRange().getDisplayValues(), at = nowText_();
+    let i = v.findIndex((x, k) => k > 0 && x[0] === r[0] && x[1] === me.name);
+    const cur = i > 0 ? v[i] : [r[0], me.name, "", "", "", TSK_NEW, ""];
+    if (act === "got") { if (!cur[2]) cur[2] = at; if (cur[5] === TSK_NEW || cur[5] === TSK_SORRY) cur[5] = TSK_GOT; cur[6] = ""; }
+    else if (act === "done") { if (!cur[2]) cur[2] = at; cur[3] = at; cur[4] = note; cur[5] = TSK_DONE; cur[6] = ""; }
+    else if (act === "sorry") { if (!cur[2]) cur[2] = at; cur[3] = ""; cur[5] = TSK_SORRY; cur[6] = note; }
+    else if (act === "undo") { cur[3] = ""; cur[4] = ""; cur[5] = cur[2] ? TSK_GOT : TSK_NEW; cur[6] = ""; }
+    else throw new Error("إجراء غير معروف.");
+    if (i > 0) writeRow_(st, i + 1, cur); else appendText_(st, cur);
+    return { gotAt: cur[2], doneAt: cur[3], note: cur[4], status: cur[5], sorry: cur[6] };
+  });
+}
