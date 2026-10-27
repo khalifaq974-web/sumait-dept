@@ -65,7 +65,7 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, edi
   myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
   listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen,
-  listTasks, saveTask, deleteTask, getTaskFile, respondTask };
+  listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones };
 
 function doPost(e) {
   let out;
@@ -227,7 +227,7 @@ function login(code) {
   const all = readEntries_(demoPrefix_(me));
   const mine = {};
   me.classes.forEach(a => { const p = a.split(":"), k = p[1] + "__" + p[0]; if (all[k]) mine[k] = all[k]; });
-  return { name: me.name, classes: me.classes, isHead: me.isHead, isDemo: me.isDemo, entries: mine, all: me.isHead ? all : null };
+  return { name: me.name, classes: me.classes, isHead: me.isHead, isDemo: me.isDemo, entries: mine, all: me.isHead ? all : null, phone: phones_()[me.name] || "" };
 }
 
 function saveEntry(code, classId, subject, done, note, label) {
@@ -1538,9 +1538,9 @@ function markActivitySeen(code) { head_(code); const t = stamp_(); PropertiesSer
 const SHEET_TSK = "المهام والتكاليف";
 const SHEET_TSKST = "حالة التكاليف";
 const TSK_HEAD = ["المعرف", "النوع", "العنوان", "التفاصيل", "التاريخ", "الحصة", "الوقت", "المكان", "الفئة المستهدفة", "آخر موعد للتنفيذ",
-  "المكلفون", "الملف", "اسم الملف", "نوع الملف", "وقت الإنشاء", "آخر تعديل", "التكرار"];
+  "المكلفون", "الملف", "اسم الملف", "نوع الملف", "وقت الإنشاء", "آخر تعديل", "التكرار", "السجل المطلوب"];
 const TSKST_HEAD = ["المهمة", "المعلم", "وقت الاستلام", "وقت التنفيذ", "ملاحظة المعلم", "الحالة"];
-const TSK_TYPES = ["نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
+const TSK_TYPES = ["تنبيه لاستكمال سجل", "نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
 const TSK_NEW = "جديدة", TSK_GOT = "تم الاستلام", TSK_DONE = "تم التنفيذ";
 function tskSheet_() {
   const sh = sheet_(SHEET_TSK, TSK_HEAD, true);
@@ -1563,7 +1563,7 @@ function tskObj_(r, sts, me) {
     return { teacher: t, demo: isDemo_(t), gotAt: s[2] || "", doneAt: s[3] || "", note: s[4] || "", status: s[5] || TSK_NEW }; });
   const o = { id: r[0], type: r[1], title: r[2], details: r[3], date: r[4], period: r[5], time: r[6], place: r[7], target: r[8], due: r[9],
     fileName: r[12], mime: r[13], hasFile: !!r[11], createdAt: r[14], updatedAt: r[15], teachers: who,
-    repeat: weekly ? "weekly" : "", occ, soon: !weekly || isoAdd_(todayIso_(), 1) >= occ };
+    repeat: weekly ? "weekly" : "", rec: r[17] || "", occ, soon: !weekly || isoAdd_(todayIso_(), 1) >= occ };
   if (me.isHead) o.status = st; else o.mine = st.find(x => x.teacher === me.name) || null;
   return o;
 }
@@ -1582,7 +1582,7 @@ function saveTask(code, t) {
   const pool = tskPool_(), who = (Array.isArray(t.teachers) ? t.teachers : []).map(String).filter((x, i, a) => pool.indexOf(x) !== -1 && a.indexOf(x) === i);
   if (!who.length) throw new Error("اختر المعلم المكلَّف.");
   const s = (v, n) => String(v || "").trim().slice(0, n);
-  const row = [s(t.id, 20) || newId_(), type, title, s(t.details, 3000), date, s(t.period, 20), s(t.time, 40), s(t.place, 100), s(t.target, 150), t.repeat === "weekly" ? "" : due, who.join("|"), "", "", "", "", "", t.repeat === "weekly" ? "weekly" : ""];
+  const row = [s(t.id, 20) || newId_(), type, title, s(t.details, 3000), date, s(t.period, 20), s(t.time, 40), s(t.place, 100), s(t.target, 150), t.repeat === "weekly" ? "" : due, who.join("|"), "", "", "", "", "", t.repeat === "weekly" ? "weekly" : "", ACT_SECS.indexOf(t.rec) !== -1 ? t.rec : ""];
   if (row[16] && dayOf_(date) > 4) throw new Error("يوم المهمة الثابتة عطلة (جمعة أو سبت).");
   let file = null;
   if (t.data) {
@@ -1661,3 +1661,23 @@ function addTuesdayDuty() {
     tue, "", "", "", "", "", who.join("|"), "", "", "", at, at, "weekly"]));
   return "أُضيفت ليوم " + tue + " لـ " + who.length + " معلمين";
 }
+
+
+// ======================= أرقام واتساب المعلمين =======================
+// يكتب كل معلم رقمه في الموقع، ويستخدمه رئيس الشعبة لإرسال التكليف والتنبيه واتساب بضغطة (wa.me) دون أي اشتراك.
+const SHEET_WA = "واتساب المعلمين";
+function waSheet_() { return sheet_(SHEET_WA, ["المعلم", "رقم الواتساب", "آخر تحديث"], true); }
+function phones_() { const out = {}; const sh = sh_(SHEET_WA); if (sh) sh.getDataRange().getDisplayValues().slice(1).forEach(r => { if (r[0] && r[1]) out[r[0]] = r[1]; }); return out; }
+function cleanPhone_(v) {
+  let d = String(v || "").replace(/[٠-٩]/g, x => "٠١٢٣٤٥٦٧٨٩".indexOf(x)).replace(/[^\d]/g, "").replace(/^00/, "");
+  if (/^[24569]\d{7}$/.test(d)) d = "965" + d; // رقم كويتي بدون مفتاح الدولة
+  if (!/^\d{10,15}$/.test(d)) throw new Error("رقم الواتساب غير صحيح. اكتبه هكذا: 9xxxxxxx");
+  return d;
+}
+function saveMyPhone(code, phone) {
+  const me = who_(code), p = cleanPhone_(phone);
+  withLock_(() => { const sh = waSheet_(), row = findRow_(sh, 1, me.name), vals = [me.name, p, nowText_()]; if (row > 0) writeRow_(sh, row, vals); else appendText_(sh, vals); });
+  return { phone: p };
+}
+/** لرئيس الشعبة: أرقام المعلمين */
+function teacherPhones(code) { head_(code); return phones_(); }
