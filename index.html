@@ -268,6 +268,12 @@ nav.sections.eleven { grid-template-columns: repeat(6, 1fr); }
 .res-row.exc { border-color: #d9822b; background: #fff6ea; }
 .pill.exc { background: #fdebd3; color: #9a5300; }
 select.dept-sel { width: auto; min-width: 170px; font-weight: 700; border-color: var(--accent); color: var(--accent); }
+.gap-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 10px; background: var(--surface); }
+.gap-card .gap-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gap-card label { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; font-size: 14px; cursor: pointer; }
+.gap-card label input { width: 18px; height: 18px; margin-top: 3px; accent-color: var(--accent); flex: none; }
+.gap-card label .sub { margin-right: 4px; }
+.gap-card.sent { opacity: .6; }
 .tsk-st { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .tsk-new-banner { margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--accent); font-weight: 700; cursor: pointer; }
 @media (max-width: 640px) { nav.sections.nine { grid-template-columns: 1fr 1fr; } }
@@ -640,6 +646,13 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="saved" id="af-msg"></div>
       </form>
       <div id="alr-listwrap">
+        <details class="card head-only" id="gaps-card" hidden>
+          <summary><b>🔎 النواقص المكتشفة تلقائيًا</b> <span class="sub" id="gaps-sum"></span></summary>
+          <div class="sub" style="margin-top:6px">يفحص الموقع السجلات ويطلع لكل معلم ما ينقصه. الخيارات معلَّمة، شيل اللي ما تبيه واضغط «إرسال التنبيه». (رصد الدرجات لا يُحسب نقصًا، والملفات الورقية تختارها من «🔔 تنبيه جديد».)</div>
+          <div class="row-actions" style="margin-top:8px"><button class="btn sm" type="button" id="gaps-all">🔔 تنبيه الكل</button><button class="btn ghost sm" type="button" id="gaps-reload">إعادة الفحص</button></div>
+          <div class="saved" id="gaps-msg"></div><div id="gaps-wa"></div>
+          <div id="gaps-list"></div>
+        </details>
         <div class="chips" id="alr-filter" style="margin-top:12px"></div>
         <div class="row-actions" style="margin-top:8px"><button class="btn ghost sm" id="alr-reload" type="button">تحديث</button><button class="btn ghost sm head-only" id="alr-logpdf" type="button" hidden>سجل التنبيهات PDF</button></div>
         <div class="saved" id="alr-lmsg"></div>
@@ -1328,7 +1341,7 @@ function go(sec, byUser) {
   if (sec === "vis") visTab(ME.isHead ? (visSub === "mine" ? "new" : visSub) : "mine");
   if (sec === "res") resTab(resSub);
   if (sec === "tsk") { TSK = null; loadTsk(); }
-  if (sec === "alr") { ALR = null; loadAlr(); }
+  if (sec === "alr") { ALR = null; loadAlr().then(() => loadGaps(true)); }
 }
 SECTIONS.forEach(s => $("nav-" + s).onclick = () => go(s, true));
 
@@ -3023,7 +3036,7 @@ setTimeout(() => {
   mountDept("ach", "ach-reload", () => loadAllAch());
   mountDept("prm", "prm-reload", () => renderPermLog());
   mountDept("tsk", "tsk-reload", () => loadTsk());
-  mountDept("alr", "alr-reload", () => loadAlr());
+  mountDept("alr", "alr-reload", () => { loadAlr(); if (GAPS) renderGaps(); });
   mountDept("cls", "cls-reload", () => { renderClsList(); renderSreps(); });
   document.querySelectorAll('select[data-dsel="tsk"], select[data-dsel="alr"], select[data-dsel="cls"]').forEach(x => { x.classList.add("head-only"); x.hidden = true; });
 }, 0);
@@ -3340,6 +3353,62 @@ async function loadAlr(force) {
   box.querySelectorAll("[data-alr]").forEach(b => b.onclick = () => openAlr(b.dataset.alr));
 }
 $("alr-reload").onclick = () => loadAlr(true);
+
+// ---------- النواقص المكتشفة تلقائيًا ----------
+let GAPS = null;
+async function loadGaps(force) {
+  if (!ME || !ME.isHead || ME.isDemo) return;
+  $("gaps-card").hidden = false;
+  const box = $("gaps-list");
+  if (!GAPS || force) {
+    box.innerHTML = '<div class="empty">جارٍ فحص السجلات…</div>';
+    try {
+      const [g, all] = await Promise.all([run("teacherGaps", CODE), Object.keys(ALL || {}).length ? ALL : run("headData", CODE)]);
+      ALL = all || ALL; GAPS = g;
+      // ما قطع من المنهج: الصفوف المتأخرة عن الخطة أو التي لم تُحدَّث
+      const cur = {};
+      ALL_CLASSES.forEach(c => { if (c.teacher === HEAD_NAME) return; const key = planKey(c.dept, c.grade), p = ALL[docId(c)], st = status(key, p ? p.done : null, WEEK);
+        if (st.kind === "late" || st.kind === "none") (cur[c.teacher] = cur[c.teacher] || []).push(c); });
+      Object.entries(cur).forEach(([t, cs]) => ["hd", "qr"].forEach(d => { const l = cs.filter(c => c.dept === d); if (!l.length) return;
+        (GAPS[t] = GAPS[t] || []).unshift({ k: "curr", t: `تحديث ما قطع من المنهج (${SUBJECTS[d]}): ${l.map(c => c.label).join("، ")}`, dept: d }); }));
+    } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; }
+  }
+  renderGaps();
+}
+// هل سبق تنبيهه بهذا النقص في تنبيه لم يكتمل؟
+function gapSent(t, text) { return (ALR || []).some(a => a.teachers.includes(t) && a.items.some((x, i) => x.t === text && !((a.status.find(s => s.teacher === t) || {}).done || {})[i])); }
+function renderGaps() {
+  const d = dF("alr"), names = TEACHERS.map(([t]) => t).concat(TSK_DEMOS).filter(t => GAPS[t] && GAPS[t].length && (TSK_DEMOS.includes(t) ? !d : tIn(t, d)));
+  const items = t => GAPS[t].filter(x => !d || x.k !== "curr" || x.dept === d);
+  const total = names.reduce((m, t) => m + items(t).length, 0);
+  $("gaps-sum").textContent = total ? `· ${ar(names.length)} معلمين · ${ar(total)} نقص` : "· لا توجد نواقص ✓";
+  $("gaps-all").hidden = !names.length;
+  $("gaps-list").innerHTML = names.length ? names.map(t => `<div class="gap-card" data-gt="${esc(t)}"><div class="gap-h"><b>${TSK_DEMOS.includes(t) ? esc(t) + ' <span class="pill none">تجريبي</span>' : "أ. " + esc(shortName(t))} <span class="pill late">${ar(items(t).length)} ${items(t).length === 1 ? "نقص" : "نواقص"}</span></b>
+      <button class="btn sm" type="button" data-gsend="${esc(t)}">🔔 إرسال التنبيه</button></div>
+      ${items(t).map((x, i) => { const sent = gapSent(t, x.t); return `<label><input type="checkbox" data-gi="${i}"${sent ? "" : " checked"}><span>${esc(x.t)}${x.k && SEC_NAMES_AR[x.k] ? `<span class="sub">· ${esc(SEC_NAMES_AR[x.k])}</span>` : ""}${sent ? '<span class="pill none">سبق تنبيهه</span>' : ""}</span></label>`; }).join("")}</div>`).join("")
+    : '<div class="empty">ما فيه نواقص في سجلات الموقع حاليًا ✓</div>';
+  $("gaps-list").querySelectorAll("[data-gsend]").forEach(b => b.onclick = () => sendGaps([b.dataset.gsend]));
+}
+async function sendGaps(names) {
+  const m = $("gaps-msg"), d = dF("alr"), made = {};
+  m.textContent = "جارٍ الإرسال…";
+  for (const t of names) {
+    const card = document.querySelector(`.gap-card[data-gt="${CSS.escape(t)}"]`); if (!card) continue;
+    const list = GAPS[t].filter(x => !d || x.k !== "curr" || x.dept === d);
+    const items = [...card.querySelectorAll("[data-gi]")].filter(c => c.checked).map(c => list[+c.dataset.gi]).map(x => ({ k: x.k, t: x.t }));
+    if (!items.length) continue;
+    try { const r = await run("saveAlert", CODE, { teachers: [t], items, due: "", note: "" }); made[t] = r.id; card.classList.add("sent"); }
+    catch (e) { m.textContent = cleanErr(e); return; }
+  }
+  const n = Object.keys(made).length;
+  if (!n) { m.textContent = "ما فيه نواقص معلَّمة للإرسال."; return; }
+  ALR = await run("listAlerts", CODE); alrLampTeacher(); loadAlr(); $("gaps-card").open = true;
+  m.textContent = `✓ أُرسل التنبيه لـ ${ar(n)} ${n === 1 ? "معلم" : "معلمين"}، وظهر لهم في الموقع. أرسله واتساب من الأزرار:`;
+  waPanel($("gaps-wa"), Object.keys(made), t => alrWaText(ALR.find(a => a.id === made[t]), t));
+  renderGaps();
+}
+$("gaps-all").onclick = () => confirmInline($("gaps-all"), "اضغط مرة ثانية لتنبيه الكل", () => sendGaps([...document.querySelectorAll(".gap-card[data-gt]")].map(c => c.dataset.gt)));
+$("gaps-reload").onclick = () => { $("gaps-wa").innerHTML = ""; $("gaps-msg").textContent = ""; loadGaps(true); };
 // سجل التنبيهات: إحصائية لكل معلم ثم تفاصيل كل تنبيه
 function pdfAlrLog() {
   const d = dF("alr"), list = (ALR || []).filter(a => !d || a.teachers.some(n => tIn(n, d))).slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt));

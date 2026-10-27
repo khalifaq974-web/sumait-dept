@@ -66,7 +66,7 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, edi
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
   listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen,
   listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones, phonesList,
-  listAlerts, saveAlert, deleteAlert, tickAlert, approveMyReport };
+  listAlerts, saveAlert, deleteAlert, tickAlert, approveMyReport, teacherGaps };
 
 function doPost(e) {
   let out;
@@ -1822,3 +1822,35 @@ function tickAlert(code, id, idx, done) {
     return { done: d, all, allAt: cur[3] };
   });
 }
+
+
+// ======================= النواقص المكتشفة تلقائيًا (لتنبيهات الاستكمال) =======================
+// لرئيس الشعبة: لكل معلم ما ينقصه في سجلات الموقع. (ما قطع من المنهج يُحسب في الصفحة من خطة التوزيع؛ ورصد الدرجات لا يُعدّ نقصًا لأن بعض المعلمين يرصدون ورقيًا)
+function teacherGaps(code) {
+  head_(code);
+  const out = {}, add = (t, k, text, ref) => { if (!t || t === HEAD_NAME_ || !tskPool_().includes(t)) return; (out[t] = out[t] || []).push({ k, t: text, ref: ref || "" }); };
+  const today = todayIso_(), short = d => arNum_(String(d).slice(8, 10) + "/" + String(d).slice(5, 7));
+  // ١) تقارير الأنشطة والإنجازات المصاغة بانتظار اعتماد المعلم
+  rows_(SHEET_ACH).slice(1).filter(r => r[0] && r[9] && !r[16]).forEach(r => add(r[1], r[12] === "act" ? "act" : "ach", `اعتماد التقرير المصاغ: «${r[4]}»`, r[0]));
+  // ٢) محاضر الاجتماعات التي لم يطّلع عليها
+  const sigs = sigRows_();
+  rows_(SHEET_MIN).slice(1).filter(r => r[0] && r[0] !== DEMO_MINUTE).forEach(r => { const m = minObj_(r);
+    m.attendees.forEach(t => { if (!sigs.some(x => x[0] === m.id && x[1] === t)) add(t, "min", `الاطلاع على محضر «${m.title}»`, m.id); }); });
+  // ٣) النشرات والتعاميم التي لم يطّلع عليها
+  const acks = nshAcks_();
+  nshRows_().forEach(r => nshTargets_(r[6]).forEach(t => { if (!acks.some(a => a[0] === r[0] && a[1] === t)) add(t, "nsh", `الاطلاع على ${r[1]}: «${r[4]}»`, r[0]); }));
+  // ٤) بطاقات الزيارة الصفية التي لم يطّلع عليها
+  visRows_().forEach(r => { const v = visObj_(r, false); if (!v.teacherSignedAt) add(v.teacher, "vis", `الاطلاع على بطاقة الزيارة الصفية (${short(v.date)})`, v.id); });
+  // ٥) المهام: لم يستلمها، أو فات موعدها ولم يسجّل التنفيذ (المهام الثابتة: في يومها فقط)
+  const sts = tskSts_();
+  tskRows_().forEach(r => { const weekly = r[16] === "weekly", occ = tskOcc_(r), key = tskKey_(r);
+    if (weekly && occ !== today) return;
+    r[10].split("|").filter(Boolean).forEach(t => { const st = (sts.find(x => x[0] === key && x[1] === t) || [])[5] || TSK_NEW;
+      if (st === TSK_DONE) return;
+      if (st === TSK_NEW) add(t, "tsk", `تأكيد استلام المهمة «${r[2]}»`, r[0]);
+      else if (occ < today) add(t, "tsk", `تسجيل تنفيذ المهمة «${r[2]}» (موعدها ${short(occ)})`, r[0]); }); });
+  // ٦) رقم الواتساب
+  const ph = phones_(); TEACHERS.filter(x => !x[2]).forEach(x => { if (!ph[x[0]]) add(x[0], "", "تسجيل رقم الواتساب في الموقع (زر «📱 رقم الواتساب» أعلى الصفحة)"); });
+  return out;
+}
+const HEAD_NAME_ = (TEACHERS.find(t => t[2]) || [""])[0];
