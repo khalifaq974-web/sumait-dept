@@ -2823,7 +2823,7 @@ function mrpParts(text) { return String(text || "").split(/^\s*\[\[صور:\s*([^
 
 // ================= المهام والتكاليف =================
 const TSK_TYPES = ["نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
-const TSK_PERIODS = ["", "الطابور الصباحي", "الحصة الأولى", "الحصة الثانية", "الحصة الثالثة", "الحصة الرابعة", "الحصة الخامسة", "الحصة السادسة", "الحصة السابعة", "الفسحة", "بعد نهاية الدوام", "طوال اليوم"];
+const TSK_PERIODS = ["", "الطابور الصباحي", "الحصة الأولى", "الحصة الثانية", "الحصة الثالثة", "الحصة الرابعة", "الحصة الخامسة", "الحصة السادسة", "الحصة السابعة", "الفرصة", "بعد نهاية الدوام", "طوال اليوم"];
 const TSK_DEMOS = ["تجريبي ١", "تجريبي ٢"];
 let TSK = null, TSK_FILE = null, TSK_EDIT = null, tskFilter = "open";
 $("tf-types").innerHTML = TSK_TYPES.map((t, i) => `<label class="chip"><input type="radio" name="tf-type" value="${t}"${i ? "" : " checked"}><span>${t}</span></label>`).join("");
@@ -2874,13 +2874,13 @@ $("tsk-form").addEventListener("submit", async e => {
   } catch (x) { m.textContent = cleanErr(x); }
   finally { $("tf-send").disabled = false; }
 });
-const TSK_PILL = { "جديدة": "late", "تم الاستلام": "none", "تم التنفيذ": "ok", "اعتذر": "late" };
+const TSK_PILL = { "جديدة": "late", "تم الاستلام": "none", "تم التنفيذ": "ok" };
 function tskWhen(t) { return `${dayName(t.date)} ${fmtDate(t.date)}${t.period ? " · " + t.period : ""}${t.time ? " · " + ar(t.time) : ""}`; }
 function tskDone(t) { return ME.isHead ? t.status.every(s => s.status === "تم التنفيذ") : t.mine && t.mine.status === "تم التنفيذ"; }
 function tskPill(t) {
   if (!ME.isHead) { const s = t.mine.status; return `<span class="pill ${TSK_PILL[s]}">${s === "جديدة" ? "جديدة — بانتظار استلامك" : s}</span>`; }
-  const n = t.status.length, got = t.status.filter(s => s.status !== "جديدة" && s.status !== "اعتذر").length, done = t.status.filter(s => s.status === "تم التنفيذ").length, sorry = t.status.filter(s => s.status === "اعتذر").length;
-  return `<span class="tsk-st">${done === n ? `<span class="pill ok">نُفّذت</span>` : `<span class="pill none">استلم ${ar(got)} من ${ar(n)}</span><span class="pill ${done ? "ok" : "none"}">نفّذ ${ar(done)}</span>`}${sorry ? `<span class="pill late">اعتذر ${ar(sorry)}</span>` : ""}</span>`;
+  const n = t.status.length, got = t.status.filter(s => s.status !== "جديدة").length, done = t.status.filter(s => s.status === "تم التنفيذ").length;
+  return `<span class="tsk-st">${done === n ? `<span class="pill ok">نُفّذت</span>` : `<span class="pill none">استلم ${ar(got)} من ${ar(n)}</span><span class="pill ${done ? "ok" : "none"}">نفّذ ${ar(done)}</span>`}</span>`;
 }
 /** لمبة المعلم: عدد المهام الجديدة التي لم يستلمها */
 function tskLampTeacher() {
@@ -2933,19 +2933,16 @@ function openTsk(id, justSent) {
     const s = t.mine, done = s.status === "تم التنفيذ";
     act.innerHTML = `<h3>حالتك: <span class="pill ${TSK_PILL[s.status]}">${esc(s.status)}</span></h3>
       ${s.gotAt ? `<div class="sub">استلمت المهمة ${fmtStamp(s.gotAt)}${done ? " · نُفّذت " + fmtStamp(s.doneAt) : ""}</div>` : ""}
-      ${s.sorry ? `<div class="sub">سبب الاعتذار: ${esc(s.sorry)}</div>` : ""}
       ${done ? `${s.note ? `<p class="teacher-desc">${esc(s.note)}</p>` : ""}<div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="tsk-undo" type="button">التراجع عن «تم التنفيذ»</button></div>`
-      : `${s.status === "جديدة" || s.status === "اعتذر" ? `<div class="row-actions" style="margin-top:10px"><button class="btn" id="tsk-got" type="button">✓ استلمت المهمة</button></div>` : ""}
-        <label class="f" for="tsk-note">ملاحظة عن التنفيذ أو سبب الاعتذار</label><textarea id="tsk-note" rows="2" maxlength="1000" placeholder="مثال: نُفّذت الإذاعة بمشاركة ٦ طلاب من ١٠/٢"></textarea>
-        <div class="row-actions" style="margin-top:10px"><button class="btn" id="tsk-done" type="button">تم التنفيذ</button>${s.status !== "اعتذر" ? `<button class="btn ghost" id="tsk-sorry" type="button">اعتذار</button>` : ""}</div>`}
+      : `${s.status === "جديدة" ? `<div class="row-actions" style="margin-top:10px"><button class="btn" id="tsk-got" type="button">✓ استلمت المهمة</button></div>` : ""}
+        <label class="f" for="tsk-note">ملاحظة عن التنفيذ (اختياري)</label><textarea id="tsk-note" rows="2" maxlength="1000" placeholder="مثال: نُفّذت الإذاعة بمشاركة ٦ طلاب من ١٠/٢"></textarea>
+        <div class="row-actions" style="margin-top:10px"><button class="btn" id="tsk-done" type="button">تم التنفيذ</button></div>`}
       <div class="saved" id="tsk-amsg"></div>`;
     const go2 = async (a, btn) => { const m = $("tsk-amsg"), note = $("tsk-note") ? $("tsk-note").value : "";
-      if (a === "sorry" && note.trim().length < 3) { m.textContent = "اكتب سبب الاعتذار في الخانة أعلاه."; return; }
       btn.disabled = true; m.textContent = "جارٍ الحفظ…";
       try { t.mine = { ...s, ...(await run("respondTask", CODE, t.id, a, note)) }; tskLampTeacher(); openTsk(t.id); } catch (e) { m.textContent = cleanErr(e); btn.disabled = false; } };
     if ($("tsk-got")) $("tsk-got").onclick = e => go2("got", e.target);
     if ($("tsk-done")) $("tsk-done").onclick = e => go2("done", e.target);
-    if ($("tsk-sorry")) $("tsk-sorry").onclick = e => go2("sorry", e.target);
     if ($("tsk-undo")) $("tsk-undo").onclick = e => go2("undo", e.target);
     return;
   }
@@ -2953,7 +2950,7 @@ function openTsk(id, justSent) {
   act.innerHTML = `<h3>متابعة التنفيذ</h3>
     <div class="tablebox"><table><thead><tr><th>م</th><th>المعلم</th><th>الحالة</th><th>الاستلام</th><th>التنفيذ وملاحظة المعلم</th></tr></thead><tbody>
     ${t.status.map((s, i) => `<tr><td>${ar(i + 1)}</td><td class="t">${s.demo ? esc(s.teacher) + ' <span class="pill none">تجريبي</span>' : "أ. " + esc(s.teacher)}</td><td><span class="pill ${TSK_PILL[s.status]}">${esc(s.status)}</span></td>
-      <td>${s.gotAt ? fmtStamp(s.gotAt) : "—"}</td><td>${s.doneAt ? fmtStamp(s.doneAt) + (s.note ? "<br>" + esc(s.note) : "") : s.sorry ? "اعتذار: " + esc(s.sorry) : "—"}</td></tr>`).join("")}</tbody></table></div>
+      <td>${s.gotAt ? fmtStamp(s.gotAt) : "—"}</td><td>${s.doneAt ? fmtStamp(s.doneAt) + (s.note ? "<br>" + esc(s.note) : "") : "—"}</td></tr>`).join("")}</tbody></table></div>
     <div class="row-actions" style="margin-top:12px"><button class="btn" id="tsk-edit" type="button">تعديل</button><button class="btn ghost" id="tsk-del" type="button">حذف</button></div>
     <div class="saved" id="tsk-amsg"></div>`;
   $("tsk-edit").onclick = () => tskForm(t);
@@ -2974,7 +2971,7 @@ function pdfTask(t) {
     P.info(info, 2),
     t.details ? P.h("التفاصيل والتوجيهات") + P.text(t.details) : "",
     P.h("المكلَّفون"),
-    P.grid(P.th(["م", "المعلم", "التوقيع بالعلم"]), who.map((n, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: "أ. " + n, c: "b" }, ""])), "vis"),
+    P.grid(P.th(["م", "المعلم", "ملاحظات المعلم", "التوقيع بالعلم"]), who.map((n, i) => P.tr([{ t: ar(i + 1), c: "c" }, { t: "أ. " + n, c: "b" }, { html: '<div style="height:44px"></div>' }, ""])), "vis"),
     P.p(`شاكرين ${who.length === 1 ? "لك" : "لكم"} حسن تعاونكم، وجزاكم الله خيرًا.`)] };
 }
 function pdfTskLog(list) {
