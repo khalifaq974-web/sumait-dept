@@ -242,6 +242,7 @@ nav.sections.ten { grid-template-columns: repeat(6, 1fr); }
 nav.sections.eleven { grid-template-columns: repeat(6, 1fr); }
 @media (max-width: 900px) { nav.sections.ten, nav.sections.eleven { grid-template-columns: repeat(4, 1fr); } }
 @media (max-width: 640px) { nav.sections.ten, nav.sections.eleven { grid-template-columns: 1fr 1fr 1fr; } }
+#nav-wa { position: relative; }
 .wa-list { display: grid; gap: 8px; margin-top: 10px; }
 .wa-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--surface); }
 .btn.wa-btn { background: #1f9d55; color: #fff; text-decoration: none; white-space: nowrap; }
@@ -371,7 +372,13 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
   </section>
 
   <div id="app" hidden>
-    <div class="who-bar"><b id="me-name"></b><span class="who-actions"><button class="btn ghost sm bell head-only" id="bell" type="button" hidden aria-label="الإشعارات">🔔 الإشعارات <span class="bell-n blue" id="bell-n" hidden></span></button><button class="btn ghost sm teacher-only" id="my-wa" type="button" hidden>📱 رقم الواتساب</button><button class="btn ghost sm" id="logout">خروج</button></span></div>
+    <div class="who-bar"><b id="me-name"></b><span class="who-actions"><button class="btn ghost sm bell head-only" id="bell" type="button" hidden aria-label="الإشعارات">🔔 الإشعارات <span class="bell-n blue" id="bell-n" hidden></span></button><button class="btn ghost sm teacher-only" id="my-wa" type="button" hidden>📱 رقم الواتساب</button><button class="btn ghost sm head-only" id="nav-wa" type="button" hidden>📱 أرقام الواتساب<i class="lamp" id="lamp-wa" hidden></i></button><button class="btn ghost sm" id="logout">خروج</button></span></div>
+    <div class="card act-panel" id="wa-panel" hidden>
+      <div class="vis-head-row" style="margin-top:0"><h3>📱 أرقام واتساب المعلمين</h3><span><button class="btn ghost sm" id="wa-reload" type="button">تحديث</button> <button class="btn ghost sm" id="wa-close" type="button">إغلاق</button></span></div>
+      <div class="sub" id="wa-sum"></div>
+      <div class="wa-list" id="wa-rows"></div>
+      <div class="row-actions" style="margin-top:12px"><a class="btn sm wa-btn" id="wa-remind" target="_blank" rel="noopener" href="#">📲 تذكير من لم يسجّل (رسالة للقروب)</a></div>
+    </div>
     <div class="card act-panel" id="act-panel" hidden>
       <div class="vis-head-row" style="margin-top:0"><h3>الإشعارات: تحديثات المعلمين</h3><span><button class="btn ghost sm" id="act-allread" type="button" hidden>تعليم الكل كمقروء</button> <button class="btn ghost sm" id="act-reload" type="button">تحديث</button> <button class="btn ghost sm" id="act-close" type="button">إغلاق</button></span></div>
       <div class="sub">كل ما يسجّله المعلمون في الموقع يظهر هنا. اضغط على أي إشعار للانتقال إلى ركنه.</div>
@@ -1276,7 +1283,7 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); TSK = null; ALR = null; $("alr-banner") && $("alr-banner").remove(); PHONES = null; $("wa-card").hidden = true; $("tsk-form").hidden = true; $("tsk-banner") && $("tsk-banner").remove(); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); TSK = null; ALR = null; $("wa-panel").hidden = true; $("alr-banner") && $("alr-banner").remove(); PHONES = null; $("wa-card").hidden = true; $("tsk-form").hidden = true; $("tsk-banner") && $("tsk-banner").remove(); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
@@ -2793,11 +2800,11 @@ async function openAch(id) {
 }
 
 // ================= الإشعارات (رئيس الشعبة) =================
-const SEC_NAMES_AR = { curr: "ما قطع من المنهج", cls: "كشف متابعة المتعلمين", ach: "التنمية المهنية وإنجاز الموظف", act: "سجل الأنشطة والمسابقات", min: "محاضر الاجتماعات", vis: "الزيارات الصفية", prm: "الاستئذان", nsh: "سجل النشرات والتعاميم", res: "سجل الغياب والاحتياط", tsk: "المهام والتكاليف", alr: "تنبيهات الاستكمال" };
+const SEC_NAMES_AR = { curr: "ما قطع من المنهج", cls: "كشف متابعة المتعلمين", ach: "التنمية المهنية وإنجاز الموظف", act: "سجل الأنشطة والمسابقات", min: "محاضر الاجتماعات", vis: "الزيارات الصفية", prm: "الاستئذان", nsh: "سجل النشرات والتعاميم", res: "سجل الغياب والاحتياط", tsk: "المهام والتكاليف", alr: "تنبيهات الاستكمال", wa: "أرقام الواتساب" };
 let ACT = null, actTimer = null;
 function actWhen(t) { const d = new Date(String(t).replace(" ", "T") + "+03:00"), mins = Math.round((Date.now() - d) / 60000);
   if (mins < 1) return "الآن"; if (mins < 60) return `قبل ${ar(mins)} دقيقة`; if (mins < 1440) return `قبل ${ar(Math.round(mins / 60))} ساعة`; return fmtStamp(String(t).slice(0, 16)); }
-const LAMP_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk", "alr"];
+const LAMP_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk", "alr", "wa"];
 let SEC_SEEN = {}, FLASH_CID = "", flashT = null;
 function lsSeen() { try { return JSON.parse(localStorage.getItem("secSeen") || "{}"); } catch (e) { return {}; } }
 function lsRead() { try { return JSON.parse(localStorage.getItem("actRead") || "[]"); } catch (e) { return []; } }
@@ -2841,6 +2848,7 @@ function flash(el) { if (!el) return; el.scrollIntoView({ behavior: "smooth", bl
 /** يودّي الرئيس مباشرة للعمل الذي سواه المعلم */
 async function openActItem(a) { readItem(a); $("act-panel").hidden = true; return openRef(a.sec, a.ref); }
 async function openRef(sec, r0) {
+  if (sec === "wa") { openWaPanel(); return; }
   const a = { sec }, ref = String(r0 || "");
   go(a.sec); window.scrollTo({ top: $("sec-" + (a.sec === "act" ? "ach" : a.sec)).offsetTop - 10, behavior: "smooth" });
   try {
@@ -2918,6 +2926,22 @@ function openMrp(id) {
 function mrpParts(text) { return String(text || "").split(/^\s*\[\[صور:\s*([^\]]+?)\s*\]\]\s*$/m).map((x, i) => i % 2 ? { photos: x.trim() } : { text: x }); }
 
 // ================= واتساب: إرسال بضغطة من رئيس الشعبة =================
+/** لوحة رئيس الشعبة: من سجّل رقمه ومن باقي */
+async function openWaPanel() {
+  $("act-panel").hidden = true; const p = $("wa-panel"); p.hidden = false; $("wa-rows").innerHTML = '<div class="empty">جارٍ التحميل…</div>';
+  p.scrollIntoView({ behavior: "smooth", block: "start" });
+  seenSection("wa");
+  let L; try { L = await run("phonesList", CODE); } catch (e) { $("wa-rows").innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; }
+  const real = L.filter(x => !x.demo), done = real.filter(x => x.phone), left = real.filter(x => !x.phone);
+  PHONES = null;
+  $("wa-sum").textContent = `سجّل ${ar(done.length)} من ${ar(real.length)} معلمين${left.length ? ` · باقي ${ar(left.length)}` : " · اكتمل التسجيل ✓"}`;
+  $("wa-rows").innerHTML = real.sort((a, b) => !!b.phone - !!a.phone).map(x => `<div class="wa-row"><span><b>أ. ${esc(x.teacher)}</b><br><span class="sub" dir="ltr">${x.phone ? "+" + esc(x.phone) : ""}</span>${x.at ? ` <span class="sub">· ${fmtStamp(x.at)}</span>` : ""}</span>${x.phone ? '<span class="pill ok">✓ سجّل</span>' : '<span class="pill late">لم يسجّل</span>'}</div>`).join("");
+  const r = $("wa-remind"); r.hidden = !left.length;
+  r.href = "https://wa.me/?text=" + encodeURIComponent(`السلام عليكم ورحمة الله وبركاته\nالإخوة الأفاضل: ${left.map(x => "أ. " + shortName(x.teacher)).join("، ")}\n\nنرجو تسجيل رقم الواتساب في موقع القسم ليصلكم التكليف والتنبيه مباشرة:\nادخل الموقع برمزك ← يظهر مربع «📱 رقم الواتساب» ← اكتب رقمك ← «حفظ الرقم».\n${SITE_LINK}\n\nرئيس الشعبة\n${HEAD_SIGN}`);
+}
+$("nav-wa").onclick = () => { if ($("wa-panel").hidden) openWaPanel(); else $("wa-panel").hidden = true; };
+$("wa-close").onclick = () => $("wa-panel").hidden = true;
+$("wa-reload").onclick = () => openWaPanel();
 const SITE_LINK = location.origin + location.pathname;
 let PHONES = null;
 async function loadPhones(force) { if (!PHONES || force) { try { PHONES = await run("teacherPhones", CODE); } catch (e) { PHONES = PHONES || {}; } } return PHONES; }

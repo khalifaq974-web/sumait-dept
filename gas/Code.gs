@@ -65,7 +65,7 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, edi
   myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
   listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen,
-  listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones,
+  listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones, phonesList,
   listAlerts, saveAlert, deleteAlert, tickAlert };
 
 function doPost(e) {
@@ -1486,6 +1486,7 @@ const ACT_LOG = {
     return { sec: "tsk", ref: a[1], text: a[2] === "done" ? `نفّذ المهمة ${t}${res && res.note ? " — " + res.note : ""}` : a[2] === "undo" ? `تراجع عن تنفيذ المهمة ${t}` : `استلم المهمة ${t}` }; },
   tickAlert: (a, res) => { const r = alrRows_().find(x => x[0] === String(a[1])), it = r ? (JSON.parse(r[2] || "[]")[a[2]] || {}).t : "";
     return { sec: "alr", ref: a[1], text: `${a[3] ? "استكمل" : "ألغى استكمال"}: ${it || "نقص"}${res && res.all ? " — واكتملت جميع النواقص ✓" : ""}` }; },
+  saveMyPhone: (a, res) => ({ sec: "wa", text: `سجّل رقم الواتساب${res && res.phone ? ": +" + res.phone : ""}`, key: "wa" }),
   ackCircular: a => { const r = nshRows_().find(x => x[0] === String(a[1])); return { sec: "nsh", ref: a[1], text: `اطّلع على ${r ? r[1] + ": " + r[4] : "نشرة"}` }; }
 };
 function logAct_(fn, args, result) {
@@ -1516,7 +1517,7 @@ function listActivity(code, limit) {
   return { items, unread: v.filter(r => r[0] > seen).length, seen, secSeen };
 }
 /** اللمبة الزرقاء: فتح الركن يصفّر عدّاد تحديثاته فقط */
-const ACT_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk", "alr"];
+const ACT_SECS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk", "alr", "wa"];
 function markSectionSeen(code, sec) {
   head_(code);
   if (ACT_SECS.indexOf(sec) === -1) throw new Error("ركن غير معروف.");
@@ -1684,6 +1685,11 @@ function saveMyPhone(code, phone) {
 }
 /** لرئيس الشعبة: أرقام المعلمين */
 function teacherPhones(code) { head_(code); return phones_(); }
+/** لرئيس الشعبة: من سجّل رقمه ومتى */
+function phonesList(code) {
+  head_(code); const sh = sh_(SHEET_WA), rows = sh ? sh.getDataRange().getDisplayValues().slice(1) : [];
+  return tskPool_().map(t => { const r = rows.find(x => x[0] === t); return { teacher: t, demo: isDemo_(t), phone: r ? r[1] : "", at: r ? r[2] : "" }; });
+}
 
 
 // ======================= تنبيهات الاستكمال =======================
