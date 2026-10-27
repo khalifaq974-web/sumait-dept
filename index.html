@@ -686,7 +686,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <section id="res-new">
         <form id="res-form" class="card">
           <h2 id="rf-heading">تسجيل غياب</h2>
-          <div class="chips" style="margin:6px 0 4px"><label class="chip"><input type="radio" name="rf-kind" value="" checked><span>غياب (يوم كامل)</span></label><label class="chip"><input type="radio" name="rf-kind" value="عذر طارئ"><span>⚡ عذر طارئ (حصص محددة)</span></label></div>
+          <div class="chips" id="rf-kinds" hidden style="margin:6px 0 4px"><label class="chip"><input type="radio" name="rf-kind" value="" checked><span>غياب (يوم كامل)</span></label><label class="chip"><input type="radio" name="rf-kind" value="عذر طارئ"><span>⚡ عذر طارئ (حصص محددة)</span></label></div>
           <div class="sub" id="rf-intro">اختر المعلم الغائب، فتظهر حصصه في ذلك اليوم، ولكل حصة قائمة بالمعلمين الذين ليس عندهم حصة في ذلك الوقت، مرتبين من الأقل نصابًا.</div>
           <div id="rf-reasons" hidden><label class="f">سبب العذر</label><div class="chips"><label class="chip"><input type="radio" name="rf-reason" value="ظرف طارئ" checked><span>ظرف طارئ</span></label><label class="chip"><input type="radio" name="rf-reason" value="مراجعة طبية"><span>مراجعة طبية</span></label><label class="chip"><input type="radio" name="rf-reason" value="مهمة رسمية"><span>مهمة رسمية</span></label><label class="chip"><input type="radio" name="rf-reason" value="أخرى"><span>أخرى</span></label></div></div>
           <div class="grid2">
@@ -4076,6 +4076,8 @@ function renderResItems() {
 }
 let rfLoaded = "";
 function rfKindUi() {
+  $("rf-kinds").hidden = !RES.excuse; // يظهر بعد تحديث الخادم الذي يدعم «عذر طارئ»
+  if (!RES.excuse) document.querySelector('input[name="rf-kind"][value=""]').checked = true;
   const exc = rfKind() === ABS_EXCUSE;
   $("rf-reasons").hidden = !exc;
   $("rf-teacher-l").textContent = exc ? "المعلم صاحب العذر" : "المعلم الغائب";

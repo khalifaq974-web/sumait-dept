@@ -834,7 +834,7 @@ function covObj_(r) {
 /** كل بيانات الغياب والاحتياط */
 function reserveData(code) {
   head_(code);
-  return { absences: rows_(SHEET_ABS).slice(1).filter(r => r[0]).map(absObj_), covers: covSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(covObj_), swaps: swpRows_(), swap: true };
+  return { absences: rows_(SHEET_ABS).slice(1).filter(r => r[0]).map(absObj_), covers: covSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(covObj_), swaps: swpRows_(), swap: true, excuse: true };
 }
 
 /** تسجيل غياب معلم (أو تعديله) مع توزيع حصصه على البدلاء */
