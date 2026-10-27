@@ -552,14 +552,15 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="chips" style="margin-bottom:6px"><button class="btn ghost sm" type="button" data-tfall="hd">معلمو الحديث</button><button class="btn ghost sm" type="button" data-tfall="qr">معلمو القرآن</button><button class="btn ghost sm" type="button" data-tfall="all">الجميع</button><button class="btn ghost sm" type="button" data-tfall="none">إلغاء التحديد</button></div>
         <div class="chips" id="tf-teachers"></div>
         <div class="grid3">
-          <div><label class="f" for="tf-date">التاريخ <span class="sub" id="tf-day"></span></label><input type="date" id="tf-date"></div>
+          <div><label class="f" for="tf-date"><span id="tf-date-l">التاريخ</span> <span class="sub" id="tf-day"></span></label><input type="date" id="tf-date"></div>
           <div><label class="f" for="tf-period">الحصة (اختياري)</label><select id="tf-period"></select></div>
           <div><label class="f" for="tf-time">الوقت (اختياري)</label><input type="text" id="tf-time" maxlength="40" placeholder="مثال: ٧:١٥ صباحًا"></div>
         </div>
+        <label class="check" style="margin-top:12px"><input type="checkbox" id="tf-repeat"> <span>مهمة ثابتة تتكرر كل أسبوع في اليوم نفسه (يصل للمعلم تذكير قبلها بيوم وفي يومها)</span></label>
         <div class="grid3">
           <div><label class="f" for="tf-place">المكان (اختياري)</label><input type="text" id="tf-place" maxlength="100" placeholder="مثال: ساحة المعهد"></div>
           <div><label class="f" for="tf-target">الفئة المستهدفة (اختياري)</label><input type="text" id="tf-target" maxlength="150" placeholder="مثال: طلاب الصف العاشر"></div>
-          <div><label class="f" for="tf-due">آخر موعد للتنفيذ (اختياري)</label><input type="date" id="tf-due"></div>
+          <div id="tf-due-w"><label class="f" for="tf-due">آخر موعد للتنفيذ (اختياري)</label><input type="date" id="tf-due"></div>
         </div>
         <label class="f" for="tf-details">التفاصيل والتوجيهات</label>
         <textarea id="tf-details" rows="4" maxlength="3000" placeholder="ما المطلوب من المعلم بالتحديد…"></textarea>
@@ -2832,8 +2833,9 @@ $("tf-teachers").innerHTML = TEACHERS.filter(t => t[0] !== HEAD_NAME).map(t => t
   .map(n => `<label class="chip"><input type="checkbox" name="tf-t" value="${esc(n)}"><span>${TSK_DEMOS.includes(n) ? esc(n) + " (للتجربة)" : "أ. " + esc(n.split(" ").slice(0, 1).concat(n.split(" ").slice(-1)).join(" "))}</span></label>`).join("");
 document.querySelectorAll("[data-tfall]").forEach(b => b.onclick = () => document.querySelectorAll('input[name="tf-t"]').forEach(c => {
   const k = b.dataset.tfall; c.checked = k === "all" ? !TSK_DEMOS.includes(c.value) : k === "none" ? false : !TSK_DEMOS.includes(c.value) && (DEPT_OF[c.value] || []).includes(k); }));
-const tfDay = () => { $("tf-day").textContent = $("tf-date").value ? "(" + dayName($("tf-date").value) + ")" : ""; };
-$("tf-date").oninput = tfDay;
+const tfDay = () => { const w = $("tf-repeat").checked; $("tf-date-l").textContent = w ? "أول موعد" : "التاريخ"; $("tf-due-w").hidden = w;
+  $("tf-day").textContent = $("tf-date").value ? "(" + (w ? "كل " : "") + dayName($("tf-date").value) + ")" : ""; };
+$("tf-date").oninput = tfDay; $("tf-repeat").onchange = tfDay;
 $("tf-file").onchange = async e => {
   const f = e.target.files[0]; TSK_FILE = null; if (!f) { $("tf-file-l").textContent = "اختر الملف"; return; }
   if (f.size > 10 * 1024 * 1024) { $("tf-msg").textContent = "حجم الملف كبير (الحد ١٠ ميغابايت)."; e.target.value = ""; return; }
@@ -2849,7 +2851,7 @@ function tskForm(t) {
   $("tf-h").textContent = t ? "تعديل التكليف" : "تكليف جديد"; $("tf-send").textContent = t ? "حفظ التعديل وإشعار المعلمين" : "إرسال التكليف";
   const ty = document.querySelector(`input[name="tf-type"][value="${t ? t.type : TSK_TYPES[0]}"]`); if (ty) ty.checked = true;
   $("tf-title").value = t ? t.title : ""; $("tf-date").value = t ? t.date : todayISO(); $("tf-period").value = t ? t.period : ""; $("tf-time").value = t ? t.time : "";
-  $("tf-place").value = t ? t.place : ""; $("tf-target").value = t ? t.target : ""; $("tf-due").value = t ? t.due : ""; $("tf-details").value = t ? t.details : "";
+  $("tf-place").value = t ? t.place : ""; $("tf-target").value = t ? t.target : ""; $("tf-due").value = t ? t.due : ""; $("tf-details").value = t ? t.details : ""; $("tf-repeat").checked = !!t && t.repeat === "weekly";
   $("tf-file-l").textContent = t && t.hasFile ? "المرفق الحالي: " + t.fileName + " (اختر ملفًا لاستبداله)" : "اختر الملف";
   document.querySelectorAll('input[name="tf-t"]').forEach(c => c.checked = !!t && t.teachers.includes(c.value));
   tfDay(); $("tf-msg").textContent = "";
@@ -2864,32 +2866,38 @@ $("tsk-form").addEventListener("submit", async e => {
   if ($("tf-title").value.trim().length < 3) { m.textContent = "اكتب عنوان المهمة."; return; }
   if (!teachers.length) { m.textContent = "اختر المعلم المكلَّف."; return; }
   if (!$("tf-date").value) { m.textContent = "اختر تاريخ المهمة."; return; }
-  if ($("tf-due").value && $("tf-due").value < $("tf-date").value) { m.textContent = "آخر موعد للتنفيذ قبل تاريخ المهمة."; return; }
+  const weekly = $("tf-repeat").checked;
+  if (weekly && [5, 6].includes(new Date($("tf-date").value + "T12:00").getDay())) { m.textContent = "يوم المهمة الثابتة عطلة (جمعة أو سبت)."; return; }
+  if (!weekly && $("tf-due").value && $("tf-due").value < $("tf-date").value) { m.textContent = "آخر موعد للتنفيذ قبل تاريخ المهمة."; return; }
   $("tf-send").disabled = true; m.textContent = "جارٍ الإرسال…";
   try {
     const r = await run("saveTask", CODE, { id: TSK_EDIT ? TSK_EDIT.id : "", type: document.querySelector('input[name="tf-type"]:checked').value, title: $("tf-title").value,
       teachers, date: $("tf-date").value, period: $("tf-period").value, time: $("tf-time").value, place: $("tf-place").value, target: $("tf-target").value,
-      due: $("tf-due").value, details: $("tf-details").value, ...(TSK_FILE ? { fileName: TSK_FILE.name, mime: TSK_FILE.mime, data: TSK_FILE.data } : {}) });
+      due: weekly ? "" : $("tf-due").value, repeat: weekly ? "weekly" : "", details: $("tf-details").value, ...(TSK_FILE ? { fileName: TSK_FILE.name, mime: TSK_FILE.mime, data: TSK_FILE.data } : {}) });
     TSK = null; await loadTsk(); openTsk(r.id, true);
   } catch (x) { m.textContent = cleanErr(x); }
   finally { $("tf-send").disabled = false; }
 });
 const TSK_PILL = { "جديدة": "late", "تم الاستلام": "none", "تم التنفيذ": "ok" };
-function tskWhen(t) { return `${dayName(t.date)} ${fmtDate(t.date)}${t.period ? " · " + t.period : ""}${t.time ? " · " + ar(t.time) : ""}`; }
-function tskDone(t) { return ME.isHead ? t.status.every(s => s.status === "تم التنفيذ") : t.mine && t.mine.status === "تم التنفيذ"; }
+function tskWhen(t) { return `${t.repeat ? `كل ${dayName(t.date)} · القادمة ${fmtDate(t.occ)}` : dayName(t.date) + " " + fmtDate(t.date)}${t.period ? " · " + t.period : ""}${t.time ? " · " + ar(t.time) : ""}`; }
+function tskDone(t) { if (t.repeat) return false; return ME.isHead ? t.status.every(s => s.status === "تم التنفيذ") : t.mine && t.mine.status === "تم التنفيذ"; }
 function tskPill(t) {
-  if (!ME.isHead) { const s = t.mine.status; return `<span class="pill ${TSK_PILL[s]}">${s === "جديدة" ? "جديدة — بانتظار استلامك" : s}</span>`; }
+  const rp = t.repeat ? `<span class="pill none">ثابتة أسبوعيًا</span>` : "";
+  if (!ME.isHead) { const s = t.mine.status; return `<span class="tsk-st">${rp}${t.repeat && !t.soon ? "" : `<span class="pill ${TSK_PILL[s]}">${s === "جديدة" ? (t.repeat ? "تذكير — بانتظار استلامك" : "جديدة — بانتظار استلامك") : s}</span>`}</span>`; }
   const n = t.status.length, got = t.status.filter(s => s.status !== "جديدة").length, done = t.status.filter(s => s.status === "تم التنفيذ").length;
-  return `<span class="tsk-st">${done === n ? `<span class="pill ok">نُفّذت</span>` : `<span class="pill none">استلم ${ar(got)} من ${ar(n)}</span><span class="pill ${done ? "ok" : "none"}">نفّذ ${ar(done)}</span>`}</span>`;
+  return `<span class="tsk-st">${rp}${done === n ? `<span class="pill ok">نُفّذت</span>` : `<span class="pill none">استلم ${ar(got)} من ${ar(n)}</span><span class="pill ${done ? "ok" : "none"}">نفّذ ${ar(done)}</span>`}</span>`;
 }
 /** لمبة المعلم: عدد المهام الجديدة التي لم يستلمها */
 function tskLampTeacher() {
   if (!ME || ME.isHead || !TSK) return;
-  const n = TSK.filter(t => t.mine && t.mine.status === "جديدة").length, el = $("lamp-tsk");
+  const fresh = TSK.filter(t => t.mine && t.mine.status === "جديدة" && t.soon), n = fresh.length, el = $("lamp-tsk");
   el.hidden = !n; el.textContent = n ? ar(n) : ""; $("nav-tsk").title = n ? `لديك ${n} مهمة جديدة` : "";
   let b = $("tsk-banner");
   if (n && !b) { b = document.createElement("div"); b.id = "tsk-banner"; b.className = "tsk-new-banner"; b.onclick = () => go("tsk"); document.querySelector("nav.sections").after(b); }
-  if (b) { if (n) b.textContent = `💡 لديك ${ar(n)} ${n === 1 ? "مهمة جديدة" : "مهام جديدة"} من رئيس الشعبة — اضغط للاطلاع والاستلام`; else b.remove(); }
+  const rem = fresh.filter(t => t.repeat), rel = d => d === todayISO() ? "اليوم" : "غدًا";
+  if (b) { if (n) b.textContent = rem.length === n
+      ? `💡 تذكير: ${rel(rem[0].occ)} ${dayName(rem[0].occ)} مهمة «${rem[0].title}»${n > 1 ? ` و${ar(n - 1)} غيرها` : ""} — اضغط للاستلام`
+      : `💡 لديك ${ar(n)} ${n === 1 ? "مهمة جديدة" : "مهام جديدة"} من رئيس الشعبة — اضغط للاطلاع والاستلام`; else b.remove(); }
 }
 async function tskBadge() { try { TSK = await run("listTasks", CODE); tskLampTeacher(); } catch (e) {} }
 async function loadTsk(force) {
@@ -2908,7 +2916,7 @@ async function loadTsk(force) {
 }
 $("tsk-reload").onclick = () => loadTsk(true);
 function tskShare(t) {
-  return `السلام عليكم ورحمة الله وبركاته\nتكليف من رئيس الشعبة — قسم الحديث الشريف والقرآن الكريم\n\nالمهمة: ${t.type} — ${t.title}\nاليوم والتاريخ: ${dayName(t.date)} ${t.date}${t.period ? "\nالموعد: " + t.period : ""}${t.time ? " " + t.time : ""}${t.place ? "\nالمكان: " + t.place : ""}${t.target ? "\nالفئة المستهدفة: " + t.target : ""}${t.due ? "\nآخر موعد للتنفيذ: " + t.due : ""}${t.details ? "\n\nالتفاصيل: " + t.details : ""}\n\nيرجى الدخول إلى موقع القسم وتأكيد الاستلام من ركن «المهام والتكاليف».\n${location.origin + location.pathname}\n\nرئيس الشعبة: ${HEAD_SIGN}`;
+  return `السلام عليكم ورحمة الله وبركاته\nتكليف من رئيس الشعبة — قسم الحديث الشريف والقرآن الكريم\n\nالمهمة: ${t.type} — ${t.title}\n${t.repeat ? `مهمة ثابتة كل يوم ${dayName(t.date)} (القادمة ${t.occ})` : `اليوم والتاريخ: ${dayName(t.date)} ${t.date}`}${t.period ? "\nالموعد: " + t.period : ""}${t.time ? " " + t.time : ""}${t.place ? "\nالمكان: " + t.place : ""}${t.target ? "\nالفئة المستهدفة: " + t.target : ""}${t.due ? "\nآخر موعد للتنفيذ: " + t.due : ""}${t.details ? "\n\nالتفاصيل: " + t.details : ""}\n\nيرجى الدخول إلى موقع القسم وتأكيد الاستلام من ركن «المهام والتكاليف».\n${location.origin + location.pathname}\n\nرئيس الشعبة: ${HEAD_SIGN}`;
 }
 function openTsk(id, justSent) {
   const t = TSK && TSK.find(x => x.id === id); if (!t) return loadTsk();
@@ -2917,7 +2925,7 @@ function openTsk(id, justSent) {
   d.innerHTML = `<button class="btn ghost sm" id="tsk-back" type="button">→ رجوع للقائمة</button>
     ${justSent ? `<div class="saved" style="margin-top:10px">✓ تم إرسال التكليف، وظهر للمعلمين في الموقع بلمبة زرقاء. يمكنك أيضًا إرساله لهم واتساب من الزر أدناه.</div>` : ""}
     <h2 style="margin-top:10px">${esc(t.type)}: ${esc(t.title)}</h2>
-    <dl class="meta-grid"><div><dt>نوع التكليف</dt><dd>${esc(t.type)}</dd></div><div><dt>اليوم والتاريخ</dt><dd>${dayName(t.date)} ${fmtDate(t.date)}</dd></div>
+    <dl class="meta-grid"><div><dt>نوع التكليف</dt><dd>${esc(t.type)}</dd></div>${t.repeat ? `<div><dt>التكرار</dt><dd>كل يوم ${dayName(t.date)}</dd></div><div><dt>الموعد القادم</dt><dd>${dayName(t.occ)} ${fmtDate(t.occ)}</dd></div>` : `<div><dt>اليوم والتاريخ</dt><dd>${dayName(t.date)} ${fmtDate(t.date)}</dd></div>`}
       ${t.period ? `<div><dt>الموعد</dt><dd>${esc(t.period)}</dd></div>` : ""}${t.time ? `<div><dt>الوقت</dt><dd>${esc(ar(t.time))}</dd></div>` : ""}
       ${t.place ? `<div><dt>المكان</dt><dd>${esc(t.place)}</dd></div>` : ""}${t.target ? `<div><dt>الفئة المستهدفة</dt><dd>${esc(t.target)}</dd></div>` : ""}
       ${t.due ? `<div><dt>آخر موعد للتنفيذ</dt><dd>${dayName(t.due)} ${fmtDate(t.due)}</dd></div>` : ""}</dl>
@@ -2947,7 +2955,7 @@ function openTsk(id, justSent) {
     return;
   }
   $("tsk-wa").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(tskShare(t)), "_blank");
-  act.innerHTML = `<h3>متابعة التنفيذ</h3>
+  act.innerHTML = `<h3>متابعة التنفيذ${t.repeat ? ` — موعد ${dayName(t.occ)} ${fmtDate(t.occ)}` : ""}</h3>
     <div class="tablebox"><table><thead><tr><th>م</th><th>المعلم</th><th>الحالة</th><th>الاستلام</th><th>التنفيذ وملاحظة المعلم</th></tr></thead><tbody>
     ${t.status.map((s, i) => `<tr><td>${ar(i + 1)}</td><td class="t">${s.demo ? esc(s.teacher) + ' <span class="pill none">تجريبي</span>' : "أ. " + esc(s.teacher)}</td><td><span class="pill ${TSK_PILL[s.status]}">${esc(s.status)}</span></td>
       <td>${s.gotAt ? fmtStamp(s.gotAt) : "—"}</td><td>${s.doneAt ? fmtStamp(s.doneAt) + (s.note ? "<br>" + esc(s.note) : "") : "—"}</td></tr>`).join("")}</tbody></table></div>
@@ -2960,7 +2968,7 @@ function openTsk(id, justSent) {
 // خطاب التكليف بالديباجة المعتمدة: بيانات المهمة ثم جدول المكلفين بخانة توقيع لكل معلم
 function pdfTask(t) {
   const who = ME.isHead ? t.teachers : [ME.name];
-  const info = [["نوع التكليف", t.type], ["اليوم والتاريخ", `${dayName(t.date)} ${fmtDate(t.date)}`]];
+  const info = [["نوع التكليف", t.type], t.repeat ? ["الموعد", `مهمة ثابتة كل يوم ${dayName(t.date)} ابتداءً من ${fmtDate(t.date)}`] : ["اليوم والتاريخ", `${dayName(t.date)} ${fmtDate(t.date)}`]];
   if (t.period || t.time) info.push(["الموعد", [t.period, ar(t.time || "")].filter(Boolean).join(" · ")]);
   if (t.place) info.push(["المكان", t.place]); if (t.target) info.push(["الفئة المستهدفة", t.target]); if (t.due) info.push(["آخر موعد للتنفيذ", `${dayName(t.due)} ${fmtDate(t.due)}`]);
   return { box: "خطاب تكليف", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [

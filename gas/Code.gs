@@ -1531,26 +1531,38 @@ function markActivitySeen(code) { head_(code); const t = stamp_(); PropertiesSer
 // يُطبع خطاب التكليف في القسم، ويؤكد المعلم الاستلام ثم يسجّل التنفيذ، وكل ذلك يصل لرئيس الشعبة في الإشعارات.
 // «المهام والتكاليف»: 0 المعرف | 1 النوع | 2 العنوان | 3 التفاصيل | 4 التاريخ | 5 الحصة | 6 الوقت | 7 المكان | 8 الفئة المستهدفة
 //                     9 آخر موعد للتنفيذ | 10 المكلفون (مفصولون بـ |) | 11 الملف | 12 اسم الملف | 13 نوع الملف | 14 وقت الإنشاء | 15 آخر تعديل
+//                     16 التكرار ("" = مرة واحدة، "weekly" = مهمة ثابتة كل أسبوع في يوم التاريخ نفسه)
+// المهمة الثابتة: حالة المعلم تُحفظ لكل أسبوع بمفتاح «المعرف@تاريخ الموعد»، وتظهر له لمبة التذكير من اليوم السابق للموعد حتى يومه.
 // «حالة التكاليف»:    0 المهمة | 1 المعلم | 2 وقت الاستلام | 3 وقت التنفيذ | 4 ملاحظة المعلم | 5 الحالة
 const SHEET_TSK = "المهام والتكاليف";
 const SHEET_TSKST = "حالة التكاليف";
 const TSK_HEAD = ["المعرف", "النوع", "العنوان", "التفاصيل", "التاريخ", "الحصة", "الوقت", "المكان", "الفئة المستهدفة", "آخر موعد للتنفيذ",
-  "المكلفون", "الملف", "اسم الملف", "نوع الملف", "وقت الإنشاء", "آخر تعديل"];
+  "المكلفون", "الملف", "اسم الملف", "نوع الملف", "وقت الإنشاء", "آخر تعديل", "التكرار"];
 const TSKST_HEAD = ["المهمة", "المعلم", "وقت الاستلام", "وقت التنفيذ", "ملاحظة المعلم", "الحالة"];
 const TSK_TYPES = ["نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
 const TSK_NEW = "جديدة", TSK_GOT = "تم الاستلام", TSK_DONE = "تم التنفيذ";
-function tskSheet_() { return sheet_(SHEET_TSK, TSK_HEAD, true); }
+function tskSheet_() {
+  const sh = sheet_(SHEET_TSK, TSK_HEAD, true);
+  if (sh.getLastColumn() < TSK_HEAD.length) sh.getRange(1, 1, 1, TSK_HEAD.length).setValues([TSK_HEAD]);
+  return sh;
+}
+function isoAdd_(iso, n) { const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/), d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + n)); return d.toISOString().slice(0, 10); }
+/** موعد المهمة الثابتة هذا الأسبوع: اليوم إن كان يومها، وإلا أقرب يوم قادم */
+function tskOcc_(r) { const t = todayIso_(); if (r[16] !== "weekly") return r[4]; if (t < r[4]) return r[4]; return isoAdd_(t, (dayOf_(r[4]) - dayOf_(t) + 7) % 7); }
+function tskKey_(r) { return r[16] === "weekly" ? r[0] + "@" + tskOcc_(r) : r[0]; }
+function tskMine_(key, id) { return key === id || key.indexOf(id + "@") === 0; }
 function tskStSheet_() { return sheet_(SHEET_TSKST, TSKST_HEAD, true); }
 function tskRows_() { return tskSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]); }
 function tskSts_() { return tskStSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]); }
 /** من يمكن تكليفه: معلمو الشعبة (بدون الرئيس) والحسابات التجريبية للتجربة */
 function tskPool_() { return TEACHERS.filter(t => !t[2]).map(t => t[0]).concat(Object.keys(DEMOS)); }
 function tskObj_(r, sts, me) {
-  const who = r[10].split("|").filter(Boolean);
-  const st = who.map(t => { const s = sts.find(x => x[0] === r[0] && x[1] === t) || [];
+  const who = r[10].split("|").filter(Boolean), key = tskKey_(r), occ = tskOcc_(r), weekly = r[16] === "weekly";
+  const st = who.map(t => { const s = sts.find(x => x[0] === key && x[1] === t) || [];
     return { teacher: t, demo: isDemo_(t), gotAt: s[2] || "", doneAt: s[3] || "", note: s[4] || "", status: s[5] || TSK_NEW }; });
   const o = { id: r[0], type: r[1], title: r[2], details: r[3], date: r[4], period: r[5], time: r[6], place: r[7], target: r[8], due: r[9],
-    fileName: r[12], mime: r[13], hasFile: !!r[11], createdAt: r[14], updatedAt: r[15], teachers: who };
+    fileName: r[12], mime: r[13], hasFile: !!r[11], createdAt: r[14], updatedAt: r[15], teachers: who,
+    repeat: weekly ? "weekly" : "", occ, soon: !weekly || isoAdd_(todayIso_(), 1) >= occ };
   if (me.isHead) o.status = st; else o.mine = st.find(x => x.teacher === me.name) || null;
   return o;
 }
@@ -1569,7 +1581,8 @@ function saveTask(code, t) {
   const pool = tskPool_(), who = (Array.isArray(t.teachers) ? t.teachers : []).map(String).filter((x, i, a) => pool.indexOf(x) !== -1 && a.indexOf(x) === i);
   if (!who.length) throw new Error("اختر المعلم المكلَّف.");
   const s = (v, n) => String(v || "").trim().slice(0, n);
-  const row = [s(t.id, 20) || newId_(), type, title, s(t.details, 3000), date, s(t.period, 20), s(t.time, 40), s(t.place, 100), s(t.target, 150), due, who.join("|"), "", "", "", "", ""];
+  const row = [s(t.id, 20) || newId_(), type, title, s(t.details, 3000), date, s(t.period, 20), s(t.time, 40), s(t.place, 100), s(t.target, 150), t.repeat === "weekly" ? "" : due, who.join("|"), "", "", "", "", "", t.repeat === "weekly" ? "weekly" : ""];
+  if (row[16] && dayOf_(date) > 4) throw new Error("يوم المهمة الثابتة عطلة (جمعة أو سبت).");
   let file = null;
   if (t.data) {
     const mime = String(t.mime || ""); if (!/^(application\/pdf|image\/(jpeg|png))$/.test(mime)) throw new Error("المرفق لازم يكون PDF أو صورة.");
@@ -1589,9 +1602,9 @@ function saveTask(code, t) {
       writeRow_(sh, idx, row);
       // من أُزيل من التكليف تُحذف حالته، والمهمة المعدّلة تعود «جديدة» عند الباقين حتى يطّلعوا على التعديل
       const st = tskStSheet_(), v = st.getDataRange().getDisplayValues();
-      for (let i = v.length - 1; i >= 1; i--) if (v[i][0] === row[0]) {
+      for (let i = v.length - 1; i >= 1; i--) if (tskMine_(v[i][0], row[0])) {
         if (who.indexOf(v[i][1]) === -1) st.deleteRow(i + 1);
-        else if (v[i][5] === TSK_GOT) writeRow_(st, i + 1, [row[0], v[i][1], "", "", "", TSK_NEW]);
+        else if (v[i][5] === TSK_GOT) writeRow_(st, i + 1, [v[i][0], v[i][1], "", "", "", TSK_NEW]);
       }
     } else {
       if (file) { row[11] = file.id; row[12] = file.name; row[13] = file.mime; }
@@ -1607,7 +1620,7 @@ function deleteTask(code, id) {
     const fid = sh.getRange(row, 12).getDisplayValue(); if (fid) { try { DriveApp.getFileById(fid).setTrashed(true); } catch (e) {} }
     sh.deleteRow(row);
     const st = tskStSheet_(), v = st.getDataRange().getDisplayValues();
-    for (let i = v.length - 1; i >= 1; i--) if (v[i][0] === String(id)) st.deleteRow(i + 1);
+    for (let i = v.length - 1; i >= 1; i--) if (tskMine_(v[i][0], String(id))) st.deleteRow(i + 1);
     return true;
   });
 }
@@ -1625,8 +1638,9 @@ function respondTask(code, id, act, note) {
   note = String(note || "").trim().slice(0, 1000);
   return withLock_(() => {
     const st = tskStSheet_(), v = st.getDataRange().getDisplayValues(), at = nowText_();
-    let i = v.findIndex((x, k) => k > 0 && x[0] === r[0] && x[1] === me.name);
-    const cur = i > 0 ? v[i] : [r[0], me.name, "", "", "", TSK_NEW];
+    const key = tskKey_(r);
+    let i = v.findIndex((x, k) => k > 0 && x[0] === key && x[1] === me.name);
+    const cur = i > 0 ? v[i] : [key, me.name, "", "", "", TSK_NEW];
     if (act === "got") { if (!cur[2]) cur[2] = at; if (cur[5] === TSK_NEW) cur[5] = TSK_GOT; }
     else if (act === "done") { if (!cur[2]) cur[2] = at; cur[3] = at; cur[4] = note; cur[5] = TSK_DONE; }
     else if (act === "undo") { cur[3] = ""; cur[4] = ""; cur[5] = cur[2] ? TSK_GOT : TSK_NEW; }
@@ -1634,4 +1648,15 @@ function respondTask(code, id, act, note) {
     if (i > 0) writeRow_(st, i + 1, cur); else appendText_(st, cur);
     return { gotAt: cur[2], doneAt: cur[3], note: cur[4], status: cur[5] };
   });
+}
+
+/** مرة واحدة: المهمة الثابتة «مراقبة ومناوبة القسمين» كل ثلاثاء لجميع معلمي الشعبة (لا تتكرر إن وُجدت) */
+function addTuesdayDuty() {
+  const id = "tue-duty";
+  if (tskRows_().some(r => r[0] === id)) return "موجودة مسبقًا";
+  const t = todayIso_(), tue = isoAdd_(t, (2 - dayOf_(t) + 7) % 7), at = nowText_();
+  const who = TEACHERS.filter(x => !x[2]).map(x => x[0]);
+  withLock_(() => appendText_(tskSheet_(), [id, "مناوبة", "مراقبة ومناوبة القسمين", "مهمة ثابتة كل يوم ثلاثاء: مراقبة ومناوبة قسمي الحديث الشريف والقرآن الكريم.",
+    tue, "", "", "", "", "", who.join("|"), "", "", "", at, at, "weekly"]));
+  return "أُضيفت ليوم " + tue + " لـ " + who.length + " معلمين";
 }
