@@ -2930,12 +2930,12 @@ function openTsk(id, justSent) {
       ${t.place ? `<div><dt>المكان</dt><dd>${esc(t.place)}</dd></div>` : ""}${t.target ? `<div><dt>الفئة المستهدفة</dt><dd>${esc(t.target)}</dd></div>` : ""}
       ${t.due ? `<div><dt>آخر موعد للتنفيذ</dt><dd>${dayName(t.due)} ${fmtDate(t.due)}</dd></div>` : ""}</dl>
     ${t.details ? `<h3>التفاصيل والتوجيهات</h3><p class="teacher-desc">${esc(t.details)}</p>` : ""}
-    <div class="row-actions" style="margin-top:12px">${t.hasFile ? `<button class="btn ghost" id="tsk-file" type="button">المرفق</button>` : ""}<button class="btn ghost" id="tsk-pdf" type="button">خطاب التكليف PDF</button>${ME.isHead ? `<button class="btn ghost" id="tsk-wa" type="button">إرسال واتساب</button>` : ""}</div>
+    <div class="row-actions" style="margin-top:12px">${t.hasFile ? `<button class="btn ghost" id="tsk-file" type="button">المرفق</button>` : ""}<button class="btn ghost" id="tsk-pdf" type="button">كتاب التكليف PDF</button>${ME.isHead ? `<button class="btn ghost" id="tsk-wa" type="button">إرسال واتساب</button>` : ""}</div>
     <div class="saved" id="tsk-fmsg"></div><div id="tsk-act"></div>`;
   $("tsk-back").onclick = () => loadTsk();
   if (t.hasFile) $("tsk-file").onclick = async () => { const m = $("tsk-fmsg"); m.textContent = "جارٍ تحميل المرفق…";
     try { const f = await run("getTaskFile", CODE, t.id); await deliver(new Blob([b64ToBytes(f.data)], { type: f.mime }), f.name, m); } catch (e) { m.textContent = cleanErr(e); } };
-  $("tsk-pdf").onclick = () => deliverPdf(() => pdfTask(t), `تكليف - ${t.type} - ${t.title}.pdf`, $("tsk-fmsg"));
+  $("tsk-pdf").onclick = () => deliverPdf(() => pdfTask(t), `كتاب تكليف - ${t.type} - ${t.title}.pdf`, $("tsk-fmsg"));
   const act = $("tsk-act");
   if (!ME.isHead) {
     const s = t.mine, done = s.status === "تم التنفيذ";
@@ -2965,13 +2965,13 @@ function openTsk(id, justSent) {
   $("tsk-del").onclick = () => confirmInline($("tsk-del"), "اضغط مرة ثانية للتأكيد", async () => {
     try { await run("deleteTask", CODE, t.id); TSK = TSK.filter(x => x.id !== t.id); loadTsk(); } catch (e) { $("tsk-amsg").textContent = cleanErr(e); } });
 }
-// خطاب التكليف بالديباجة المعتمدة: بيانات المهمة ثم جدول المكلفين بخانة توقيع لكل معلم
+// كتاب التكليف بالديباجة المعتمدة: بيانات المهمة ثم جدول المكلفين بخانة توقيع لكل معلم
 function pdfTask(t) {
   const who = ME.isHead ? t.teachers : [ME.name];
   const info = [["نوع التكليف", t.type], t.repeat ? ["الموعد", `مهمة ثابتة كل يوم ${dayName(t.date)} ابتداءً من ${fmtDate(t.date)}`] : ["اليوم والتاريخ", `${dayName(t.date)} ${fmtDate(t.date)}`]];
   if (t.period || t.time) info.push(["الموعد", [t.period, ar(t.time || "")].filter(Boolean).join(" · ")]);
   if (t.place) info.push(["المكان", t.place]); if (t.target) info.push(["الفئة المستهدفة", t.target]); if (t.due) info.push(["آخر موعد للتنفيذ", `${dayName(t.due)} ${fmtDate(t.due)}`]);
-  return { box: "خطاب تكليف", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
+  return { box: "كتاب تكليف", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [
     P.title(t.title),
     P.p(who.length === 1 ? `الأستاذ الفاضل / ${who[0]}     المحترم` : "الإخوة المعلمون الأفاضل     المحترمون"),
     P.p("السلام عليكم ورحمة الله وبركاته، وبعد:"),
