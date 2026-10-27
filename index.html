@@ -1146,11 +1146,11 @@ const ACT_TYPES = ["مسابقة", "إذاعة مدرسية", "نشاط صفي",
 // السجلّان يتشاركان الركن نفسه: pd = التنمية المهنية وإنجاز الموظف، act = الأنشطة والمسابقات
 const ACH_UI = {
   pd: { name: "التنمية المهنية وإنجاز الموظف", log: "سجل التنمية المهنية وإنجاز الموظف", h2: "إضافة إنجاز أو تنمية مهنية", types: ACH_TYPES, typeL: "نوع الإنجاز",
-    intro: "ارفع صورًا (شهادة الدورة، صور الورشة أو الزيارة…) واكتب التقرير بأسلوبك. يصل رئيس الشعبة فور الرفع، ويُصاغ له تقرير رسمي متكامل خلال ساعة تقريبًا تراجعه وتعتمده ثم تطبعه PDF من القائمة تحت.",
+    intro: "ارفع صورًا (شهادة الدورة، صور الورشة أو الزيارة…) واكتب التقرير بأسلوبك. يصل رئيس الشعبة فور الرفع، ويُصاغ له تقرير رسمي متكامل مساء اليوم نفسه تراجعه وتعتمده ثم تطبعه PDF من القائمة تحت.",
     titlePh: "مثال: دورة استراتيجيات التعلم النشط", targetL: "الجهة المنظمة أو المكان (اختياري)", targetPh: "مثال: التوجيه الفني للعلوم الشرعية", targetInfo: "الجهة المنظمة",
     descPh: "ما الذي حضرته أو قدّمته؟ ما أبرز ما استفدته أو أفدت به زملاءك؟", photosL: "الصور أو الشهادة", noun: "إنجاز", nounDef: "الإنجاز", mine: "إنجازاتي السابقة", box: "تقرير تنمية مهنية", photosH: "الصور والمرفقات" },
   act: { name: "الأنشطة والمسابقات", log: "سجل الأنشطة والمسابقات", h2: "إضافة نشاط أو مسابقة", types: ACT_TYPES, typeL: "نوع النشاط",
-    intro: "ارفع صور النشاط أو المسابقة واكتب التقرير بأسلوبك والنتائج إن وُجدت. يصل رئيس الشعبة فور الرفع، ويُصاغ له تقرير رسمي متكامل خلال ساعة تقريبًا تراجعه وتعتمده ثم تطبعه PDF من القائمة تحت.",
+    intro: "ارفع صور النشاط أو المسابقة واكتب التقرير بأسلوبك والنتائج إن وُجدت. يصل رئيس الشعبة فور الرفع، ويُصاغ له تقرير رسمي متكامل مساء اليوم نفسه تراجعه وتعتمده ثم تطبعه PDF من القائمة تحت.",
     titlePh: "مثال: مسابقة حفظ الأحاديث النبوية", targetL: "الفئة المستهدفة (اختياري)", targetPh: "مثال: طلاب ١١/٢، أو جميع طلاب المعهد", targetInfo: "الفئة المستهدفة",
     descPh: "ماذا قدّمت؟ من شارك؟ ما الذي تميّز به النشاط؟", photosL: "صور النشاط", noun: "نشاط", nounDef: "النشاط", mine: "أنشطتي السابقة", box: "تقرير نشاط", photosH: "صور من النشاط" }
 };
@@ -2684,7 +2684,7 @@ $("ach-form").addEventListener("submit", async e => {
   try {
     await run("submitAchievement", CODE, { kind: ACH_KIND, dept: $("ach-dept").value, type: $("ach-type").value, title: $("ach-title").value, date: $("ach-date").value, target: $("ach-target").value, desc: $("ach-desc").value, results: ACH_KIND === "act" ? $("ach-results").value : "", photos: PHOTOS });
     PHOTOS = []; renderPreviews(); $("ach-title").value = ""; $("ach-target").value = ""; $("ach-desc").value = ""; $("ach-results").value = ""; $("ach-date").value = todayISO();
-    msg.textContent = ME.isHead ? `تم رفع ${U.nounDef} في «${U.log}»، وسيُصاغ تقريره الرسمي تلقائيًا.` : `تم رفع ${U.nounDef} ووصل لرئيس الشعبة. يُصاغ تقريره الرسمي خلال ساعة تقريبًا (وقت الدوام)، ويظهر لك في القائمة تحت لتراجعه وتعتمده ثم تطبعه PDF.`;
+    msg.textContent = ME.isHead ? `تم رفع ${U.nounDef} في «${U.log}»، وسيُصاغ تقريره الرسمي تلقائيًا.` : `تم رفع ${U.nounDef} ووصل لرئيس الشعبة. يُصاغ تقريره الرسمي مساء اليوم (الساعة ٧ تقريبًا)، ويظهر لك في القائمة تحت لتراجعه وتعتمده ثم تطبعه PDF.`;
     ACH = null; ACH_ALL = null; loadMyAch();
   } catch (x) { msg.textContent = cleanErr(x); }
   finally { btn.disabled = false; }
@@ -2706,7 +2706,7 @@ async function loadMyAch() {
   const st = a => ME.isHead ? "" : !a.report ? "wait" : a.teacherOkAt ? "ok" : "review";
   box.innerHTML = mine.map(a => { const k = st(a); return `<div class="li${k === "review" ? " rep-new" : ""}" data-li="${a.id}">
       <div class="li-main"><b>${esc(a.title)}</b><span class="sub">${esc(a.type)} · ${fmtDate(a.date)}${a.photos.length ? " · " + ar(a.photos.length) + " صور" : ""}</span>
-      ${k === "wait" ? `<span class="sub">⏳ يُصاغ تقريره الرسمي خلال ساعة تقريبًا (وقت الدوام)، وتقدر الحين تنزّل تقريرك بأسلوبك</span>`
+      ${k === "wait" ? `<span class="sub">⏳ يُصاغ تقريره الرسمي مساء اليوم (الساعة ٧ تقريبًا)، وتقدر الحين تنزّل تقريرك بأسلوبك</span>`
         : k === "review" ? `<span class="sub" style="color:var(--ok)">📝 تقريرك المصاغ جاهز: راجعه واعتمده ثم اطبعه</span>`
         : k === "ok" ? `<span class="sub">✓ اعتمدته ${fmtStamp(a.teacherOkAt)} · اطبعه ووقّعه يدويًا</span>` : ""}</div>
       <div class="row-actions">${ME.isHead ? `<span class="pill ok">معتمد</span>` : k === "ok" ? `<span class="pill ok">معتمد ✓</span>` : k === "review" ? `<span class="pill late">بانتظار اعتمادك</span>` : `<span class="pill none">وصل لرئيس الشعبة</span>`}
