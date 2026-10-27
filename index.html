@@ -4032,6 +4032,7 @@ function renderResForm() {
     $("rf-teacher").innerHTML = '<option value="">— اختر المعلم الغائب —</option>' + Object.keys(TIMETABLE).map(n => `<option>${esc(n)}</option>`).join("");
     $("rf-date").value = todayISO();
   }
+  rfKindUi();
   renderResItems();
   renderResDay();
 }
