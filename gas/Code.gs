@@ -66,7 +66,7 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, edi
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
   listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen,
   listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones, phonesList,
-  listAlerts, saveAlert, deleteAlert, tickAlert, approveMyReport, teacherGaps };
+  listAlerts, saveAlert, deleteAlert, tickAlert, approveMyReport, teacherGaps, addInquiry, listInquiries };
 
 function doPost(e) {
   let out;
@@ -1854,3 +1854,24 @@ function teacherGaps(code) {
   return out;
 }
 const HEAD_NAME_ = (TEACHERS.find(t => t[2]) || [""])[0];
+
+
+// ======================= استفسارات عن تأخر الاستكمال =======================
+// يصدرها رئيس الشعبة PDF للمعلم الذي لم يستكمل نواقص سبق تنبيهه بها، وتُسجَّل هنا لتظهر في سجل التنبيهات.
+// «استفسارات التأخير»: 0 المعرف | 1 المعلم | 2 النواقص JSON [{t, k, at, due}] | 3 وقت الإصدار
+const SHEET_INQ = "استفسارات التأخير";
+function inqSheet_() { return sheet_(SHEET_INQ, ["المعرف", "المعلم", "النواقص", "وقت الإصدار"], true); }
+function addInquiry(code, q) {
+  head_(code);
+  const t = String(q && q.teacher || ""); if (tskPool_().indexOf(t) === -1) throw new Error("اختر المعلم.");
+  const items = (Array.isArray(q.items) ? q.items : []).slice(0, 40).map(x => ({ t: String(x.t || "").slice(0, 200), k: String(x.k || "").slice(0, 10), at: String(x.at || "").slice(0, 16), due: String(x.due || "").slice(0, 10) })).filter(x => x.t);
+  if (!items.length) throw new Error("لا توجد نواقص للاستفسار عنها.");
+  const id = newId_(), at = nowText_();
+  withLock_(() => appendText_(inqSheet_(), [id, t, JSON.stringify(items), at]));
+  return { id, at };
+}
+function listInquiries(code) {
+  head_(code);
+  const sh = sh_(SHEET_INQ); if (!sh) return [];
+  return sh.getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(r => ({ id: r[0], teacher: r[1], items: jsonOr_(r[2], []), at: r[3], demo: isDemo_(r[1]) })).reverse();
+}

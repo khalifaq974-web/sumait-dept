@@ -3337,10 +3337,42 @@ function alrLampTeacher() {
   if (n && !b) { b = document.createElement("div"); b.id = "alr-banner"; b.className = "tsk-new-banner"; b.onclick = () => go("alr"); document.querySelector("nav.sections").after(b); }
   if (b) { if (n) b.textContent = `🔔 لديك ${ar(n)} ${n === 1 ? "نقص مطلوب استكماله" : "نواقص مطلوب استكمالها"} من رئيس الشعبة — اضغط للاطلاع`; else b.remove(); }
 }
+let INQ = [];
+/** كل النواقص التي نُبّه بها المعلم ولم يستكملها (من كل التنبيهات) */
+function pendingFor(t) {
+  const rows = [];
+  (ALR || []).forEach(a => { const s = a.status && a.status.find(x => x.teacher === t); if (!s) return;
+    a.items.forEach((x, i) => { if (!(s.done || {})[i]) rows.push({ t: x.t, k: x.k, at: a.createdAt.slice(0, 10), due: a.due || "" }); }); });
+  return rows;
+}
+// نموذج «استفسار عن تأخر استكمال» (صفحة واحدة بالديباجة، بتوقيع المعلم ورئيس الشعبة)
+function pdfInquiry(t, rows, at) {
+  const first = rows.map(r => r.at).sort()[0] || "";
+  return { box: "استفسار عن تأخر استكمال", signs: [["المعلم", "أ. " + t], ["رئيس الشعبة", HEAD_SIGN]], blocks: [
+    P.info([["المعلم", "أ. " + t], ["التاريخ", fmtDate((at || todayISO()).slice(0, 10), true)]], 2),
+    P.p(`الأستاذ الفاضل / ${t}     المحترم`, "b"),
+    P.p("السلام عليكم ورحمة الله وبركاته، وبعد:"),
+    P.p(`نظرًا لعدم استكمال ما يلي رغم التنبيه به${first ? " بتاريخ " + fmtDate(first) : ""} عبر موقع القسم، نأمل التكرم بإفادتنا بسبب التأخير، والموعد المتوقع للاستكمال.`),
+    P.h("النواقص المطلوب استكمالها"),
+    P.grid(P.th(["م", "النقص", "السجل", "تاريخ التنبيه", "آخر موعد"]), rows.map((r, i) => P.tr([{ t: ar(i + 1), c: "c" }, r.t, { t: SEC_NAMES_AR[r.k] || "سجلات ورقية", c: "c" }, { t: r.at ? fmtDate(r.at) : "—", c: "c" }, { t: r.due ? fmtDate(r.due) : "—", c: "c" }]))),
+    P.h("سبب التأخير (يكتبه المعلم)"),
+    `<div style="border:1px solid #C9D6E3;border-radius:6px;padding:4px 10px">${'<div style="border-bottom:1px dotted #9AA8B5;height:30px"></div>'.repeat(5)}</div>`,
+    P.h("الموعد المتوقع للاستكمال"),
+    `<div style="border:1px solid #C9D6E3;border-radius:6px;height:34px;margin-bottom:6px"></div>`,
+    P.p("وتفضلوا بقبول فائق الاحترام والتقدير.", "c")] };
+}
+async function issueInquiry(t, msgEl) {
+  const rows = pendingFor(t);
+  if (!rows.length) { msgEl.textContent = "ما فيه نواقص سبق تنبيهه بها وما استكملها."; return; }
+  msgEl.textContent = "جارٍ تسجيل الاستفسار…";
+  try { const r = await run("addInquiry", CODE, { teacher: t, items: rows }); INQ.unshift({ id: r.id, teacher: t, items: rows, at: r.at });
+    deliverPdf(() => pdfInquiry(t, rows, r.at), `استفسار عن تأخر استكمال - أ. ${shortName(t)} - ${r.at.slice(0, 10)}.pdf`, msgEl); }
+  catch (e) { msgEl.textContent = cleanErr(e); }
+}
 async function loadAlr(force) {
   $("alr-form").hidden = true; $("alr-detail").hidden = true; $("alr-listwrap").hidden = false; $("alr-newwrap").hidden = !ME.isHead;
   const box = $("alr-list");
-  if (!ALR || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { ALR = await run("listAlerts", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
+  if (!ALR || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { ALR = await run("listAlerts", CODE); if (ME.isHead && !ME.isDemo) INQ = await run("listInquiries", CODE).catch(() => []); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
   alrLampTeacher();
   const F = [["open", "لم تكتمل"], ["done", "المكتملة"], ["all", "الكل"]];
   $("alr-filter").innerHTML = F.map(([k, l]) => `<label class="chip"><input type="radio" name="alr-f" value="${k}"${k === alrFilter ? " checked" : ""}><span>${l} (${ar(ALR.filter(a => k === "all" || (k === "done") === alrDone(a)).length)})</span></label>`).join("");
@@ -3384,10 +3416,11 @@ function renderGaps() {
   $("gaps-sum").textContent = total ? `· ${ar(names.length)} معلمين · ${ar(total)} نقص` : "· لا توجد نواقص ✓";
   $("gaps-all").hidden = !names.length;
   $("gaps-list").innerHTML = names.length ? names.map(t => `<div class="gap-card" data-gt="${esc(t)}"><div class="gap-h"><b>${TSK_DEMOS.includes(t) ? esc(t) + ' <span class="pill none">تجريبي</span>' : "أ. " + esc(shortName(t))} <span class="pill late">${ar(items(t).length)} ${items(t).length === 1 ? "نقص" : "نواقص"}</span></b>
-      <button class="btn sm" type="button" data-gsend="${esc(t)}">🔔 إرسال التنبيه</button></div>
+      <span class="row-actions"><button class="btn sm" type="button" data-gsend="${esc(t)}">🔔 إرسال التنبيه</button>${pendingFor(t).length ? `<button class="btn ghost sm" type="button" data-ginq="${esc(t)}">📄 استفسار عن التأخير</button>` : ""}</span></div>
       ${items(t).map((x, i) => { const sent = gapSent(t, x.t); return `<label><input type="checkbox" data-gi="${i}"${sent ? "" : " checked"}><span>${esc(x.t)}${x.k && SEC_NAMES_AR[x.k] ? `<span class="sub">· ${esc(SEC_NAMES_AR[x.k])}</span>` : ""}${sent ? '<span class="pill none">سبق تنبيهه</span>' : ""}</span></label>`; }).join("")}</div>`).join("")
     : '<div class="empty">ما فيه نواقص في سجلات الموقع حاليًا ✓</div>';
   $("gaps-list").querySelectorAll("[data-gsend]").forEach(b => b.onclick = () => sendGaps([b.dataset.gsend]));
+  $("gaps-list").querySelectorAll("[data-ginq]").forEach(b => b.onclick = () => issueInquiry(b.dataset.ginq, $("gaps-msg")));
 }
 async function sendGaps(names) {
   const m = $("gaps-msg"), d = dF("alr"), made = {};
@@ -3422,7 +3455,10 @@ function pdfAlrLog() {
     Object.keys(by).length ? P.grid(P.th(["المعلم", "عدد التنبيهات", "النواقص المطلوبة", "استُكمل منها", "تنبيهات اكتملت"]),
       TEACHERS.map(([t]) => t).filter(t => by[t]).map(t => P.tr(["أ. " + t, { t: ar(by[t].n), c: "c" }, { t: ar(by[t].items), c: "c" }, { t: ar(by[t].done), c: "c b" }, { t: ar(by[t].full), c: "c" }]))) : P.p("لا توجد تنبيهات."),
     P.h("ثانيًا: تفاصيل التنبيهات"),
-    rows.length ? P.grid(P.th(["تاريخ التنبيه", "المعلم", "النواقص", "آخر موعد", "الحالة"]), rows, "dense") : P.p("لا توجد تنبيهات.")] };
+    rows.length ? P.grid(P.th(["تاريخ التنبيه", "المعلم", "النواقص", "آخر موعد", "الحالة"]), rows, "dense") : P.p("لا توجد تنبيهات."),
+    P.h("ثالثًا: الاستفسارات عن تأخر الاستكمال"),
+    (() => { const q = INQ.filter(x => !x.demo && tIn(x.teacher, d)).slice().reverse(); return q.length ? P.grid(P.th(["تاريخ الإصدار", "المعلم", "عدد النواقص", "النواقص"]),
+      q.map(x => P.tr([fmtStamp(x.at), "أ. " + x.teacher, { t: ar(x.items.length), c: "c" }, x.items.map(i => i.t).join("، ")])), "dense") : P.p("لم يصدر أي استفسار."); })()] };
 }
 $("alr-logpdf").onclick = () => deliverPdf(() => pdfAlrLog(), `سجل تنبيهات الاستكمال${dFile(dF("alr"))}.pdf`, $("alr-lmsg"));
 function alrWaText(a, n) {
@@ -3452,13 +3488,15 @@ function openAlr(id, justSent) {
     return;
   }
   d.innerHTML = head + `<h3>متابعة الاستكمال</h3>
-    ${a.status.map(s => { const l = alrLeft(a, s); return `<div class="af-grp"><b>${s.demo ? esc(s.teacher) + ' <span class="pill none">تجريبي</span>' : "أ. " + esc(s.teacher)} ${l ? `<span class="pill late">باقي ${ar(l)} من ${ar(a.items.length)}</span>` : `<span class="pill ok">اكتمل ✓ ${s.allAt ? fmtStamp(s.allAt) : ""}</span>`}</b>
+    ${a.status.map(s => { const l = alrLeft(a, s), iq = INQ.filter(x => x.teacher === s.teacher); return `<div class="af-grp"><b>${s.demo ? esc(s.teacher) + ' <span class="pill none">تجريبي</span>' : "أ. " + esc(s.teacher)} ${l ? `<span class="pill late">باقي ${ar(l)} من ${ar(a.items.length)}</span>` : `<span class="pill ok">اكتمل ✓ ${s.allAt ? fmtStamp(s.allAt) : ""}</span>`}</b>
+      ${l ? `<div class="row-actions" style="margin:6px 0"><button class="btn ghost sm" type="button" data-inq="${esc(s.teacher)}">📄 استفسار عن التأخير PDF</button>${iq.length ? `<span class="sub">صدر له ${ar(iq.length)} ${iq.length === 1 ? "استفسار" : "استفسارات"} · آخرها ${fmtStamp(iq[0].at)}</span>` : ""}</div>` : ""}
       <div class="alr-bar"><i style="width:${Math.round(100 * (a.items.length - l) / a.items.length)}%"></i></div>
       ${a.items.map((x, i) => { const at = s.done[i]; return `<div class="alr-item${at ? " done" : ""}"><span class="alr-t">${esc(x.t)}</span>${at ? `<span class="pill ok">✓ ${fmtStamp(at)}</span>` : `<span class="pill late">لم يُستكمل</span>`}</div>`; }).join("")}</div>`; }).join("")}
     <div class="row-actions" style="margin-top:12px"><button class="btn" id="alr-edit" type="button">تعديل</button><button class="btn ghost" id="alr-del" type="button">حذف</button></div>
     <div class="saved" id="alr-amsg"></div><div id="alr-wa"></div>`;
   $("alr-back").onclick = () => loadAlr();
   $("alr-edit").onclick = () => alrForm(a);
+  d.querySelectorAll("[data-inq]").forEach(b => b.onclick = () => issueInquiry(b.dataset.inq, $("alr-amsg")));
   $("alr-del").onclick = () => confirmInline($("alr-del"), "اضغط مرة ثانية للتأكيد", async () => { try { await run("deleteAlert", CODE, a.id); ALR = ALR.filter(x => x.id !== a.id); loadAlr(); } catch (e) { $("alr-amsg").textContent = cleanErr(e); } });
   waPanel(justSent ? $("alr-wa-top") : $("alr-wa"), a.teachers, n => alrWaText(a, n),
     n => { const s = a.status.find(y => y.teacher === n), l = s ? alrLeft(a, s) : a.items.length; return l ? `<span class="pill late">باقي ${ar(l)}</span>` : '<span class="pill ok">اكتمل</span>'; });
