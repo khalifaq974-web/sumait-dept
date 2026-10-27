@@ -1458,31 +1458,32 @@ function deleteMonthlyReport(code, id) {
 
 
 // ======================= الإشعارات: كل تحديث يسويه معلم يصل لرئيس الشعبة =======================
-// أعمدة «الإشعارات»: 0 الوقت (yyyy-MM-dd HH:mm:ss) | 1 المعلم | 2 الركن | 3 ماذا فعل | 4 مفتاح الدمج
+// أعمدة «الإشعارات»: 0 الوقت (yyyy-MM-dd HH:mm:ss) | 1 المعلم | 2 الركن | 3 ماذا فعل | 4 مفتاح الدمج | 5 المرجع (ما يُفتح عند الضغط على الإشعار)
 // تُسجَّل الأحداث من doPost بعد نجاح الطلب. حفظ الدرجات والمنهج لنفس الصف خلال ساعة يُدمج في إشعار واحد.
-function actSheet_() { return sheet_(SHEET_ACTLOG, ["الوقت", "المعلم", "الركن", "ماذا فعل", "مفتاح الدمج"], true); }
+const ACT_HEAD = ["الوقت", "المعلم", "الركن", "ماذا فعل", "مفتاح الدمج", "المرجع"];
+function actSheet_() { const sh = sheet_(SHEET_ACTLOG, ACT_HEAD, true); if (sh.getLastColumn() < ACT_HEAD.length) sh.getRange(1, 1, 1, ACT_HEAD.length).setValues([ACT_HEAD]); return sh; }
 function stamp_() { return Utilities.formatDate(new Date(), "Asia/Kuwait", "yyyy-MM-dd HH:mm:ss"); }
 function arNum_(x) { return String(x).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]); }
 function clsName_(id) { const m = String(id || "").match(/^(hd|qr):(\d+)-(\d+)$/); return m ? `${SUBJ[m[1]]} ${arNum_(m[2])}/${arNum_(m[3])}` : String(id || ""); }
 function rowTitle_(sheet, id, col) { const r = rows_(sheet).slice(1).find(x => x[0] === String(id)); return r ? r[col] : ""; }
 const ACT_LOG = {
-  saveEntry: a => ({ sec: "curr", text: `حدّث ما قطع من المنهج: ${clsName_(a[2] + ":" + a[1])}${a[5] ? " — " + a[5] : ""}`, key: "curr|" + a[2] + a[1] }),
-  saveGrades: a => ({ sec: "cls", text: `رصد درجات كشف متابعة المتعلمين: ${clsName_(a[1])} (الفصل الدراسي ${a[2] == 2 ? "الثاني" : "الأول"})`, key: "grd|" + a[1] + "|" + a[2] }),
-  saveStudentReport: a => ({ sec: "cls", text: `${a[1] && a[1].id ? "عدّل" : "أرسل"} تقرير ${SREP_TYPES[a[1] && a[1].type] || "متعلم"}: المتعلم رقم ${arNum_(a[1] && a[1].student || "")} (${clsName_(a[1] && a[1].cls)})` }),
+  saveEntry: a => ({ sec: "curr", text: `حدّث ما قطع من المنهج: ${clsName_(a[2] + ":" + a[1])}${a[5] ? " — " + a[5] : ""}`, key: "curr|" + a[2] + a[1], ref: a[1] + "__" + a[2] }),
+  saveGrades: a => ({ sec: "cls", text: `رصد درجات كشف متابعة المتعلمين: ${clsName_(a[1])} (الفصل الدراسي ${a[2] == 2 ? "الثاني" : "الأول"})`, key: "grd|" + a[1] + "|" + a[2], ref: a[1] + "|" + (a[2] == 2 ? 2 : 1) }),
+  saveStudentReport: (a, res) => ({ sec: "cls", ref: "rep|" + (res && res.id || a[1] && a[1].id || ""), text: `${a[1] && a[1].id ? "عدّل" : "أرسل"} تقرير ${SREP_TYPES[a[1] && a[1].type] || "متعلم"}: المتعلم رقم ${arNum_(a[1] && a[1].student || "")} (${clsName_(a[1] && a[1].cls)})` }),
   deleteStudentReport: () => ({ sec: "cls", text: "حذف تقرير متعلم" }),
-  submitAchievement: a => ({ sec: a[1] && a[1].kind === "act" ? "act" : "ach", text: `${a[1] && a[1].kind === "act" ? "رفع نشاطًا في سجل الأنشطة والمسابقات" : "رفع إنجازًا في التنمية المهنية وإنجاز الموظف"}: ${a[1] && a[1].title || ""}` }),
+  submitAchievement: (a, res) => ({ sec: a[1] && a[1].kind === "act" ? "act" : "ach", ref: res && res.id, text: `${a[1] && a[1].kind === "act" ? "رفع نشاطًا في سجل الأنشطة والمسابقات" : "رفع إنجازًا في التنمية المهنية وإنجاز الموظف"}: ${a[1] && a[1].title || ""}` }),
   deleteAchievement: () => ({ sec: "ach", text: "حذف إنجازًا أو نشاطًا مرفوعًا" }),
-  editAchievement: (a, res) => ({ sec: res && res.kind === "act" ? "act" : "ach", text: `عدّل ${res && res.kind === "act" ? "نشاطًا" : "إنجازًا"}: ${a[2] && a[2].title || ""}` }),
-  signMinute: a => ({ sec: "min", text: `اطّلع على المحضر: ${rowTitle_(SHEET_MIN, a[1], 1)}` }),
-  signVisit: () => ({ sec: "vis", text: "اطّلع على بطاقة الزيارة الصفية" }),
-  submitPermission: a => ({ sec: "prm", text: `${a[1] && a[1].id ? "عدّل طلب استئذان" : "قدّم طلب استئذان"} (${a[1] && a[1].type || ""}) ليوم ${a[1] && a[1].date || ""}` }),
+  editAchievement: (a, res) => ({ sec: res && res.kind === "act" ? "act" : "ach", ref: a[1], text: `عدّل ${res && res.kind === "act" ? "نشاطًا" : "إنجازًا"}: ${a[2] && a[2].title || ""}` }),
+  signMinute: a => ({ sec: "min", ref: a[1], text: `اطّلع على المحضر: ${rowTitle_(SHEET_MIN, a[1], 1)}` }),
+  signVisit: a => ({ sec: "vis", ref: a[1], text: "اطّلع على بطاقة الزيارة الصفية" }),
+  submitPermission: (a, res) => ({ sec: "prm", ref: res && res.id || a[1] && a[1].id, text: `${a[1] && a[1].id ? "عدّل طلب استئذان" : "قدّم طلب استئذان"} (${a[1] && a[1].type || ""}) ليوم ${a[1] && a[1].date || ""}` }),
   deletePermission: () => ({ sec: "prm", text: "حذف طلب استئذان" }),
-  saveRemedialPlan: () => ({ sec: "cls", text: "حدّث الخطة العلاجية لمتعلم متعثر" }),
-  requestSwap: a => ({ sec: "res", text: `طلب تبديل حصة مع أ. ${a[1] && a[1].other || ""} ليوم ${a[1] && a[1].date || ""}` }),
-  cancelSwap: () => ({ sec: "res", text: "ألغى تبديل حصة" }),
+  saveRemedialPlan: a => ({ sec: "cls", ref: "rep|" + a[1], text: "حدّث الخطة العلاجية لمتعلم متعثر" }),
+  requestSwap: a => ({ sec: "res", ref: "swap", text: `طلب تبديل حصة مع أ. ${a[1] && a[1].other || ""} ليوم ${a[1] && a[1].date || ""}` }),
+  cancelSwap: () => ({ sec: "res", ref: "swap", text: "ألغى تبديل حصة" }),
   respondTask: (a, res) => { const r = tskRows_().find(x => x[0] === String(a[1])), t = r ? `«${r[1]}: ${r[2]}»` : "مهمة";
-    return { sec: "tsk", text: a[2] === "done" ? `نفّذ المهمة ${t}${res && res.note ? " — " + res.note : ""}` : a[2] === "undo" ? `تراجع عن تنفيذ المهمة ${t}` : `استلم المهمة ${t}` }; },
-  ackCircular: a => { const r = nshRows_().find(x => x[0] === String(a[1])); return { sec: "nsh", text: `اطّلع على ${r ? r[1] + ": " + r[4] : "نشرة"}` }; }
+    return { sec: "tsk", ref: a[1], text: a[2] === "done" ? `نفّذ المهمة ${t}${res && res.note ? " — " + res.note : ""}` : a[2] === "undo" ? `تراجع عن تنفيذ المهمة ${t}` : `استلم المهمة ${t}` }; },
+  ackCircular: a => { const r = nshRows_().find(x => x[0] === String(a[1])); return { sec: "nsh", ref: a[1], text: `اطّلع على ${r ? r[1] + ": " + r[4] : "نشرة"}` }; }
 };
 function logAct_(fn, args, result) {
   const me = who_(args[0]); if (me.isHead) return;
@@ -1493,13 +1494,13 @@ function logAct_(fn, args, result) {
     if (key) {
       const last = sh.getLastRow(), from = Math.max(2, last - 30);
       if (last >= 2) {
-        const v = sh.getRange(from, 1, last - from + 1, 5).getDisplayValues();
+        const v = sh.getRange(from, 1, last - from + 1, 6).getDisplayValues();
         for (let i = v.length - 1; i >= 0; i--) if (v[i][4] === key && (new Date(now.replace(" ", "T")) - new Date(v[i][0].replace(" ", "T"))) < 3600000) {
-          sh.getRange(from + i, 1, 1, 5).setValues([[now, me.name, ev.sec, ev.text, key]]); return;
+          sh.getRange(from + i, 1, 1, 6).setValues([[now, me.name, ev.sec, ev.text, key, String(ev.ref || "")]]); return;
         }
       }
     }
-    appendText_(sh, [now, me.name, ev.sec, ev.text, key]);
+    appendText_(sh, [now, me.name, ev.sec, ev.text, key, String(ev.ref || "")]);
   });
 }
 /** لرئيس الشعبة: آخر الإشعارات، وعدد غير المقروء */
@@ -1507,7 +1508,7 @@ function listActivity(code, limit) {
   head_(code);
   const seen = PropertiesService.getScriptProperties().getProperty("actSeen") || "";
   const v = actSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]);
-  const items = v.slice(-Math.min(Number(limit) || 150, 300)).reverse().map(r => ({ at: r[0], teacher: r[1], sec: r[2], text: r[3], demo: isDemo_(r[1]), unread: r[0] > seen }));
+  const items = v.slice(-Math.min(Number(limit) || 150, 300)).reverse().map(r => ({ at: r[0], teacher: r[1], sec: r[2], text: r[3], ref: r[5] || "", demo: isDemo_(r[1]), unread: r[0] > seen }));
   let secSeen = {}; try { secSeen = JSON.parse(PropertiesService.getScriptProperties().getProperty("actSeenSec") || "{}"); } catch (e) {}
   return { items, unread: v.filter(r => r[0] > seen).length, seen, secSeen };
 }
