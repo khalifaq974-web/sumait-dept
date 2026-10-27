@@ -1530,7 +1530,7 @@ function logAct_(fn, args, result) {
 }
 /** لرئيس الشعبة: آخر الإشعارات، وعدد غير المقروء */
 function listActivity(code, limit) {
-  head_(code);
+  head_(code); try { ensureReminders_(); } catch (e) {}
   const seen = PropertiesService.getScriptProperties().getProperty("actSeen") || "";
   const v = actSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]);
   const items = v.slice(-Math.min(Number(limit) || 150, 300)).reverse().map(r => ({ at: r[0], teacher: r[1], sec: r[2], text: r[3], ref: r[5] || "", demo: isDemo_(r[1]), unread: r[0] > seen }));
@@ -1576,6 +1576,34 @@ function isoAdd_(iso, n) { const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/), d =
 /** موعد المهمة الثابتة هذا الأسبوع: اليوم إن كان يومها، وإلا أقرب يوم قادم */
 function tskOcc_(r) { const t = todayIso_(); if (r[16] !== "weekly") return r[4]; if (t < r[4]) return r[4]; return isoAdd_(t, (dayOf_(r[4]) - dayOf_(t) + 7) % 7); }
 function tskKey_(r) { return r[16] === "weekly" ? r[0] + "@" + tskOcc_(r) : r[0]; }
+/** التذكير: التكليف العادي قبل موعده بيومين حتى يومه، والمهمة الثابتة في يومها فقط */
+function tskRemind_(r, occ) {
+  const t = todayIso_();
+  if (r[16] === "weekly") return { soon: occ === t, remind: occ === t };
+  return { soon: true, remind: r[4] >= t && r[4] <= isoAdd_(t, 2) };
+}
+/** مرة واحدة يوميًا (عند أول استخدام للموقع في اليوم): يسجّل لرئيس الشعبة إشعار «تم تذكير المعلم» لكل تذكير يبدأ اليوم */
+function ensureReminders_() {
+  const props = PropertiesService.getScriptProperties(), t = todayIso_();
+  if (props.getProperty("remindDay") === t) return;
+  withLock_(() => {
+    if (props.getProperty("remindDay") === t) return;
+    props.setProperty("remindDay", t);
+    const sts = tskSts_(), sh = actSheet_(), now = stamp_(), DN = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    const dd = iso => DN[dayOf_(iso)] + " " + arNum_(iso.slice(8, 10) + "/" + iso.slice(5, 7));
+    tskRows_().forEach(r => {
+      const weekly = r[16] === "weekly", occ = tskOcc_(r);
+      if (weekly ? occ !== t : r[4] !== isoAdd_(t, 2)) return;
+      const key = tskKey_(r);
+      r[10].split("|").filter(Boolean).forEach(n => {
+        const s = sts.find(x => x[0] === key && x[1] === n);
+        if (s && s[5] === TSK_DONE) return;
+        const text = weekly ? `⏰ تم تذكيره بمهمة اليوم: ${r[2]}` : `⏰ تم تذكيره: باقي يومين على تكليف «${r[2]}» (${dd(r[4])})`;
+        appendText_(sh, [now, n, "tsk", text, "", r[0]]);
+      });
+    });
+  });
+}
 function tskMine_(key, id) { return key === id || key.indexOf(id + "@") === 0; }
 function tskStSheet_() { return sheet_(SHEET_TSKST, TSKST_HEAD, true); }
 function tskRows_() { return tskSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]); }
@@ -1588,12 +1616,13 @@ function tskObj_(r, sts, me) {
     return { teacher: t, demo: isDemo_(t), gotAt: s[2] || "", doneAt: s[3] || "", note: s[4] || "", status: s[5] || TSK_NEW }; });
   const o = { id: r[0], type: r[1], title: r[2], details: r[3], date: r[4], period: r[5], time: r[6], place: r[7], target: r[8], due: r[9],
     fileName: r[12], mime: r[13], hasFile: !!r[11], createdAt: r[14], updatedAt: r[15], teachers: who,
-    repeat: weekly ? "weekly" : "", rec: r[17] || "", occ, soon: !weekly || isoAdd_(todayIso_(), 1) >= occ };
+    repeat: weekly ? "weekly" : "", rec: r[17] || "", occ, ...tskRemind_(r, occ) };
   if (me.isHead) o.status = st; else o.mine = st.find(x => x.teacher === me.name) || null;
   return o;
 }
 function listTasks(code) {
-  const me = who_(code), sts = tskSts_();
+  const me = who_(code); try { ensureReminders_(); } catch (e) {}
+  const sts = tskSts_();
   return tskRows_().map(r => tskObj_(r, sts, me)).filter(o => me.isHead ? !me.isDemo : !!o.mine)
     .sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
 }

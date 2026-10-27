@@ -3077,20 +3077,23 @@ function tskWhen(t) { return `${t.repeat ? `كل يوم ${dayName(t.date)} · ا
 function tskDone(t) { if (t.repeat) return false; return ME.isHead ? t.status.every(s => s.status === "تم التنفيذ") : t.mine && t.mine.status === "تم التنفيذ"; }
 function tskPill(t) {
   const rp = t.repeat ? `<span class="pill none">ثابتة أسبوعيًا</span>` : "";
-  if (!ME.isHead) { const s = t.mine.status; return `<span class="tsk-st">${rp}${t.repeat && !t.soon ? "" : `<span class="pill ${TSK_PILL[s]}">${s === "جديدة" ? (t.repeat ? "تذكير — بانتظار استلامك" : "جديدة — بانتظار استلامك") : s}</span>`}</span>`; }
+  const rmd = t.remind && (ME.isHead ? t.status.some(x => x.status !== "تم التنفيذ") : t.mine.status !== "تم التنفيذ") ? `<span class="pill ahead">⏰ ${tskLeft(t.occ) === "باقي يومين على" ? "باقي يومين" : tskLeft(t.occ)}</span>` : "";
+  if (!ME.isHead) { const s = t.mine.status; return `<span class="tsk-st">${rmd}${rp}${t.repeat && !t.soon ? "" : `<span class="pill ${TSK_PILL[s]}">${s === "جديدة" ? (t.repeat ? "تذكير — بانتظار استلامك" : "جديدة — بانتظار استلامك") : s}</span>`}</span>`; }
   const n = t.status.length, got = t.status.filter(s => s.status !== "جديدة").length, done = t.status.filter(s => s.status === "تم التنفيذ").length;
-  return `<span class="tsk-st">${rp}${done === n ? `<span class="pill ok">نُفّذت</span>` : `<span class="pill none">استلم ${ar(got)} من ${ar(n)}</span><span class="pill ${done ? "ok" : "none"}">نفّذ ${ar(done)}</span>`}</span>`;
+  return `<span class="tsk-st">${rmd}${rp}${done === n ? `<span class="pill ok">نُفّذت</span>` : `<span class="pill none">استلم ${ar(got)} من ${ar(n)}</span><span class="pill ${done ? "ok" : "none"}">نفّذ ${ar(done)}</span>`}</span>`;
 }
 /** لمبة المعلم: عدد المهام الجديدة التي لم يستلمها */
+/** «اليوم» / «غدًا» / «باقي يومين على» */
+function tskLeft(iso) { const d = Math.round((new Date(iso + "T12:00") - new Date(todayISO() + "T12:00")) / 864e5); return d <= 0 ? "اليوم" : d === 1 ? "غدًا" : "باقي يومين على"; }
 function tskLampTeacher() {
   if (!ME || ME.isHead || !TSK) return;
-  const fresh = TSK.filter(t => t.mine && t.mine.status === "جديدة" && t.soon), n = fresh.length, el = $("lamp-tsk");
+  const fresh = TSK.filter(t => t.mine && t.mine.status !== "تم التنفيذ" && ((t.mine.status === "جديدة" && t.soon) || t.remind)), n = fresh.length, el = $("lamp-tsk");
   el.hidden = !n; el.textContent = n ? ar(n) : ""; $("nav-tsk").title = n ? `لديك ${n} مهمة جديدة` : "";
   let b = $("tsk-banner");
   if (n && !b) { b = document.createElement("div"); b.id = "tsk-banner"; b.className = "tsk-new-banner"; b.onclick = () => go("tsk"); document.querySelector("nav.sections").after(b); }
-  const rem = fresh.filter(t => t.repeat), rel = d => d === todayISO() ? "اليوم" : "غدًا";
-  if (b) { if (n) b.textContent = rem.length === n
-      ? `💡 تذكير: ${rel(rem[0].occ)} ${dayName(rem[0].occ)} مهمة «${rem[0].title}»${n > 1 ? ` و${ar(n - 1)} غيرها` : ""} — اضغط للاستلام`
+  const rem = fresh.filter(t => t.remind).sort((a, b) => a.occ.localeCompare(b.occ)), nw = fresh.filter(t => !t.remind);
+  if (b) { if (n) b.textContent = rem.length
+      ? `⏰ تذكير: ${tskLeft(rem[0].occ)} ${rem[0].repeat ? "مهمة" : "موعد تكليف"} «${rem[0].title}» (${dayName(rem[0].occ)} ${fmtDate(rem[0].occ)})${n > 1 ? ` · و${ar(n - 1)} غيرها` : ""} — اضغط للاطلاع`
       : `💡 لديك ${ar(n)} ${n === 1 ? "مهمة جديدة" : "مهام جديدة"} من رئيس الشعبة — اضغط للاطلاع والاستلام`; else b.remove(); }
 }
 async function tskBadge() { try { TSK = await run("listTasks", CODE); tskLampTeacher(); } catch (e) {} try { ALR = await run("listAlerts", CODE); alrLampTeacher(); } catch (e) {} try { ACH = await run("myAchievements", CODE); achLampTeacher(); } catch (e) {} }
@@ -3115,7 +3118,8 @@ function tskWaText(t, n) {
   const body = t.type === TSK_ALERT
     ? `🔔 تنبيه: يرجى استكمال سجل «${SEC_NAMES_AR[t.rec] || t.title}» في موقع القسم.${t.due ? "\nآخر موعد: " + dayName(t.due) + " " + t.due : ""}${t.details ? "\n\n" + t.details : ""}`
     : `📌 تكليف: ${t.type} — ${t.title}\n${when}${extra}`;
-  return waMsg(n, body + "\n\nيرجى تأكيد الاستلام من ركن «المهام والتكاليف».", "tsk=" + t.id);
+  const rmd = t.remind ? `⏰ تذكير: ${tskLeft(t.occ)} ${t.repeat ? "المهمة" : "موعد التكليف"} (${dayName(t.occ)} ${t.occ})\n\n` : "";
+  return waMsg(n, rmd + body + "\n\nيرجى تأكيد الاستلام من ركن «المهام والتكاليف».", "tsk=" + t.id);
 }
 function openTsk(id, justSent) {
   const t = TSK && TSK.find(x => x.id === id); if (!t) return loadTsk();
