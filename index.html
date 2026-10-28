@@ -639,7 +639,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="chips" id="af-teachers"></div>
         <label class="f">النواقص المطلوب استكمالها <span class="sub">(اختر كل ما ينطبق)</span></label>
         <div id="af-items"></div>
-        <div class="af-grp" id="af-res"><b>عدم دخول حصة الاحتياط <span class="sub">(حصص الاحتياط المكلَّف بها في آخر أسبوعين)</span></b><div id="af-res-list" class="sub">اختر المعلم لتظهر حصص احتياطه.</div></div>
+        <div class="af-grp" id="af-res"><b>عدم دخول حصة الاحتياط <span class="sub">(كل حصص الاحتياط المكلَّف بها خلال الفصل الدراسي)</span></b><div id="af-res-list" class="sub">اختر المعلم لتظهر حصص احتياطه.</div></div>
         <div class="af-grp" id="af-tsk"><b>عدم تنفيذ التكليف <span class="sub">(التكاليف التي انتهى موعدها ولم يسجّل المعلم تنفيذها)</span></b><div id="af-tsk-list" class="sub">اختر المعلم لتظهر تكاليفه.</div></div>
         <label class="f" for="af-other">نواقص أخرى (اختياري: كل نقص في سطر)</label>
         <textarea id="af-other" rows="2" maxlength="1000" placeholder="مثال: تصوير كراسات الصف ١٠/٢"></textarea>
@@ -3402,7 +3402,7 @@ function afTskRender(keep) {
 // «عدم دخول حصة الاحتياط»: حصص الاحتياط التي كُلّف بها المعلم في آخر أسبوعين (من سجل الغياب والتكاليف)
 const RES_MISS = "عدم دخول حصة الاحتياط";
 function afResRows() {
-  const ts = [...document.querySelectorAll('input[name="af-t"]:checked')].map(c => c.value), today = todayISO(), from = addDaysISO(today, -14), out = [];
+  const ts = [...document.querySelectorAll('input[name="af-t"]:checked')].map(c => c.value), today = todayISO(), from = "0000", out = []; // كل حصص الاحتياط خلال الفصل الدراسي حتى اليوم
   const line = (n, date, p, cls, who) => ({ teacher: n, t: `${RES_MISS}: ${dayName(date)} ${fmtDate(date)} الحصة ${PERIOD_NAMES[p] || ar(p)}${cls ? " · " + cls : ""}${who ? " (بدل " + who + ")" : ""}`, date, p });
   (RES.covers || []).filter(c => c.date >= from && c.date <= today && isCov(c)).forEach(c => { const n = c.taskSub || c.substitute; if (ts.includes(n)) out.push(line(n, c.date, c.period, classLabel(c.classId), "أ. " + c.absent)); });
   const linked = new Set((RES.covers || []).map(c => c.taskId).filter(Boolean));
@@ -3414,7 +3414,7 @@ function afResRender(keep) {
   if (!RES || RES.error) { box.innerHTML = "جارٍ تحميل حصص الاحتياط…"; loadRes(true).then(() => afResRender([...was])); return; }
   const rows = afResRows(), multi = new Set(rows.map(r => r.teacher)).size > 1;
   box.innerHTML = rows.length ? rows.map(r => `<label><input type="checkbox" name="af-x" data-k="res" data-teacher="${esc(r.teacher)}" value="${esc(r.t)}"${was.has(r.teacher + "|" + r.t) ? " checked" : ""}> ${multi ? `<b>أ. ${esc(shortName(r.teacher))}:</b> ` : ""}${esc(r.t.replace(RES_MISS + ": ", ""))}</label>`).join("")
-    : (document.querySelector('input[name="af-t"]:checked') ? "لا توجد حصص احتياط للمعلم المختار في آخر أسبوعين." : "اختر المعلم لتظهر حصص احتياطه.");
+    : (document.querySelector('input[name="af-t"]:checked') ? "لا توجد حصص احتياط للمعلم المختار خلال الفصل." : "اختر المعلم لتظهر حصص احتياطه.");
   afCount();
 }
 document.addEventListener("change", e => { if (e.target && e.target.name === "af-t") { afTskRender(); afResRender(); } });
