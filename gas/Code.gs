@@ -717,7 +717,8 @@ function covSheet_() {
 function isCov_(status) { return status === COV_DONE || status === COV_SWAP; }
 
 // ===== تكليف الاحتياط والتبديل: كل بديل يصله تكليف في «المهام والتكاليف» بلا استلام، ولا يُحسب عليه نقص (قرار رئيس الشعبة ٢٨/١٠/٢٠٢٦) =====
-const TSK_AUTO = ["احتياط", "تبديل حصة"];
+const TSK_AUTO = ["احتياط", "تبديل حصة", "حصة احتياط"];
+const TSK_RES = "حصة احتياط"; // تكليف حصة احتياط يدويًا من «المهام والتكاليف» (بعيدًا عن سجل الغياب)، ويُحسب في عدالة توزيع الاحتياط
 const PER_AR_ = ["", "الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة", "السادسة", "السابعة"];
 const DAY_AR_ = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 function dayDate_(iso) { return DAY_AR_[dayOf_(iso)] + " " + arNum_(+iso.slice(8, 10) + "/" + +iso.slice(5, 7) + "/" + iso.slice(0, 4)); }
@@ -853,7 +854,9 @@ function covObj_(r) {
 /** كل بيانات الغياب والاحتياط */
 function reserveData(code) {
   head_(code);
-  return { absences: rows_(SHEET_ABS).slice(1).filter(r => r[0]).map(absObj_), covers: covSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(covObj_), swaps: swpRows_(), swap: true, excuse: true };
+  // حصص الاحتياط المكلَّفة من «المهام والتكاليف»: تُحسب في عدالة التوزيع وتمنع اختيار المعلم في الوقت نفسه
+  const manual = tskRows_().filter(r => r[1] === TSK_RES).map(r => ({ id: r[0], teacher: r[10].split("|")[0], date: r[4], period: PER_AR_.indexOf(String(r[5]).replace("الحصة ", "")) }));
+  return { absences: rows_(SHEET_ABS).slice(1).filter(r => r[0]).map(absObj_), covers: covSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(covObj_), swaps: swpRows_(), manual, swap: true, excuse: true };
 }
 
 /** تسجيل غياب معلم (أو تعديله) مع توزيع حصصه على البدلاء */
@@ -885,6 +888,7 @@ function saveAbsence(code, a) {
     const asSub = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && isCov_(r[7]) && r[6] === teacher && (!excuse || myPeriods.indexOf(r[3]) !== -1));
     if (asSub.length) throw new Error("أ. " + teacher + " مسجّل بديلًا في هذا اليوم (الحصة " + asSub.map(r => r[3]).join("، ") + " بدلًا من أ. " + asSub[0][5] + "). غيّر البديل هناك أولًا.");
     const busy = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && isCov_(r[7])).map(r => r[6] + "|" + r[3]);
+    tskRows_().filter(r => r[1] === TSK_RES && r[4] === date).forEach(r => busy.push(r[10].split("|")[0] + "|" + PER_AR_.indexOf(String(r[5]).replace("الحصة ", ""))));
     // ساعات رد التبديل المحجوزة في تبديلات أخرى: "المعلم|التاريخ|الحصة"
     const retBusy = [];
     covRows.slice(1).filter(r => r[0] && r[1] !== id && r[7] === COV_SWAP && r[9]).forEach(r => { retBusy.push(r[5] + "|" + r[9] + "|" + r[10], r[6] + "|" + r[9] + "|" + r[10]); });
@@ -1594,7 +1598,7 @@ const SHEET_TSKST = "حالة التكاليف";
 const TSK_HEAD = ["المعرف", "النوع", "العنوان", "التفاصيل", "التاريخ", "الحصة", "الوقت", "المكان", "الفئة المستهدفة", "آخر موعد للتنفيذ",
   "المكلفون", "الملف", "اسم الملف", "نوع الملف", "وقت الإنشاء", "آخر تعديل", "التكرار", "السجل المطلوب"];
 const TSKST_HEAD = ["المهمة", "المعلم", "وقت الاستلام", "وقت التنفيذ", "ملاحظة المعلم", "الحالة"];
-const TSK_TYPES = ["نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
+const TSK_TYPES = ["حصة احتياط", "نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
 const TSK_NEW = "جديدة", TSK_GOT = "تم الاستلام", TSK_DONE = "تم التنفيذ";
 function tskSheet_() {
   const sh = sheet_(SHEET_TSK, TSK_HEAD, true);
@@ -1668,6 +1672,14 @@ function saveTask(code, t) {
   const s = (v, n) => String(v || "").trim().slice(0, n);
   const row = [s(t.id, 20) || newId_(), type, title, s(t.details, 3000), date, s(t.period, 20), s(t.time, 40), s(t.place, 100), s(t.target, 150), t.repeat === "weekly" ? "" : due, who.join("|"), "", "", "", "", "", t.repeat === "weekly" ? "weekly" : "", ACT_SECS.indexOf(t.rec) !== -1 ? t.rec : ""];
   if (row[16] && dayOf_(date) > 4) throw new Error("يوم المهمة الثابتة عطلة (جمعة أو سبت).");
+  if (type === TSK_RES) {
+    if (who.length !== 1) throw new Error("حصة الاحتياط تكون لمعلم واحد.");
+    if (dayOf_(date) > 4) throw new Error("اليوم عطلة (جمعة أو سبت).");
+    const pn = PER_AR_.indexOf(String(t.period || "").replace("الحصة ", ""));
+    if (pn < 1) throw new Error("اختر الحصة.");
+    if (TIMETABLE[who[0]] && isLes_(effLesson_(who[0], date, pn, swapEvents_(swpRows_())))) throw new Error("أ. " + who[0] + " عنده حصة في هذا الوقت.");
+    row[16] = ""; row[9] = "";
+  }
   let file = null;
   if (t.data) {
     const mime = String(t.mime || ""); if (!/^(application\/pdf|image\/(jpeg|png))$/.test(mime)) throw new Error("المرفق لازم يكون PDF أو صورة.");
