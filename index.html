@@ -465,6 +465,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <select id="cls-term" aria-label="الفصل الدراسي"><option value="1">الفصل الدراسي الأول</option><option value="2">الفصل الدراسي الثاني</option></select>
           <button class="btn ghost" id="cls-reload" type="button">تحديث</button>
           <button class="btn ghost head-only" id="cls-logpdf" type="button" hidden>ملخص الرصد والتقارير PDF</button>
+          <button class="btn ghost head-only" id="cls-tcpdf" type="button" hidden>صفوف المعلمين PDF</button>
         </div>
         <div class="saved" id="cls-lmsg"></div>
         <div id="cls-list"></div>
@@ -1729,6 +1730,7 @@ function pdfClsSummary() {
       return P.tr([{ t: ci.label, c: "c" }, { t: SUBJECTS[ci.dept], c: "c" }, { t: ar(r.student), c: "c b" }, { t: r.type, c: "c" }, "أ. " + r.teacher, { t: r.plan ? (r.plan.result || "قيد المتابعة") : "—", c: "c" }, fmtStamp(r.createdAt)]); }), "dense")
       : P.p("لا توجد تقارير متعلمين.")] };
 }
+$("cls-tcpdf").onclick = () => deliverPdf(() => pdfTeacherClasses(dF("cls")), `صفوف المعلمين${dFile(dF("cls"))}.pdf`, $("cls-lmsg"));
 $("cls-logpdf").onclick = async () => { if (!SREPS) await loadSreps(true); deliverPdf(() => pdfClsSummary(), `ملخص كشوف متابعة المتعلمين${dFile(dF("cls"))}.pdf`, $("cls-lmsg")); };
 function teacherOfCls(cls) { const t = TEACHERS.find(([, ids]) => ids.indexOf(cls) !== -1); return t ? t[0] : ""; }
 $("srep-filter").onchange = () => { srepFilter = $("srep-filter").value; renderSreps(); };
@@ -2377,6 +2379,32 @@ const P = {
     flush(); return out; },
   img: (src, cls = "sig") => src ? `<img class="${cls}" src="${src}">` : ""
 };
+/** صفوف المعلمين: لكل معلم ورقة بالديباجة، اسمه كبير وتحته صفوفه مرتبة حسب المادة والمرحلة */
+function pdfTeacherClasses(d) {
+  const list = TEACHERS.filter(([n, ids]) => ids.some(c => !d || c.split(":")[0] === d));
+  const blocks = [];
+  list.forEach(([n, ids0], i) => {
+    const ids = ids0.filter(c => !d || c.split(":")[0] === d), depts = [...new Set(ids.map(c => c.split(":")[0]))];
+    const nis = (TIMETABLE[n] || []).filter(x => isLesson(x) && (!d || String(x[2]).split(":")[0] === d)).length;
+    let h = `<div style="margin:26px 0 22px;text-align:center;border:2px solid #1E3A5F;border-radius:14px;padding:22px 10px;background:#F3F7FB">
+      <div style="font-size:15px;color:#5A6B7B;font-weight:700">${n === HEAD_NAME ? "رئيس الشعبة" : "المعلم"}</div>
+      <div style="font-size:40px;font-weight:900;color:#1E3A5F;line-height:1.5">أ. ${PE(n)}</div>
+      <div style="font-size:17px;font-weight:700;color:#33475B">${depts.map(x => "قسم " + SUBJECTS[x]).join(" · ")}</div>
+      <div style="font-size:15px;color:#5A6B7B;margin-top:6px">عدد الفصول: ${ar(ids.length)}${nis ? ` · النصاب الأسبوعي: ${ar(nis)} حصة` : ""}</div></div>`;
+    depts.forEach(dp => {
+      const mine = ids.filter(c => c.split(":")[0] === dp).map(classInfo).sort((a, b) => a.grade - b.grade || a.num - b.num);
+      if (depts.length > 1) h += `<div style="font-size:22px;font-weight:900;color:#fff;background:#1E3A5F;border-radius:8px;padding:6px 14px;margin:16px 0 10px">${SUBJECTS[dp]}</div>`;
+      [...new Set(mine.map(c => c.grade))].forEach(g => {
+        h += `<div style="display:flex;align-items:center;gap:14px;border-bottom:1px solid #C9D6E3;padding:12px 4px">
+          <div style="min-width:170px;font-size:22px;font-weight:900;color:#1E3A5F">الصف ${GRADE_NAMES[g] || ar(g)}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">${mine.filter(c => c.grade === g).map(c => `<span style="display:inline-block;min-width:78px;text-align:center;font-size:26px;font-weight:900;border:2px solid #1E3A5F;border-radius:10px;padding:4px 12px;background:#fff">${c.label}</span>`).join("")}</div></div>`;
+      });
+    });
+    blocks.push(`<div>${h}</div>`);
+    if (i < list.length - 1) blocks.push('<div class="pgbrk"></div>');
+  });
+  return { box: "صفوف المعلمين", signs: [], blocks };
+}
 function pdfHeader(box, guid, noDept) {
   return `<div class="hd"><img class="moe" src="data:image/png;base64,${MOE_B64}"><div class="mid">${guid ? `<img class="g" src="data:image/png;base64,${GUID_B64}">` : ""}${noDept && !guid ? "" : `<div class="t">${guid ? "التوجيه الفني للعلوم الشرعية" : "قسم الحديث الشريف والقرآن الكريم"}</div>`}<span class="box">${PE(box)}</span></div><img class="ins" src="data:image/png;base64,${LOGO_B64}"></div><div class="rule"></div>`;
 }
