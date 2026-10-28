@@ -762,14 +762,16 @@ function listSwaps(code) {
 function requestSwap(code, q) {
   const me = who_(code);
   if (me.isDemo) throw new Error("تبديل الحصص غير متاح في الحساب التجريبي.");
-  const teacher = me.name;
+  // رئيس الشعبة يعتمد التبديل لأي معلم مباشرة (قراره ٢٨/١٠/٢٠٢٦)، والمعلم لنفسه فقط
+  const teacher = me.isHead && q.teacher ? String(q.teacher) : me.name;
   if (!TIMETABLE[teacher]) throw new Error("لا يوجد لك جدول حصص في الموقع.");
   const date = String(q.date || "").slice(0, 10), p = Math.floor(Number(q.period)), other = String(q.other || "");
   const rd = String(q.retDate || "").slice(0, 10), rp = Math.floor(Number(q.retPeriod));
   if (dayOf_(date) > 4 || dayOf_(rd) > 4) throw new Error("أحد اليومين عطلة (جمعة أو سبت).");
   const today = todayIso_();
   if (date < today || rd < today) throw new Error("لا يكون التبديل في يوم مضى.");
-  if (date === rd) throw new Error("يوم الرد يكون غير يوم الحصة.");
+  if (date === rd && rp === p) throw new Error("حصة الرد تكون غير الحصة نفسها.");
+  if (isoAdd_(date, -dayOf_(date)) !== isoAdd_(rd, -dayOf_(rd))) throw new Error("الرد يكون في نفس الأسبوع.");
   return withLock_(() => {
     const ev = swapEvents_(swpRows_());
     const les = effLesson_(teacher, date, p, ev);
