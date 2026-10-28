@@ -639,6 +639,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="chips" id="af-teachers"></div>
         <label class="f">النواقص المطلوب استكمالها <span class="sub">(اختر كل ما ينطبق)</span></label>
         <div id="af-items"></div>
+        <div class="af-grp" id="af-tsk"><b>عدم تنفيذ التكليف <span class="sub">(التكاليف التي انتهى موعدها ولم يسجّل المعلم تنفيذها)</span></b><div id="af-tsk-list" class="sub">اختر المعلم لتظهر تكاليفه.</div></div>
         <label class="f" for="af-other">نواقص أخرى (اختياري: كل نقص في سطر)</label>
         <textarea id="af-other" rows="2" maxlength="1000" placeholder="مثال: تصوير كراسات الصف ١٠/٢"></textarea>
         <div class="grid3"><div><label class="f" for="af-due">آخر موعد للاستكمال (اختياري)</label><input type="date" id="af-due"></div></div>
@@ -3382,9 +3383,26 @@ $("af-teachers").innerHTML = TEACHERS.filter(t => t[0] !== HEAD_NAME).map(t => t
 $("af-items").innerHTML = ALR_ITEMS.map(([k, g, list], gi) => `<div class="af-grp"><b>${esc(g)}</b>${list.map((t, i) => `<label><input type="checkbox" name="af-i" data-k="${k}" value="${esc(t)}"> ${esc(t)}</label>`).join("")}</div>`).join("");
 document.querySelectorAll("[data-afall]").forEach(b => b.onclick = () => document.querySelectorAll('input[name="af-t"]').forEach(c => {
   const k = b.dataset.afall; c.checked = k === "all" ? !TSK_DEMOS.includes(c.value) : k === "none" ? false : !TSK_DEMOS.includes(c.value) && (DEPT_OF[c.value] || []).includes(k); }));
+// «عدم تنفيذ التكليف»: تكاليف المعلم (غير التلقائية وغير الثابتة) التي انتهى موعدها ولم يسجّل تنفيذها
+function afTskRows() {
+  const ts = [...document.querySelectorAll('input[name="af-t"]:checked')].map(c => c.value), today = todayISO(), out = [];
+  (TSK || []).filter(t => !t.auto && !t.repeat && t.type !== TSK_ALERT && (t.due || t.date) < today).forEach(t => (t.status || []).forEach(s => {
+    if (ts.includes(s.teacher) && s.status !== "تم التنفيذ") out.push({ teacher: s.teacher, id: t.id, t: `عدم تنفيذ التكليف: ${t.type} «${t.title}» (${t.due ? "آخر موعد" : "موعده"} ${dayName(t.due || t.date)} ${fmtDate(t.due || t.date)})` }); }));
+  return out;
+}
+function afTskRender(keep) {
+  const box = $("af-tsk-list"), was = new Set(keep || [...document.querySelectorAll('input[name="af-x"]:checked')].map(c => c.dataset.teacher + "|" + c.value));
+  if (!TSK) { box.innerHTML = "جارٍ تحميل التكاليف…"; run("listTasks", CODE).then(r => { TSK = r; afTskRender([...was]); }).catch(e => box.textContent = cleanErr(e)); return; }
+  const rows = afTskRows(), multi = new Set(rows.map(r => r.teacher)).size > 1;
+  box.innerHTML = rows.length ? rows.map(r => `<label><input type="checkbox" name="af-x" data-teacher="${esc(r.teacher)}" value="${esc(r.t)}"${was.has(r.teacher + "|" + r.t) ? " checked" : ""}> ${multi ? `<b>أ. ${esc(shortName(r.teacher))}:</b> ` : ""}${esc(r.t)}</label>`).join("")
+    : (document.querySelector('input[name="af-t"]:checked') ? "لا توجد تكاليف منتهية لم تُنفَّذ عند المعلم المختار." : "اختر المعلم لتظهر تكاليفه.");
+  afCount();
+}
+document.addEventListener("change", e => { if (e.target && e.target.name === "af-t") afTskRender(); });
+const afTskSel = () => [...document.querySelectorAll('input[name="af-x"]:checked')].map(c => ({ teacher: c.dataset.teacher, k: "tsk", t: c.value }));
 const afItems = () => [...document.querySelectorAll('input[name="af-i"]:checked')].map(c => ({ k: c.dataset.k, t: c.value }))
   .concat($("af-other").value.split("\n").map(x => x.trim()).filter(Boolean).map(t => ({ k: "", t })));
-const afCount = () => { const n = afItems().length; $("af-count").textContent = n ? `${ar(n)} ${n === 1 ? "نقص" : "نواقص"}` : ""; };
+const afCount = () => { const n = afItems().length + afTskSel().length; $("af-count").textContent = n ? `${ar(n)} ${n === 1 ? "نقص" : "نواقص"}` : ""; };
 $("af-items").onchange = afCount; $("af-other").oninput = afCount;
 function alrForm(a, teacher) {
   ALR_EDIT = a || null;
@@ -3393,7 +3411,11 @@ function alrForm(a, teacher) {
   const known = new Set();
   document.querySelectorAll('input[name="af-i"]').forEach(c => { c.checked = !!a && a.items.some(x => x.t === c.value); if (c.checked) known.add(c.value); });
   $("af-other").value = a ? a.items.filter(x => !known.has(x.t)).map(x => x.t).join("\n") : "";
-  $("af-due").value = a ? a.due : ""; $("af-note").value = a ? a.note : ""; $("af-msg").textContent = ""; afCount();
+  $("af-due").value = a ? a.due : ""; $("af-note").value = a ? a.note : ""; $("af-msg").textContent = "";
+  // عند التعديل: بنود «عدم تنفيذ التكليف» المحفوظة تبقى معلَّمة
+  const ex = a ? a.items.filter(x => /^عدم تنفيذ التكليف/.test(x.t)) : [];
+  if (a) $("af-other").value = a.items.filter(x => !known.has(x.t) && !/^عدم تنفيذ التكليف/.test(x.t)).map(x => x.t).join("\n");
+  afTskRender(a ? a.teachers.flatMap(n => ex.map(x => n + "|" + x.t)) : []); afCount();
   $("alr-form").hidden = false; $("alr-listwrap").hidden = true; $("alr-detail").hidden = true; $("alr-newwrap").hidden = true;
   $("alr-form").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -3401,11 +3423,20 @@ $("alr-new").onclick = () => alrForm();
 $("af-cancel").onclick = () => loadAlr();
 $("alr-form").addEventListener("submit", async e => {
   e.preventDefault();
-  const m = $("af-msg"), teachers = [...document.querySelectorAll('input[name="af-t"]:checked')].map(c => c.value), items = afItems();
+  const m = $("af-msg"), teachers = [...document.querySelectorAll('input[name="af-t"]:checked')].map(c => c.value), items = afItems(), tx = afTskSel();
   if (!teachers.length) { m.textContent = "اختر المعلم."; return; }
-  if (!items.length) { m.textContent = "اختر نقصًا واحدًا على الأقل."; return; }
+  if (!items.length && !tx.length) { m.textContent = "اختر نقصًا واحدًا على الأقل."; return; }
   $("af-send").disabled = true; m.textContent = "جارٍ الإرسال…";
-  try { const r = await run("saveAlert", CODE, { id: ALR_EDIT ? ALR_EDIT.id : "", teachers, items, due: $("af-due").value, note: $("af-note").value });
+  const base = { due: $("af-due").value, note: $("af-note").value }, strip = x => ({ k: x.k, t: x.t });
+  try {
+    let r;
+    if (!tx.length) r = await run("saveAlert", CODE, { id: ALR_EDIT ? ALR_EDIT.id : "", teachers, items, ...base });
+    else {
+      // تكاليف كل معلم تخصه: تنبيه منفصل لكل معلم عنده تكليف لم يُنفَّذ، والباقون تنبيه واحد بالنواقص المشتركة
+      const withT = teachers.filter(n => tx.some(x => x.teacher === n)), rest = teachers.filter(n => !withT.includes(n));
+      for (const [i, n] of withT.entries()) r = await run("saveAlert", CODE, { id: ALR_EDIT && i === 0 ? ALR_EDIT.id : "", teachers: [n], items: items.concat(tx.filter(x => x.teacher === n).map(strip)), ...base });
+      if (rest.length && items.length) r = await run("saveAlert", CODE, { id: "", teachers: rest, items, ...base });
+    }
     ALR = null; await loadAlr(); openAlr(r.id, true); }
   catch (x) { m.textContent = cleanErr(x); } finally { $("af-send").disabled = false; }
 });
