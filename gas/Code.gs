@@ -855,7 +855,7 @@ function covObj_(r) {
 function reserveData(code) {
   head_(code);
   // حصص الاحتياط المكلَّفة من «المهام والتكاليف»: تُحسب في عدالة التوزيع وتمنع اختيار المعلم في الوقت نفسه
-  const manual = tskRows_().filter(r => r[1] === TSK_RES).map(r => ({ id: r[0], teacher: r[10].split("|")[0], date: r[4], period: PER_AR_.indexOf(String(r[5]).replace("الحصة ", "")) }));
+  const manual = tskRows_().filter(r => r[1] === TSK_RES).map(r => ({ id: r[0], teacher: r[10].split("|")[0], date: r[4], period: PER_AR_.indexOf(String(r[5]).replace("الحصة ", "")), cls: r[7], forName: r[8] }));
   return { absences: rows_(SHEET_ABS).slice(1).filter(r => r[0]).map(absObj_), covers: covSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(covObj_), swaps: swpRows_(), manual, swap: true, excuse: true };
 }
 

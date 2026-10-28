@@ -4166,8 +4166,20 @@ const TIMETABLE = {
 const COV_DONE = "مغطاة", COV_NONE = "غير مغطاة", COV_PRESENT = "حضر المعلم";
 // التبديل: معلم المادة الأخرى في الفصل نفسه يدخل حصة الغائب، ثم يردّها الغائب بدخول حصة ذلك المعلم في الفصل نفسه في يوم آخر
 const COV_SWAP = "تبديل", RET_PENDING = "لم يُرد", RET_DONE = "تم الرد";
-function isCov(c) { return c.status === COV_DONE || c.status === COV_SWAP; }
-function covName(c) { return (c.status === COV_SWAP ? "تبديل: " : "") + "أ. " + c.substitute; }
+function isCov(c) { return c.status === COV_DONE || c.status === COV_SWAP || !!c.taskSub; }
+function covName(c) { return c.taskSub ? "أ. " + c.taskSub + " (تكليف)" : (c.status === COV_SWAP ? "تبديل: " : "") + "أ. " + c.substitute; }
+/** ربط الحصص «لم تُغطَّ» في سجل الغياب بتكليف «حصة احتياط» من المهام: نفس اليوم والحصة، ويُرجَّح بالفصل أو «بدل من» */
+function linkManualCovers(R) {
+  const man = (R.manual || []).slice(), used = {};
+  const digits = x => String(x || "").replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[^0-9/]/g, "");
+  const score = (c, m) => (m.forName && m.forName.indexOf(c.absent.split(" ")[0]) !== -1 ? 2 : 0) + (m.cls && c.classId && digits(m.cls).indexOf(c.classId.split(":")[1].replace("-", "/")) !== -1 ? 1 : 0);
+  (R.covers || []).forEach(c => { delete c.taskSub; delete c.taskId; });
+  (R.covers || []).filter(c => c.status === COV_NONE).forEach(c => {
+    const cand = man.filter(m => !used[m.id] && m.date === c.date && m.period === c.period).sort((a, b) => score(c, b) - score(c, a));
+    if (cand.length) { used[cand[0].id] = 1; c.taskSub = cand[0].teacher; c.taskId = cand[0].id; }
+  });
+  return R;
+}
 // ---------- تبديل الحصص (بطلب المعلم) ----------
 const SWP_ACTIVE = "معتمد", SWP_CANCEL = "ملغى";
 let SWAPS = null;
@@ -4244,7 +4256,7 @@ $("restab-req").onclick = () => resTab("req");
 
 async function loadRes(force) {
   if (RES && !force) return RES;
-  try { RES = await run("reserveData", CODE); } catch (e) { RES = { absences: [], covers: [], error: cleanErr(e) }; }
+  try { RES = linkManualCovers(await run("reserveData", CODE)); } catch (e) { RES = { absences: [], covers: [], error: cleanErr(e) }; }
   return RES;
 }
 
@@ -4263,7 +4275,7 @@ function candidates(date, day, period, cls, absent, absenceId, extra) {
   const excIds = RES.absences.filter(a => a.date === date && a.id !== absenceId && a.kind === ABS_EXCUSE).map(a => a.id);
   RES.covers.filter(c => excIds.indexOf(c.absenceId) !== -1 && c.period === period).forEach(c => absentToday.push(c.absent));
   const MAN = RES.manual || [];
-  const takenNow = RES.covers.filter(c => c.date === date && c.period === period && c.absenceId !== absenceId && isCov(c)).map(c => c.substitute)
+  const takenNow = RES.covers.filter(c => c.date === date && c.period === period && c.absenceId !== absenceId && isCov(c)).map(c => c.taskSub || c.substitute)
     .concat(MAN.filter(x => x.date === date && x.period === period).map(x => x.teacher));
   const wk = weekStartISO(date), wkEnd = addDaysISO(wk, 6);
   const list = [];
@@ -4333,7 +4345,7 @@ function renderResItems() {
       ${exc ? `<label class="res-x"><input type="checkbox" data-x="${p}"${on ? " checked" : ""}> ما يقدر يدخلها</label>` : ""}
       <div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)}${subjOf(cls) ? " · " + subjOf(cls) : ""}${swappedIn ? ` · ⇄ تبديل مع أ. ${esc(swappedIn)}` : ""}</span></div>
       <select aria-label="البديل في الحصة ${PERIOD_NAMES[p]}">${keep}${opts}
-        <option value="__none"${sel === "__none" ? " selected" : ""}>— لم تُغطَّ —</option>
+        <option value="__none"${sel === "__none" ? " selected" : ""}>— لم تُغطَّ —${sv && sv.taskSub ? ` (دخلها أ. ${esc(sv.taskSub)} بتكليف من المهام)` : ""}</option>
         ${exc ? "" : `<option value="__present"${sel === "__present" ? " selected" : ""}>حضر المعلم هذه الحصة</option>`}</select>
       ${cands.length ? "" : '<span class="sub">لا يوجد معلم متاح في هذه الحصة.</span>'}</div>`;
   }).join("");
@@ -4360,7 +4372,7 @@ function renderResDay() {
   box.innerHTML = abs.map(a => {
     const cs = RES.covers.filter(c => c.absenceId === a.id).sort((x, y) => x.period - y.period);
     return `<button class="li li-btn" data-t="${esc(a.teacher)}"><div class="li-main"><b>أ. ${esc(a.teacher)}${a.kind === ABS_EXCUSE ? ' <span class="pill exc">⚡ عذر طارئ</span>' : ""}</b>
-      <span class="sub">${cs.map(c => `${PERIOD_NAMES[c.period]}: ${isCov(c) ? esc(c.status === COV_SWAP ? "⇄ " + c.substitute : c.substitute) : c.status}`).join(" · ") || "—"}</span></div><span class="pill ${cs.some(c => c.status === COV_NONE) ? "late" : "ok"}">${cs.some(c => c.status === COV_NONE) ? "فيه حصص بلا تغطية" : "مغطى"}</span></button>`;
+      <span class="sub">${cs.map(c => `${PERIOD_NAMES[c.period]}: ${isCov(c) ? esc(c.taskSub ? c.taskSub + " (تكليف)" : c.status === COV_SWAP ? "⇄ " + c.substitute : c.substitute) : c.status}`).join(" · ") || "—"}</span></div><span class="pill ${cs.some(c => c.status === COV_NONE && !c.taskSub) ? "late" : "ok"}">${cs.some(c => c.status === COV_NONE && !c.taskSub) ? "فيه حصص بلا تغطية" : "مغطى"}</span></button>`;
   }).join("");
   box.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { $("rf-teacher").value = b.dataset.t; renderResItems(); window.scrollTo({ top: $("res-form").offsetTop - 10, behavior: "smooth" }); });
 }
@@ -4407,10 +4419,10 @@ function resStats(r) {
   const covs = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && covIn(c, d, c.absent)), abs = RES.absences.filter(a => a.date >= r.from && a.date <= r.to && tIn(a.teacher, d));
   return Object.keys(TIMETABLE).filter(t => tIn(t, d)).map(t => {
     const mine = covs.filter(c => c.absent === t && c.status !== COV_PRESENT);
-    const by = {}; mine.filter(isCov).forEach(c => by[c.substitute] = (by[c.substitute] || 0) + 1);
+    const by = {}; mine.filter(isCov).forEach(c => { const n = c.taskSub || c.substitute; by[n] = (by[n] || 0) + 1; });
     return { t, days: new Set(abs.filter(a => a.teacher === t && a.kind !== ABS_EXCUSE).map(a => a.date)).size, excuses: abs.filter(a => a.teacher === t && a.kind === ABS_EXCUSE).length, lessons: mine.length,
-      covered: mine.filter(isCov).length, uncovered: mine.filter(c => c.status === COV_NONE).length,
-      given: covs.filter(c => c.substitute === t && c.status === COV_DONE).length, by };
+      covered: mine.filter(isCov).length, uncovered: mine.filter(c => c.status === COV_NONE && !c.taskSub).length,
+      given: covs.filter(c => (c.substitute === t && c.status === COV_DONE) || c.taskSub === t).length, by };
   });
 }
 function renderResLog() {
@@ -4425,7 +4437,7 @@ function renderResLog() {
 function renderResTeacher(r) {
   const t = resLogTeacher, box = $("res-log-body"), s = resStats(r).find(x => x.t === t);
   const dd = dF("res"), abs = RES.absences.filter(a => a.teacher === t && a.date >= r.from && a.date <= r.to).sort((a, b) => b.date.localeCompare(a.date));
-  const given = RES.covers.filter(c => c.substitute === t && c.status === COV_DONE && c.date >= r.from && c.date <= r.to && covIn(c, dd, c.substitute)).sort((a, b) => b.date.localeCompare(a.date) || a.period - b.period);
+  const given = RES.covers.filter(c => ((c.substitute === t && c.status === COV_DONE) || c.taskSub === t) && c.date >= r.from && c.date <= r.to && covIn(c, dd, c.substitute)).sort((a, b) => b.date.localeCompare(a.date) || a.period - b.period);
   box.innerHTML = `<div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="res-back">→ كل المعلمين</button><b>أ. ${esc(t)}</b></div>
     <dl class="meta-grid" style="margin-top:10px"><div><dt>أيام الغياب</dt><dd>${ar(s.days)}</dd></div><div><dt>حصص غيابه</dt><dd>${ar(s.lessons)}</dd></div><div><dt>غُطّيت / لم تُغطَّ</dt><dd>${ar(s.covered)} / ${ar(s.uncovered)}</dd></div><div><dt>احتياط أخذه</dt><dd>${ar(s.given)}</dd></div></dl>
     <h3 class="list-title">من دخل مكانه</h3>${Object.keys(s.by).length ? `<div class="list">${Object.entries(s.by).sort((a, b) => b[1] - a[1]).map(([n, k]) => `<div class="li"><span>أ. ${esc(n)}</span><span class="pill ok">${ar(k)} ${k === 1 ? "حصة" : "حصص"}</span></div>`).join("")}</div>` : '<div class="empty">—</div>'}
