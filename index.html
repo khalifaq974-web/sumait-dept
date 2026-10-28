@@ -4513,7 +4513,8 @@ function resStats(r) {
     const by = {}; mine.filter(isCov).forEach(c => { const n = c.taskSub || c.substitute; by[n] = (by[n] || 0) + 1; });
     return { t, days: new Set(abs.filter(a => a.teacher === t && a.kind !== ABS_EXCUSE).map(a => a.date)).size, excuses: abs.filter(a => a.teacher === t && a.kind === ABS_EXCUSE).length, lessons: mine.length,
       covered: mine.filter(isCov).length, uncovered: mine.filter(c => c.status === COV_NONE && !c.taskSub).length,
-      given: covs.filter(c => (c.substitute === t && c.status === COV_DONE) || c.taskSub === t).length, by };
+      // الاحتياط الذي أخذه يُحسب بقسم المعلم البديل (ولو كانت الحصة لمعلم من القسم الآخر)
+      given: RES.covers.filter(c => c.date >= r.from && c.date <= r.to && ((c.substitute === t && c.status === COV_DONE) || c.taskSub === t)).length, by };
   });
 }
 function renderResLog() {
