@@ -1317,7 +1317,7 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); TSK = null; ALR = null; $("wa-panel").hidden = true; $("alr-banner") && $("alr-banner").remove(); PHONES = null; $("wa-card").hidden = true; $("tsk-form").hidden = true; $("tsk-banner") && $("tsk-banner").remove(); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; ACH_T = null; tskT = ""; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); TSK = null; ALR = null; $("wa-panel").hidden = true; $("alr-banner") && $("alr-banner").remove(); PHONES = null; $("wa-card").hidden = true; $("tsk-form").hidden = true; $("tsk-banner") && $("tsk-banner").remove(); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
@@ -2842,7 +2842,7 @@ function confirmInline(btn, label, fn) {
 }
 
 // ---- عرض رئيس الشعبة ----
-let achFilter = "pending";
+let achFilter = "pending", ACH_T = null; // ACH_T: { n: المعلم, d: القسم } عند عرض سجلات معلم واحد
 async function loadAllAch(force) {
   const box = $("ach-all-list");
   if (!ACH_ALL || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { ACH_ALL = await run("allAchievements", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
@@ -2851,11 +2851,24 @@ async function loadAllAch(force) {
   $("ach-filter").innerHTML = [["pending", "بانتظار الصياغة أو اعتمادك", pend], ["ready", "معتمدة", ready], ["", "الكل", ALLK.length]]
     .map(([k, t, n]) => `<button data-k="${k}" aria-pressed="${achFilter === k}"><b>${ar(n)}</b><span>${t}</span></button>`).join("");
   $("ach-filter").querySelectorAll("button").forEach(b => b.onclick = () => { achFilter = b.dataset.k; loadAllAch(); });
-  const list = ALLK.filter(a => !achFilter || (achFilter === "ready" ? a.status === ST_READY : a.status !== ST_READY));
-  if (!list.length) { box.innerHTML = `<div class="empty">${achFilter === "pending" ? "لا يوجد شيء بانتظار الصياغة في هذا السجل." : "لا يوجد شيء في هذا السجل بعد."}</div>`; return; }
-  box.innerHTML = list.map(a => `<button class="li li-btn" data-open="${a.id}">
-      <div class="li-main"><b>${esc(a.title)}${a.demo ? ' <span class="pill none">تجريبي</span>' : ""}</b><span class="sub">أ. ${esc(a.teacher)} · ${esc(SUBJECTS[a.dept] || "")} · ${esc(a.type)} · ${fmtDate(a.date)}</span></div>
-      <span class="pill ${a.status === ST_READY ? "ok" : "late"}">${a.status === ST_READY ? "معتمد" : a.report ? (a.editedAt && a.editedAt > (a.reportedAt || "") ? "معدّل · بانتظار اعتمادك" : "بانتظار اعتمادك") : "بانتظار الصياغة"}</span></button>`).join("");
+  const inF = a => !achFilter || (achFilter === "ready" ? a.status === ST_READY : a.status !== ST_READY);
+  // أ. منذر في القسمين: بطاقته في كل قسم تعرض ما يخص ذلك القسم فقط
+  const ofT = (a, n, d) => a.teacher === n && (!d || (DEPT_OF[n] || []).length < 2 || a.dept === d);
+  if (!ACH_T) {
+    const names = TEACHERS.map(t => t[0]).concat([...new Set(ALLK.filter(a => isDemoT(a.teacher)).map(a => a.teacher))]);
+    box.innerHTML = tCardsHtml(names, dF("ach"), (n, gd) => {
+      const mine = ALLK.filter(a => ofT(a, n, gd)), pend = mine.filter(a => a.status !== ST_READY && a.report).length, raw = mine.filter(a => a.status !== ST_READY && !a.report).length;
+      return tCard(n, gd, mine.length, ACH_KIND === "act" ? "نشاط" : "إنجاز", (pend ? `<span class="pill late">بانتظار اعتمادك ${ar(pend)}</span>` : "") + (raw ? `<span class="pill none">بانتظار الصياغة ${ar(raw)}</span>` : ""), pend > 0);
+    });
+    box.querySelectorAll("[data-tc]").forEach(b => b.onclick = () => { ACH_T = { n: b.dataset.tc, d: b.dataset.tcd }; loadAllAch(); window.scrollTo({ top: $("sec-ach").offsetTop - 10 }); });
+    return;
+  }
+  const mineAll = ALLK.filter(a => ofT(a, ACH_T.n, ACH_T.d)), list = mineAll.filter(inF);
+  const head = tHeadHtml(ACH_T.n, `${ACH_UI[ACH_KIND].log}${ACH_T.d && (DEPT_OF[ACH_T.n] || []).length > 1 ? " · قسم " + SUBJECTS[ACH_T.d] : ""} · المجموع ${ar(mineAll.length)}`);
+  box.innerHTML = head + (!list.length ? `<div class="empty">${achFilter === "pending" ? "لا يوجد له شيء بانتظار الصياغة أو الاعتماد." : "لا يوجد له شيء هنا."}</div>` : list.map(a => `<button class="li li-btn" data-open="${a.id}">
+      <div class="li-main"><b>${esc(a.title)}${a.demo ? ' <span class="pill none">تجريبي</span>' : ""}</b><span class="sub">${esc(SUBJECTS[a.dept] || "")} · ${esc(a.type)} · ${fmtDate(a.date)}</span></div>
+      <span class="pill ${a.status === ST_READY ? "ok" : "late"}">${a.status === ST_READY ? "معتمد" : a.report ? (a.editedAt && a.editedAt > (a.reportedAt || "") ? "معدّل · بانتظار اعتمادك" : "بانتظار اعتمادك") : "بانتظار الصياغة"}</span></button>`).join(""));
+  box.querySelector("[data-tback]").onclick = () => { ACH_T = null; loadAllAch(); };
   box.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openAch(b.dataset.open));
 }
 $("ach-reload").onclick = () => loadAllAch(true);
@@ -2872,6 +2885,7 @@ async function photo(id) {
 }
 async function openAch(id) {
   const a = ACH_ALL.find(x => x.id === id); if (!a) return;
+  if (!ACH_T || ACH_T.n !== a.teacher) ACH_T = { n: a.teacher, d: "" };
   $("ach-all-list").hidden = true; $("ach-filter").hidden = true; $("ach-detail").hidden = false;
   const d = $("ach-detail");
   d.innerHTML = `<button class="btn ghost sm" id="ach-back">→ رجوع للقائمة</button>
@@ -3112,6 +3126,23 @@ async function waPanel(box, names, textFn, pill) {
   box.querySelectorAll("[data-wa]").forEach(a => a.addEventListener("click", () => { a.textContent = "✓ فُتح"; a.classList.add("ghost"); }));
 }
 
+// ================= عرض السجل حسب المعلم (لرئيس الشعبة) =================
+// بطاقة لكل معلم مقسّمة حسب القسم، والضغط عليها يعرض سجلاته وحده
+const isDemoT = n => /^تجريبي/.test(n);
+function tCardsHtml(names, dept, card) {
+  const real = names.filter(n => !isDemoT(n));
+  const grp = (title, list, gd) => list.length ? `<div class="vis-group">${title} <span class="sub">(${ar(list.length)})</span></div><div class="vt-grid">${list.map(n => card(n, gd)).join("")}</div>` : "";
+  return `<div class="sub" style="margin-top:8px">اضغط على المعلم لعرض سجلاته.</div>`
+    + (dept !== "qr" ? grp("قسم الحديث الشريف", real.filter(n => tIn(n, "hd")), "hd") : "")
+    + (dept !== "hd" ? grp("قسم القرآن الكريم", real.filter(n => tIn(n, "qr")), "qr") : "")
+    + (!dept ? grp("الحسابات التجريبية", names.filter(isDemoT), "") : "");
+}
+const tLabel = n => isDemoT(n) ? esc(n) : "أ. " + esc(n);
+function tCard(n, gd, count, noun, pills, hot) {
+  return `<button type="button" class="vt-card${hot ? " todo" : ""}" data-tc="${esc(n)}" data-tcd="${gd || ""}"><div class="vt-top"><b>${tLabel(n)}</b><span class="vt-count">${ar(count)}<small>${noun}</small></span></div>${pills ? `<div class="vt-row">${pills}</div>` : ""}</button>`;
+}
+function tHeadHtml(n, sub) { return `<div class="card vt-head"><div><button class="btn ghost sm" type="button" data-tback>→ كل المعلمين</button><h2 style="margin:8px 0 2px">${tLabel(n)}</h2><div class="sub">${sub}</div></div></div>`; }
+
 // ================= المهام والتكاليف =================
 const TSK_ALERT = "تنبيه لاستكمال سجل";
 // تكليف الاحتياط والتبديل: يُنشأ تلقائيًا، بلا استلام ولا نقص، ويُعلَّم مقروءًا عند فتحه
@@ -3136,7 +3167,7 @@ const TSK_RES = "حصة احتياط";
 const TSK_TYPES = ["حصة احتياط", "نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
 const TSK_PERIODS = ["", "الطابور الصباحي", "الحصة الأولى", "الحصة الثانية", "الحصة الثالثة", "الحصة الرابعة", "الحصة الخامسة", "الحصة السادسة", "الحصة السابعة", "الفرصة", "بعد نهاية الدوام", "طوال اليوم"];
 const TSK_DEMOS = ["تجريبي ١", "تجريبي ٢"];
-let TSK = null, TSK_FILE = null, TSK_EDIT = null, tskFilter = "open";
+let TSK = null, TSK_FILE = null, TSK_EDIT = null, tskFilter = "open", tskT = "";
 $("tf-types").innerHTML = TSK_TYPES.map((t, i) => `<label class="chip"><input type="radio" name="tf-type" value="${t}"${t === "نشاط" ? " checked" : ""}><span>${t === TSK_ALERT ? "🔔 " + t : t}</span></label>`).join("");
 $("tf-period").innerHTML = TSK_PERIODS.map(p => `<option value="${p}">${p || "—"}</option>`).join("");
 $("tf-teachers").innerHTML = TEACHERS.filter(t => t[0] !== HEAD_NAME).map(t => t[0]).concat(TSK_DEMOS)
@@ -3191,7 +3222,7 @@ function tskForm(t, type) {
   $("tf-title").value = t ? t.title : ""; $("tf-date").value = t ? t.date : todayISO(); $("tf-period").value = t ? t.period : ""; $("tf-time").value = t ? t.time : "";
   $("tf-place").value = t ? t.place : ""; $("tf-target").value = t ? t.target : ""; $("tf-res-cls").value = t && t.type === TSK_RES ? t.place : ""; $("tf-res-for").value = t && t.type === TSK_RES ? t.target : ""; $("tf-due").value = t ? t.due : ""; $("tf-details").value = t ? t.details : ""; $("tf-repeat").checked = !!t && t.repeat === "weekly";
   $("tf-file-l").textContent = t && t.hasFile ? "المرفق الحالي: " + t.fileName + " (اختر ملفًا لاستبداله)" : "اختر الملف";
-  document.querySelectorAll('input[name="tf-t"]').forEach(c => c.checked = !!t && t.teachers.includes(c.value));
+  document.querySelectorAll('input[name="tf-t"]').forEach(c => c.checked = t ? t.teachers.includes(c.value) : !!tskT && c.value === tskT);
   tfDay(); tfType(); $("tf-msg").textContent = "";
   $("tsk-form").hidden = false; $("tsk-listwrap").hidden = true; $("tsk-detail").hidden = true; $("tsk-new").parentElement.hidden = true;
   $("tsk-form").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -3255,13 +3286,29 @@ async function loadTsk(force) {
   if (!TSK || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { TSK = await run("listTasks", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
   tskLampTeacher();
   const F = [["open", "قيد التنفيذ"], ["done", "المنفّذة"], ["all", "الكل"]];
-  $("tsk-filter").innerHTML = F.map(([k, l]) => `<label class="chip"><input type="radio" name="tsk-f" value="${k}"${k === tskFilter ? " checked" : ""}><span>${l} (${ar(TSK.filter(t => k === "all" || (k === "done") === tskDone(t)).length)})</span></label>`).join("");
+  const tdf = ME.isHead ? dF("tsk") : "", byT = ME.isHead && tskT;
+  const base = TSK.filter(t => !byT || t.teachers.includes(tskT));
+  $("tsk-filter").innerHTML = F.map(([k, l]) => `<label class="chip"><input type="radio" name="tsk-f" value="${k}"${k === tskFilter ? " checked" : ""}><span>${l} (${ar(base.filter(t => k === "all" || (k === "done") === tskDone(t)).length)})</span></label>`).join("");
   document.querySelectorAll('input[name="tsk-f"]').forEach(r => r.onchange = () => { tskFilter = r.value; loadTsk(); });
-  const tdf = ME.isHead ? dF("tsk") : "";
-  const list = TSK.filter(t => (tskFilter === "all" || (tskFilter === "done") === tskDone(t)) && (!tdf || t.teachers.some(n => tIn(n, tdf))));
-  if (!list.length) { box.innerHTML = `<div class="empty">${TSK.length ? "لا توجد مهام هنا." : ME.isHead ? "لا توجد تكاليف بعد. اضغط «+ تكليف جديد»." : "لا توجد مهام مكلَّف بها حاليًا."}</div>`; return; }
-  box.innerHTML = list.map(t => `<button class="li li-btn" data-tsk="${esc(t.id)}"><div class="li-main"><b>${esc(t.type)}: ${esc(t.title)}</b>
-    <span class="sub">${tskWhen(t)}${ME.isHead ? " · " + t.teachers.map(n => TSK_DEMOS.includes(n) ? n : "أ. " + n.split(" ")[0] + " " + n.split(" ").slice(-1)[0]).join("، ") : ""}${t.due ? " · آخر موعد " + fmtDate(t.due) : ""}</span></div>${tskPill(t)}</button>`).join("");
+  const list = base.filter(t => (tskFilter === "all" || (tskFilter === "done") === tskDone(t)) && (byT || !tdf || t.teachers.some(n => tIn(n, tdf))));
+  const stOf = (t, n) => (t.status.find(s => s.teacher === n) || {}).status || "";
+  // رئيس الشعبة: بطاقة لكل معلم، والضغط عليها يعرض مهامه وتكاليفه
+  if (ME.isHead && !tskT) {
+    const names = TEACHERS.map(t => t[0]).filter(n => n !== HEAD_NAME).concat(TSK_DEMOS.filter(d => TSK.some(t => t.teachers.includes(d))));
+    box.innerHTML = tCardsHtml(names, tdf, (n, gd) => {
+      const mine = list.filter(t => t.teachers.includes(n)), nw = mine.filter(t => !t.auto && stOf(t, n) === "جديدة").length, done = mine.filter(t => t.auto ? t.date < todayISO() : stOf(t, n) === "تم التنفيذ").length;
+      return tCard(n, gd, mine.length, mine.length === 1 ? "مهمة" : "مهام", (nw ? `<span class="pill late">لم يستلم ${ar(nw)}</span>` : "") + (done ? `<span class="pill ok">نفّذ ${ar(done)}</span>` : ""), nw > 0);
+    });
+    box.querySelectorAll("[data-tc]").forEach(b => b.onclick = () => { tskT = b.dataset.tc; loadTsk(); window.scrollTo({ top: $("sec-tsk").offsetTop - 10 }); });
+    return;
+  }
+  const head = byT ? tHeadHtml(tskT, `${ar(base.length)} ${base.length === 1 ? "مهمة" : "مهام"} وتكاليف`) : "";
+  const bindBack = () => { const b = box.querySelector("[data-tback]"); if (b) b.onclick = () => { tskT = ""; loadTsk(); }; };
+  if (!list.length) { box.innerHTML = head + `<div class="empty">${byT ? "لا توجد مهام لهذا المعلم هنا." : TSK.length ? "لا توجد مهام هنا." : ME.isHead ? "لا توجد تكاليف بعد. اضغط «+ تكليف جديد»." : "لا توجد مهام مكلَّف بها حاليًا."}</div>`; bindBack(); return; }
+  const myPill = t => { if (t.auto) return tskPill(t); const st = stOf(t, tskT); return `<span class="tsk-st">${t.repeat ? '<span class="pill none">ثابتة أسبوعيًا</span>' : ""}${st ? `<span class="pill ${TSK_PILL[st]}">${st}</span>` : ""}</span>`; };
+  box.innerHTML = head + list.map(t => `<button class="li li-btn" data-tsk="${esc(t.id)}"><div class="li-main"><b>${esc(t.type)}: ${esc(t.title)}</b>
+    <span class="sub">${tskWhen(t)}${ME.isHead && !byT ? " · " + t.teachers.map(n => TSK_DEMOS.includes(n) ? n : "أ. " + n.split(" ")[0] + " " + n.split(" ").slice(-1)[0]).join("، ") : ""}${byT && t.teachers.length > 1 ? ` · مع ${ar(t.teachers.length - 1)} غيره` : ""}${t.due ? " · آخر موعد " + fmtDate(t.due) : ""}</span></div>${byT ? myPill(t) : tskPill(t)}</button>`).join("");
+  bindBack();
   box.querySelectorAll("[data-tsk]").forEach(b => b.onclick = () => openTsk(b.dataset.tsk));
 }
 $("tsk-reload").onclick = () => loadTsk(true);
@@ -3277,6 +3324,7 @@ function tskWaText(t, n) {
 }
 function openTsk(id, justSent) {
   const t = TSK && TSK.find(x => x.id === id); if (!t) return loadTsk();
+  if (tskT && !t.teachers.includes(tskT)) tskT = "";
   $("tsk-listwrap").hidden = true; $("tsk-form").hidden = true; $("tsk-new").parentElement.hidden = true;
   const d = $("tsk-detail"); d.hidden = false;
   d.innerHTML = `<button class="btn ghost sm" id="tsk-back" type="button">→ رجوع للقائمة</button>
