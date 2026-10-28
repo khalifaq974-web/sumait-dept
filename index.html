@@ -639,6 +639,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="chips" id="af-teachers"></div>
         <label class="f">النواقص المطلوب استكمالها <span class="sub">(اختر كل ما ينطبق)</span></label>
         <div id="af-items"></div>
+        <div class="af-grp" id="af-res"><b>عدم دخول حصة الاحتياط <span class="sub">(حصص الاحتياط المكلَّف بها في آخر أسبوعين)</span></b><div id="af-res-list" class="sub">اختر المعلم لتظهر حصص احتياطه.</div></div>
         <div class="af-grp" id="af-tsk"><b>عدم تنفيذ التكليف <span class="sub">(التكاليف التي انتهى موعدها ولم يسجّل المعلم تنفيذها)</span></b><div id="af-tsk-list" class="sub">اختر المعلم لتظهر تكاليفه.</div></div>
         <label class="f" for="af-other">نواقص أخرى (اختياري: كل نقص في سطر)</label>
         <textarea id="af-other" rows="2" maxlength="1000" placeholder="مثال: تصوير كراسات الصف ١٠/٢"></textarea>
@@ -3391,15 +3392,33 @@ function afTskRows() {
   return out;
 }
 function afTskRender(keep) {
-  const box = $("af-tsk-list"), was = new Set(keep || [...document.querySelectorAll('input[name="af-x"]:checked')].map(c => c.dataset.teacher + "|" + c.value));
+  const box = $("af-tsk-list"), was = new Set(keep || [...document.querySelectorAll('input[name="af-x"][data-k="tsk"]:checked')].map(c => c.dataset.teacher + "|" + c.value));
   if (!TSK) { box.innerHTML = "جارٍ تحميل التكاليف…"; run("listTasks", CODE).then(r => { TSK = r; afTskRender([...was]); }).catch(e => box.textContent = cleanErr(e)); return; }
   const rows = afTskRows(), multi = new Set(rows.map(r => r.teacher)).size > 1;
-  box.innerHTML = rows.length ? rows.map(r => `<label><input type="checkbox" name="af-x" data-teacher="${esc(r.teacher)}" value="${esc(r.t)}"${was.has(r.teacher + "|" + r.t) ? " checked" : ""}> ${multi ? `<b>أ. ${esc(shortName(r.teacher))}:</b> ` : ""}${esc(r.t)}</label>`).join("")
+  box.innerHTML = rows.length ? rows.map(r => `<label><input type="checkbox" name="af-x" data-k="tsk" data-teacher="${esc(r.teacher)}" value="${esc(r.t)}"${was.has(r.teacher + "|" + r.t) ? " checked" : ""}> ${multi ? `<b>أ. ${esc(shortName(r.teacher))}:</b> ` : ""}${esc(r.t)}</label>`).join("")
     : (document.querySelector('input[name="af-t"]:checked') ? "لا توجد تكاليف منتهية لم تُنفَّذ عند المعلم المختار." : "اختر المعلم لتظهر تكاليفه.");
   afCount();
 }
-document.addEventListener("change", e => { if (e.target && e.target.name === "af-t") afTskRender(); });
-const afTskSel = () => [...document.querySelectorAll('input[name="af-x"]:checked')].map(c => ({ teacher: c.dataset.teacher, k: "tsk", t: c.value }));
+// «عدم دخول حصة الاحتياط»: حصص الاحتياط التي كُلّف بها المعلم في آخر أسبوعين (من سجل الغياب والتكاليف)
+const RES_MISS = "عدم دخول حصة الاحتياط";
+function afResRows() {
+  const ts = [...document.querySelectorAll('input[name="af-t"]:checked')].map(c => c.value), today = todayISO(), from = addDaysISO(today, -14), out = [];
+  const line = (n, date, p, cls, who) => ({ teacher: n, t: `${RES_MISS}: ${dayName(date)} ${fmtDate(date)} الحصة ${PERIOD_NAMES[p] || ar(p)}${cls ? " · " + cls : ""}${who ? " (بدل " + who + ")" : ""}`, date, p });
+  (RES.covers || []).filter(c => c.date >= from && c.date <= today && isCov(c)).forEach(c => { const n = c.taskSub || c.substitute; if (ts.includes(n)) out.push(line(n, c.date, c.period, classLabel(c.classId), "أ. " + c.absent)); });
+  const linked = new Set((RES.covers || []).map(c => c.taskId).filter(Boolean));
+  (RES.manual || []).filter(m => !linked.has(m.id) && m.date >= from && m.date <= today && ts.includes(m.teacher)).forEach(m => out.push(line(m.teacher, m.date, m.period, m.cls, m.forName)));
+  return out.sort((a, b) => b.date.localeCompare(a.date) || a.p - b.p);
+}
+function afResRender(keep) {
+  const box = $("af-res-list"), was = new Set(keep || [...document.querySelectorAll('input[name="af-x"][data-k="res"]:checked')].map(c => c.dataset.teacher + "|" + c.value));
+  if (!RES || RES.error) { box.innerHTML = "جارٍ تحميل حصص الاحتياط…"; loadRes(true).then(() => afResRender([...was])); return; }
+  const rows = afResRows(), multi = new Set(rows.map(r => r.teacher)).size > 1;
+  box.innerHTML = rows.length ? rows.map(r => `<label><input type="checkbox" name="af-x" data-k="res" data-teacher="${esc(r.teacher)}" value="${esc(r.t)}"${was.has(r.teacher + "|" + r.t) ? " checked" : ""}> ${multi ? `<b>أ. ${esc(shortName(r.teacher))}:</b> ` : ""}${esc(r.t.replace(RES_MISS + ": ", ""))}</label>`).join("")
+    : (document.querySelector('input[name="af-t"]:checked') ? "لا توجد حصص احتياط للمعلم المختار في آخر أسبوعين." : "اختر المعلم لتظهر حصص احتياطه.");
+  afCount();
+}
+document.addEventListener("change", e => { if (e.target && e.target.name === "af-t") { afTskRender(); afResRender(); } });
+const afTskSel = () => [...document.querySelectorAll('input[name="af-x"]:checked')].map(c => ({ teacher: c.dataset.teacher, k: c.dataset.k || "tsk", t: c.value }));
 const afItems = () => [...document.querySelectorAll('input[name="af-i"]:checked')].map(c => ({ k: c.dataset.k, t: c.value }))
   .concat($("af-other").value.split("\n").map(x => x.trim()).filter(Boolean).map(t => ({ k: "", t })));
 const afCount = () => { const n = afItems().length + afTskSel().length; $("af-count").textContent = n ? `${ar(n)} ${n === 1 ? "نقص" : "نواقص"}` : ""; };
@@ -3413,9 +3432,10 @@ function alrForm(a, teacher) {
   $("af-other").value = a ? a.items.filter(x => !known.has(x.t)).map(x => x.t).join("\n") : "";
   $("af-due").value = a ? a.due : ""; $("af-note").value = a ? a.note : ""; $("af-msg").textContent = "";
   // عند التعديل: بنود «عدم تنفيذ التكليف» المحفوظة تبقى معلَّمة
-  const ex = a ? a.items.filter(x => /^عدم تنفيذ التكليف/.test(x.t)) : [];
-  if (a) $("af-other").value = a.items.filter(x => !known.has(x.t) && !/^عدم تنفيذ التكليف/.test(x.t)).map(x => x.t).join("\n");
-  afTskRender(a ? a.teachers.flatMap(n => ex.map(x => n + "|" + x.t)) : []); afCount();
+  const special = x => /^(عدم تنفيذ التكليف|عدم دخول حصة الاحتياط)/.test(x.t), ex = a ? a.items.filter(special) : [];
+  if (a) $("af-other").value = a.items.filter(x => !known.has(x.t) && !special(x)).map(x => x.t).join("\n");
+  const keep = a ? a.teachers.flatMap(n => ex.map(x => n + "|" + x.t)) : [];
+  afTskRender(keep); afResRender(keep); afCount();
   $("alr-form").hidden = false; $("alr-listwrap").hidden = true; $("alr-detail").hidden = true; $("alr-newwrap").hidden = true;
   $("alr-form").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -3464,8 +3484,19 @@ function pendingFor(t) {
   return rows;
 }
 // نموذج «استفسار عن تأخر استكمال» (صفحة واحدة بالديباجة، بتوقيع المعلم ورئيس الشعبة)
+const isResMiss = r => String(r.t).indexOf(RES_MISS) === 0;
 function pdfInquiry(t, rows, at) {
   const first = rows.map(r => r.at).sort()[0] || "";
+  if (rows.length && rows.every(isResMiss)) return { box: "استفسار عن عدم دخول حصة الاحتياط", signs: [["المعلم", "أ. " + t], ["رئيس الشعبة", HEAD_SIGN]], blocks: [
+    P.info([["المعلم", "أ. " + t], ["التاريخ", fmtDate((at || todayISO()).slice(0, 10), true)]], 2),
+    P.p(`الأستاذ الفاضل / ${t}     المحترم`, "b"),
+    P.p("السلام عليكم ورحمة الله وبركاته، وبعد:"),
+    P.p(`نظرًا لعدم دخولكم حصة الاحتياط المكلَّفين بها والموضحة أدناه، نأمل التكرم بإفادتنا بسبب عدم الدخول.`),
+    P.h("حصص الاحتياط"),
+    P.grid(P.th(["م", "حصة الاحتياط", "تاريخ التنبيه"]), rows.map((r, i) => P.tr([{ t: ar(i + 1), c: "c" }, r.t.replace(RES_MISS + ": ", ""), { t: r.at ? fmtDate(r.at) : "—", c: "c" }]))),
+    P.h("سبب عدم الدخول (يكتبه المعلم)"),
+    `<div style="border:1px solid #C9D6E3;border-radius:6px;padding:4px 10px">${'<div style="border-bottom:1px dotted #9AA8B5;height:30px"></div>'.repeat(6)}</div>`,
+    P.p("وتفضلوا بقبول فائق الاحترام والتقدير.", "c")] };
   return { box: "استفسار عن تأخر استكمال", signs: [["المعلم", "أ. " + t], ["رئيس الشعبة", HEAD_SIGN]], blocks: [
     P.info([["المعلم", "أ. " + t], ["التاريخ", fmtDate((at || todayISO()).slice(0, 10), true)]], 2),
     P.p(`الأستاذ الفاضل / ${t}     المحترم`, "b"),
@@ -3479,12 +3510,13 @@ function pdfInquiry(t, rows, at) {
     `<div style="border:1px solid #C9D6E3;border-radius:6px;height:34px;margin-bottom:6px"></div>`,
     P.p("وتفضلوا بقبول فائق الاحترام والتقدير.", "c")] };
 }
-async function issueInquiry(t, msgEl) {
-  const rows = pendingFor(t);
-  if (!rows.length) { msgEl.textContent = "ما فيه نواقص سبق تنبيهه بها وما استكملها."; return; }
+async function issueInquiry(t, msgEl, res) {
+  // res = true: نموذج «عدم دخول حصة الاحتياط» وحده، وإلا نموذج التأخير بباقي النواقص
+  const rows = pendingFor(t).filter(r => !!res === isResMiss(r));
+  if (!rows.length) { msgEl.textContent = res ? "ما فيه حصص احتياط منبَّه عليها." : "ما فيه نواقص سبق تنبيهه بها وما استكملها."; return; }
   msgEl.textContent = "جارٍ تسجيل الاستفسار…";
   try { const r = await run("addInquiry", CODE, { teacher: t, items: rows }); INQ.unshift({ id: r.id, teacher: t, items: rows, at: r.at });
-    deliverPdf(() => pdfInquiry(t, rows, r.at), `استفسار عن تأخر استكمال - أ. ${shortName(t)} - ${r.at.slice(0, 10)}.pdf`, msgEl); }
+    deliverPdf(() => pdfInquiry(t, rows, r.at), `${res ? "استفسار عن عدم دخول حصة الاحتياط" : "استفسار عن تأخر استكمال"} - أ. ${shortName(t)} - ${r.at.slice(0, 10)}.pdf`, msgEl); }
   catch (e) { msgEl.textContent = cleanErr(e); }
 }
 async function loadAlr(force) {
@@ -3594,7 +3626,7 @@ function openAlr(id, justSent) {
   if (!ME.isHead) {
     const s = a.mine, left = alrLeft(a, s), pct = Math.round(100 * (a.items.length - left) / a.items.length);
     d.innerHTML = head + `<h3>النواقص (${left ? `باقي ${ar(left)} من ${ar(a.items.length)}` : "اكتملت جميعها ✓"})</h3><div class="alr-bar"><i style="width:${pct}%"></i></div>
-      ${a.items.map((x, i) => { const at = (s.done || {})[i]; return `<div class="alr-item${at ? " done" : ""}"><label><input type="checkbox" data-ai="${i}"${at ? " checked" : ""}><span><span class="alr-t">${esc(x.t)}</span>${at ? `<br><span class="sub">تم ${fmtStamp(at)}</span>` : ""}</span></label>${x.k && SEC_NAMES_AR[x.k] ? `<button class="btn ghost sm" type="button" data-ago="${x.k}">افتح السجل ←</button>` : ""}</div>`; }).join("")}
+      ${a.items.map((x, i) => { const at = (s.done || {})[i]; return `<div class="alr-item${at ? " done" : ""}"><label><input type="checkbox" data-ai="${i}"${at ? " checked" : ""}><span><span class="alr-t">${esc(x.t)}</span>${at ? `<br><span class="sub">تم ${fmtStamp(at)}</span>` : ""}</span></label>${x.k && SEC_NAMES_AR[x.k] && !isResMiss(x) ? `<button class="btn ghost sm" type="button" data-ago="${x.k}">افتح السجل ←</button>` : ""}</div>`; }).join("")}
       <div class="sub" style="margin-top:10px">علّم على النقص بعد ما تستكمله، ويوصل لرئيس الشعبة تلقائيًا.</div><div class="saved" id="alr-amsg"></div>`;
     $("alr-back").onclick = () => loadAlr();
     d.querySelectorAll("[data-ago]").forEach(b => b.onclick = () => { go(b.dataset.ago, true); window.scrollTo({ top: $("sec-" + (b.dataset.ago === "act" ? "ach" : b.dataset.ago)).offsetTop - 10, behavior: "smooth" }); });
@@ -3607,7 +3639,7 @@ function openAlr(id, justSent) {
   }
   d.innerHTML = head + `<h3>متابعة الاستكمال</h3>
     ${a.status.map(s => { const l = alrLeft(a, s), iq = INQ.filter(x => x.teacher === s.teacher); return `<div class="af-grp"><b>${s.demo ? esc(s.teacher) + ' <span class="pill none">تجريبي</span>' : "أ. " + esc(s.teacher)} ${l ? `<span class="pill late">باقي ${ar(l)} من ${ar(a.items.length)}</span>` : `<span class="pill ok">اكتمل ✓ ${s.allAt ? fmtStamp(s.allAt) : ""}</span>`}</b>
-      ${l ? `<div class="row-actions" style="margin:6px 0"><button class="btn ghost sm" type="button" data-inq="${esc(s.teacher)}">📄 استفسار عن التأخير PDF</button>${iq.length ? `<span class="sub">صدر له ${ar(iq.length)} ${iq.length === 1 ? "استفسار" : "استفسارات"} · آخرها ${fmtStamp(iq[0].at)}</span>` : ""}</div>` : ""}
+      ${l ? `<div class="row-actions" style="margin:6px 0">${a.items.some((x, i) => !isResMiss(x) && !s.done[i]) ? `<button class="btn ghost sm" type="button" data-inq="${esc(s.teacher)}">📄 استفسار عن التأخير PDF</button>` : ""}${a.items.some(isResMiss) ? `<button class="btn ghost sm" type="button" data-inqr="${esc(s.teacher)}">📄 استفسار عدم دخول الاحتياط PDF</button>` : ""}${iq.length ? `<span class="sub">صدر له ${ar(iq.length)} ${iq.length === 1 ? "استفسار" : "استفسارات"} · آخرها ${fmtStamp(iq[0].at)}</span>` : ""}</div>` : ""}
       <div class="alr-bar"><i style="width:${Math.round(100 * (a.items.length - l) / a.items.length)}%"></i></div>
       ${a.items.map((x, i) => { const at = s.done[i]; return `<div class="alr-item${at ? " done" : ""}"><span class="alr-t">${esc(x.t)}</span>${at ? `<span class="pill ok">✓ ${fmtStamp(at)}</span>` : `<span class="pill late">لم يُستكمل</span>`}</div>`; }).join("")}</div>`; }).join("")}
     <div class="row-actions" style="margin-top:12px"><button class="btn" id="alr-edit" type="button">تعديل</button><button class="btn ghost" id="alr-del" type="button">حذف</button></div>
@@ -3615,6 +3647,8 @@ function openAlr(id, justSent) {
   $("alr-back").onclick = () => loadAlr();
   $("alr-edit").onclick = () => alrForm(a);
   d.querySelectorAll("[data-inq]").forEach(b => b.onclick = () => issueInquiry(b.dataset.inq, $("alr-amsg")));
+  d.querySelectorAll("[data-inqr]").forEach(b => b.onclick = () => issueInquiry(b.dataset.inqr, $("alr-amsg"), true));
+  if (justSent && a.items.some(isResMiss) && a.teachers.length === 1) issueInquiry(a.teachers[0], $("alr-amsg"), true);
   $("alr-del").onclick = () => confirmInline($("alr-del"), "اضغط مرة ثانية للتأكيد", async () => { try { await run("deleteAlert", CODE, a.id); ALR = ALR.filter(x => x.id !== a.id); loadAlr(); } catch (e) { $("alr-amsg").textContent = cleanErr(e); } });
   waPanel(justSent ? $("alr-wa-top") : $("alr-wa"), a.teachers, n => alrWaText(a, n),
     n => { const s = a.status.find(y => y.teacher === n), l = s ? alrLeft(a, s) : a.items.length; return l ? `<span class="pill late">باقي ${ar(l)}</span>` : '<span class="pill ok">اكتمل</span>'; });
