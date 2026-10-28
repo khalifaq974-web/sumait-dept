@@ -716,6 +716,28 @@ function covSheet_() {
 }
 function isCov_(status) { return status === COV_DONE || status === COV_SWAP; }
 
+// ===== تكليف الاحتياط والتبديل: كل بديل يصله تكليف في «المهام والتكاليف» بلا استلام، ولا يُحسب عليه نقص (قرار رئيس الشعبة ٢٨/١٠/٢٠٢٦) =====
+const TSK_AUTO = ["احتياط", "تبديل حصة"];
+const PER_AR_ = ["", "الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة", "السادسة", "السابعة"];
+const DAY_AR_ = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+function dayDate_(iso) { return DAY_AR_[dayOf_(iso)] + " " + arNum_(+iso.slice(8, 10) + "/" + +iso.slice(5, 7) + "/" + iso.slice(0, 4)); }
+/** يستبدل تكاليف مصدر واحد (غياب أو تبديل) بالقائمة الجديدة. rows = [[id, type, title, details, date, teacher]] */
+function setAutoTasks_(prefix, rows) {
+  const sh = tskSheet_(), v = sh.getDataRange().getDisplayValues();
+  for (let i = v.length - 1; i >= 1; i--) if (v[i][0].indexOf(prefix) === 0) sh.deleteRow(i + 1);
+  const st = tskStSheet_(), w = st.getDataRange().getDisplayValues();
+  for (let i = w.length - 1; i >= 1; i--) if (w[i][0].indexOf(prefix) === 0) st.deleteRow(i + 1);
+  const at = nowText_();
+  rows.forEach(r => appendText_(sh, [r[0], r[1], r[2], r[3], r[4], "", "", "", "", "", r[5], "", "", "", at, at, "", ""]));
+}
+function resTasks_(absId, teacher, date, covs) {
+  const by = {};
+  covs.filter(r => isCov_(r[7]) && r[6] && TEACHERS.some(t => t[0] === r[6] && !t[2])).forEach(r => (by[r[6]] = by[r[6]] || []).push(r));
+  return Object.keys(by).map(sub => [`res-${absId}-${sub.replace(/\s+/g, "_")}`, "احتياط", `احتياط بدل أ. ${teacher}`,
+    by[sub].sort((a, b) => a[3] - b[3]).map(r => `- الحصة ${PER_AR_[+r[3]]}: ${clsName_(r[4])}${r[7] === COV_SWAP && r[9] ? ` (تبديل: يردّها لك أ. ${teacher} ${dayDate_(r[9])} الحصة ${PER_AR_[+r[10]]})` : ""}`).join("\n"),
+    date, sub]);
+}
+
 function dayOf_(iso) {
   const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) throw new Error("التاريخ غير صحيح.");
@@ -790,13 +812,21 @@ function requestSwap(code, q) {
     if (abs.some(r => (r[1] === date || r[1] === rd) && r[2] === other && r[6] !== ABS_EXCUSE)) throw new Error("أ. " + other + " مسجّل غائبًا في أحد اليومين.");
     const id = newId_();
     appendText_(swpSheet_(), [id, date, String(p), les[2], teacher, other, rd, String(rp), otherCls, SWP_ACTIVE, RET_PENDING, nowText_(), me.name]);
+    let tasks = [];
+    if (me.isHead) {
+      const l1 = `- ${dayDate_(date)} الحصة ${PER_AR_[p]}: يدخل أ. ${other} حصة ${clsName_(les[2])} بدل أ. ${teacher}`;
+      const l2 = `- ${dayDate_(rd)} الحصة ${PER_AR_[rp]}: يدخل أ. ${teacher} حصة ${clsName_(otherCls)} بدل أ. ${other}`;
+      tasks = [[`swp-${id}-1`, "تبديل حصة", `تبديل حصة مع أ. ${teacher}`, l1 + "\n" + l2, date, other], [`swp-${id}-2`, "تبديل حصة", `تبديل حصة مع أ. ${other}`, l2 + "\n" + l1, rd, teacher]]
+        .filter(t => TEACHERS.some(x => x[0] === t[5] && !x[2]));
+      setAutoTasks_("swp-" + id + "-", tasks);
+    }
     const cl = c => esc_(c.split(":")[1].replace("-", "/")) + " · " + SUBJ[c.split(":")[0]];
     notify_(me, `تبديل حصة: أ. ${teacher} مع أ. ${other}`, `
       <p>سجّل <b>أ. ${esc_(teacher)}</b> تبديل حصة مع <b>أ. ${esc_(other)}</b> في الفصل ${esc_(k.replace("-", "/"))}:</p>
       <ul><li>${esc_(date)} الحصة ${p}: يدخل أ. ${esc_(other)} حصة ${cl(les[2])}</li>
       <li>${esc_(rd)} الحصة ${rp}: يدخل أ. ${esc_(teacher)} حصة ${cl(otherCls)}</li></ul>
       <p>نموذج التبديل يُطبع من الموقع ويوقَّع ورقيًا.</p>`);
-    return { id };
+    return { id, tasks: tasks.map(t => t[0]) };
   });
 }
 function cancelSwap(code, id) {
@@ -807,6 +837,7 @@ function cancelSwap(code, id) {
     const r = sh.getRange(row, 1, 1, SWP_HEAD.length).getDisplayValues()[0];
     if (r[4] !== me.name && r[12] !== me.name && !(me.isHead && !me.isDemo)) throw new Error("لا يمكنك إلغاء هذا التبديل.");
     r[9] = SWP_CANCEL; writeRow_(sh, row, r);
+    setAutoTasks_("swp-" + r[0] + "-", []);
     return true;
   });
 }
@@ -883,7 +914,8 @@ function saveAbsence(code, a) {
     if (rowIdx > 0) writeRow_(absSh, rowIdx, absVals); else appendText_(absSh, absVals);
     for (let i = covRows.length - 1; i >= 1; i--) if (covRows[i][1] === id) covSh.deleteRow(i + 1);
     out.forEach(r => appendText_(covSh, r));
-    return { id };
+    const tasks = resTasks_(id, teacher, date, out); setAutoTasks_("res-" + id + "-", tasks);
+    return { id, tasks: tasks.map(t => t[0]) };
   });
 }
 
@@ -923,6 +955,7 @@ function deleteAbsence(code, id) {
     if (row > 0) absSh.deleteRow(row);
     const covSh = covSheet_(), v = covSh.getDataRange().getDisplayValues();
     for (let i = v.length - 1; i >= 1; i--) if (v[i][1] === id) covSh.deleteRow(i + 1);
+    setAutoTasks_("res-" + id + "-", []);
     return true;
   });
 }
@@ -1589,6 +1622,7 @@ function ensureReminders_() {
     const dd = iso => DN[dayOf_(iso)] + " " + arNum_(iso.slice(8, 10) + "/" + iso.slice(5, 7));
     tskRows_().forEach(r => {
       const weekly = r[16] === "weekly", occ = tskOcc_(r);
+      if (TSK_AUTO.indexOf(r[1]) !== -1) return; // تكليف الاحتياط والتبديل بلا تذكير ولا استلام
       if (weekly ? occ !== t : r[4] !== isoAdd_(t, 2)) return;
       const key = tskKey_(r);
       r[10].split("|").filter(Boolean).forEach(n => {
@@ -1612,7 +1646,7 @@ function tskObj_(r, sts, me) {
     return { teacher: t, demo: isDemo_(t), gotAt: s[2] || "", doneAt: s[3] || "", note: s[4] || "", status: s[5] || TSK_NEW }; });
   const o = { id: r[0], type: r[1], title: r[2], details: r[3], date: r[4], period: r[5], time: r[6], place: r[7], target: r[8], due: r[9],
     fileName: r[12], mime: r[13], hasFile: !!r[11], createdAt: r[14], updatedAt: r[15], teachers: who,
-    repeat: weekly ? "weekly" : "", rec: r[17] || "", occ, ...tskRemind_(r, occ) };
+    repeat: weekly ? "weekly" : "", rec: r[17] || "", occ, auto: TSK_AUTO.indexOf(r[1]) !== -1, ...tskRemind_(r, occ) };
   if (me.isHead) o.status = st; else o.mine = st.find(x => x.teacher === me.name) || null;
   return o;
 }
@@ -1829,7 +1863,7 @@ function teacherGaps(code) {
   visRows_().forEach(r => { const v = visObj_(r, false); if (!v.teacherSignedAt) add(v.teacher, "vis", `الاطلاع على بطاقة الزيارة الصفية (${short(v.date)})`, v.id); });
   // ٥) المهام: لم يستلمها، أو فات موعدها ولم يسجّل التنفيذ (المهام الثابتة: في يومها فقط)
   const sts = tskSts_();
-  tskRows_().forEach(r => { const weekly = r[16] === "weekly", occ = tskOcc_(r), key = tskKey_(r);
+  tskRows_().filter(r => TSK_AUTO.indexOf(r[1]) === -1).forEach(r => { const weekly = r[16] === "weekly", occ = tskOcc_(r), key = tskKey_(r);
     if (weekly && occ !== today) return;
     r[10].split("|").filter(Boolean).forEach(t => { const st = (sts.find(x => x[0] === key && x[1] === t) || [])[5] || TSK_NEW;
       if (st === TSK_DONE) return;

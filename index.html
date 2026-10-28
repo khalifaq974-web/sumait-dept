@@ -713,7 +713,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <label class="f" for="rf-note">ملاحظة (اختياري)</label>
           <input type="text" id="rf-note" maxlength="300" placeholder="مثال: إجازة مرضية، مهمة رسمية">
           <div class="row-actions" style="margin-top:14px"><button class="btn" id="rf-save" type="submit">حفظ الغياب والاحتياط</button><button class="btn ghost" type="button" id="rf-delete" hidden>حذف الغياب</button></div>
-          <div class="saved" id="rf-msg"></div>
+          <div class="saved" id="rf-msg"></div><div id="rf-tasks"></div>
         </form>
         <div class="vis-head-row"><h3 id="res-day-title"></h3><span class="row-actions"><button class="btn ghost sm" type="button" id="res-daily-word">كشف الاحتياط اليومي وورد</button><button class="btn ghost sm" type="button" id="res-daily-pdf">PDF</button></span></div>
         <div class="saved" id="res-dmsg"></div>
@@ -2060,9 +2060,13 @@ $("sw-send").onclick = async () => {
     const res = await run("requestSwap", CODE, { teacher: swT(), date: $("sw-date").value, period: +r.value, other: c.t, retDate: c.date, retPeriod: c.period });
     SWAPS = null; await swapTab(true);
     const x = SWAPS.find(y => y.id === res.id);
+    // رئيس الشعبة: كتاب تكليف لكل معلم، ومعه «نموذج تبديل حصة» للإدارة إن كان التبديل بين المادتين (حديث ⇄ قرآن)
+    if (ME.isHead) { const cross = x && x.cls.split(":")[0] !== x.retCls.split(":")[0];
+      m.textContent = "تم اعتماد التبديل ✓ ووصل التكليف للمعلمَين.";
+      await autoTaskPanel($("sw-wa"), res.tasks);
+      if (cross) { deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, m); }
+      return; }
     m.textContent = "تم اعتماد التبديل ✓ — جارٍ تجهيز النموذج…";
-    if (x && ME.isHead) { const ln = (a, b, d, p, c) => `${DAYS[isoDay(d)]} ${fmtDate(d)} الحصة ${PERIOD_NAMES[p]}: يدخل أ. ${shortName(a)} بدل أ. ${shortName(b)} (${classLabel(c)} ${subjOf(c)})`;
-      waPanel($("sw-wa"), [x.teacher, x.other].filter(n => n !== ME.name), n => waMsg(n, `🔁 تم اعتماد تبديل حصة:\n- ${ln(x.other, x.teacher, x.date, x.period, x.cls)}\n- ${ln(x.teacher, x.other, x.retDate, x.retPeriod, x.retCls)}\nيرجى توقيع نموذج التبديل في القسم.`, "res=swap")); }
     if (x) deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, m);
   } catch (e) { m.textContent = /غير معروف/.test(cleanErr(e)) ? "تبديل الحصص يعمل بعد تحديث كود السيرفر." : cleanErr(e); $("sw-send").disabled = false; }
 };
@@ -2070,9 +2074,11 @@ function renderMySwaps() {
   const T = swT(), list = (SWAPS || []).filter(x => x.status === SWP_ACTIVE && (x.teacher === T || x.other === T));
   $("sw-mine").innerHTML = list.length ? list.map(x => `<div class="li"><span><b>${classLabel(x.cls)}</b> · أ. ${esc(shortName(x.teacher))} ⇄ أ. ${esc(shortName(x.other))}<br>
     <span class="sub">${fmtDate(x.date, true)} الحصة ${PERIOD_NAMES[x.period]} ← الرد ${fmtDate(x.retDate, true)} الحصة ${PERIOD_NAMES[x.retPeriod]}</span></span>
-    <span class="row-actions"><button class="btn ghost sm" type="button" data-swf="${esc(x.id)}">النموذج PDF</button>${(x.teacher === ME.name || ME.isHead) && x.date >= todayISO() ? `<button class="btn ghost sm" type="button" data-swc="${esc(x.id)}">إلغاء</button>` : ""}</span></div>`).join("")
+    <span class="row-actions"><button class="btn ghost sm" type="button" data-swf="${esc(x.id)}">${ME.isHead && x.by === ME.name ? "كتاب التكليف" : "النموذج PDF"}</button>${ME.isHead && x.by === ME.name && x.cls.split(":")[0] !== x.retCls.split(":")[0] ? `<button class="btn ghost sm" type="button" data-swadm="${esc(x.id)}">نموذج الإدارة PDF</button>` : ""}${(x.teacher === ME.name || ME.isHead) && x.date >= todayISO() ? `<button class="btn ghost sm" type="button" data-swc="${esc(x.id)}">إلغاء</button>` : ""}</span></div>`).join("")
     : '<div class="empty">لا توجد تبديلات معتمدة.</div>';
-  $("sw-mine").querySelectorAll("[data-swf]").forEach(b => b.onclick = () => { const x = SWAPS.find(y => y.id === b.dataset.swf); deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, $("sw-msg")); });
+  $("sw-mine").querySelectorAll("[data-swadm]").forEach(b => b.onclick = () => { const x = SWAPS.find(y => y.id === b.dataset.swadm); deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, $("sw-msg")); });
+  $("sw-mine").querySelectorAll("[data-swf]").forEach(b => b.onclick = () => { const x = SWAPS.find(y => y.id === b.dataset.swf);
+    if (ME.isHead && x.by === ME.name) { autoTaskPanel($("sw-wa"), ["swp-" + x.id + "-1", "swp-" + x.id + "-2"]).then(n => { if (n) $("sw-wa").scrollIntoView({ behavior: "smooth" }); else deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, $("sw-msg")); }); return; } deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, $("sw-msg")); });
   $("sw-mine").querySelectorAll("[data-swc]").forEach(b => b.onclick = () => confirmInline(b, "تأكيد الإلغاء", async () => { try { await run("cancelSwap", CODE, b.dataset.swc); await swapTab(true); $("sw-msg").textContent = "أُلغي التبديل."; } catch (e) { $("sw-msg").textContent = cleanErr(e); } }));
 }
 
@@ -3077,6 +3083,24 @@ async function waPanel(box, names, textFn, pill) {
 
 // ================= المهام والتكاليف =================
 const TSK_ALERT = "تنبيه لاستكمال سجل";
+// تكليف الاحتياط والتبديل: يُنشأ تلقائيًا، بلا استلام ولا نقص، ويُعلَّم مقروءًا عند فتحه
+function tskSeen() { try { return JSON.parse(localStorage.getItem("tskSeen") || "[]"); } catch (e) { return []; } }
+function markTskSeen(id) { try { const s = tskSeen(); if (s.indexOf(id) === -1) { s.push(id); localStorage.setItem("tskSeen", JSON.stringify(s.slice(-300))); } } catch (e) {} }
+const tskAutoNew = t => t.auto && t.date >= todayISO() && tskSeen().indexOf(t.id) === -1;
+/** بعد حفظ الاحتياط أو اعتماد التبديل: كتاب تكليف PDF لكل معلم + إرسال واتساب */
+async function autoTaskPanel(box, ids) {
+  if (!box) return; box.innerHTML = "";
+  if (!ids || !ids.length) return;
+  try { TSK = await run("listTasks", CODE); } catch (e) { box.innerHTML = `<div class="sub">${esc(cleanErr(e))}</div>`; return; }
+  const ts = ids.map(id => TSK.find(t => t.id === id)).filter(Boolean); if (!ts.length) return 0;
+  box.innerHTML = `<div class="card" style="margin-top:12px"><h3 style="margin-top:0">📌 وصل التكليف للمعلمين في الموقع</h3><div class="sub">كتاب التكليف لكل معلم جاهز للطباعة:</div>
+    <div class="row-actions" style="margin-top:8px">${ts.map((t, i) => `<button class="btn sm" type="button" data-atk="${i}">📄 كتاب تكليف أ. ${esc(shortName(t.teachers[0]))}</button>`).join("")}</div><div class="saved" id="atk-msg"></div></div><div id="atk-wa"></div>`;
+  box.querySelectorAll("[data-atk]").forEach(b => b.onclick = () => { const t = ts[+b.dataset.atk]; deliverPdf(() => pdfTask(t), `كتاب تكليف - ${t.type} - أ. ${shortName(t.teachers[0])} - ${t.date}.pdf`, $("atk-msg")); });
+  const byT = {}; ts.forEach(t => byT[t.teachers[0]] = t);
+  waPanel($("atk-wa"), Object.keys(byT), n => tskWaText(byT[n], n));
+  if (ts.length === 1) deliverPdf(() => pdfTask(ts[0]), `كتاب تكليف - ${ts[0].type} - أ. ${shortName(ts[0].teachers[0])} - ${ts[0].date}.pdf`, $("atk-msg"));
+  return ts.length;
+}
 const TSK_TYPES = ["نشاط", "إذاعة مدرسية", "ورشة تدريبية", "درس تطبيقي", "مسابقة", "لجنة", "مناوبة", "إعداد تقرير أو ملف", "تنظيم فعالية", "أخرى"];
 const TSK_PERIODS = ["", "الطابور الصباحي", "الحصة الأولى", "الحصة الثانية", "الحصة الثالثة", "الحصة الرابعة", "الحصة الخامسة", "الحصة السادسة", "الحصة السابعة", "الفرصة", "بعد نهاية الدوام", "طوال اليوم"];
 const TSK_DEMOS = ["تجريبي ١", "تجريبي ٢"];
@@ -3149,8 +3173,9 @@ $("tsk-form").addEventListener("submit", async e => {
 });
 const TSK_PILL = { "جديدة": "late", "تم الاستلام": "none", "تم التنفيذ": "ok" };
 function tskWhen(t) { return `${t.repeat ? `كل يوم ${dayName(t.date)} · القادمة ${fmtDate(t.occ)}` : dayName(t.date) + " " + fmtDate(t.date)}${t.period ? " · " + t.period : ""}${t.time ? " · " + ar(t.time) : ""}`; }
-function tskDone(t) { if (t.repeat) return false; return ME.isHead ? t.status.every(s => s.status === "تم التنفيذ") : t.mine && t.mine.status === "تم التنفيذ"; }
+function tskDone(t) { if (t.auto) return t.date < todayISO(); if (t.repeat) return false; return ME.isHead ? t.status.every(s => s.status === "تم التنفيذ") : t.mine && t.mine.status === "تم التنفيذ"; }
 function tskPill(t) {
+  if (t.auto) return `<span class="tsk-st"><span class="pill ${ME.isHead || !tskAutoNew(t) ? "ok" : "late"}">${ME.isHead ? "تكليف مباشر" : tskAutoNew(t) ? "تكليف جديد" : "تكليف"}</span></span>`;
   const rp = t.repeat ? `<span class="pill none">ثابتة أسبوعيًا</span>` : "";
   const rmd = t.remind && (ME.isHead ? t.status.some(x => x.status !== "تم التنفيذ") : t.mine.status !== "تم التنفيذ") ? `<span class="pill ahead">⏰ ${tskLeft(t.occ) === "باقي يومين على" ? "باقي يومين" : tskLeft(t.occ)}</span>` : "";
   if (!ME.isHead) { const s = t.mine.status; return `<span class="tsk-st">${rmd}${rp}${t.repeat && !t.soon ? "" : `<span class="pill ${TSK_PILL[s]}">${s === "جديدة" ? (t.repeat ? "تذكير — بانتظار استلامك" : "جديدة — بانتظار استلامك") : s}</span>`}</span>`; }
@@ -3162,14 +3187,14 @@ function tskPill(t) {
 function tskLeft(iso) { const d = Math.round((new Date(iso + "T12:00") - new Date(todayISO() + "T12:00")) / 864e5); return d <= 0 ? "اليوم" : d === 1 ? "غدًا" : "باقي يومين على"; }
 function tskLampTeacher() {
   if (!ME || ME.isHead || !TSK) return;
-  const fresh = TSK.filter(t => t.mine && t.mine.status !== "تم التنفيذ" && ((t.mine.status === "جديدة" && t.soon) || t.remind)), n = fresh.length, el = $("lamp-tsk");
+  const fresh = TSK.filter(t => t.auto ? tskAutoNew(t) : t.mine && t.mine.status !== "تم التنفيذ" && ((t.mine.status === "جديدة" && t.soon) || t.remind)), n = fresh.length, el = $("lamp-tsk");
   el.hidden = !n; el.textContent = n ? ar(n) : ""; $("nav-tsk").title = n ? `لديك ${n} مهمة جديدة` : "";
   let b = $("tsk-banner");
   if (n && !b) { b = document.createElement("div"); b.id = "tsk-banner"; b.className = "tsk-new-banner"; b.onclick = () => go("tsk"); document.querySelector("nav.sections").after(b); }
   const rem = fresh.filter(t => t.remind).sort((a, b) => a.occ.localeCompare(b.occ)), nw = fresh.filter(t => !t.remind);
   if (b) { if (n) b.textContent = rem.length
       ? `⏰ تذكير: ${tskLeft(rem[0].occ)} ${rem[0].repeat ? "مهمة" : "موعد تكليف"} «${rem[0].title}» (${dayName(rem[0].occ)} ${fmtDate(rem[0].occ)})${n > 1 ? ` · و${ar(n - 1)} غيرها` : ""} — اضغط للاطلاع`
-      : `💡 لديك ${ar(n)} ${n === 1 ? "مهمة جديدة" : "مهام جديدة"} من رئيس الشعبة — اضغط للاطلاع والاستلام`; else b.remove(); }
+      : `💡 لديك ${ar(n)} ${n === 1 ? "مهمة جديدة" : "مهام جديدة"} من رئيس الشعبة — اضغط للاطلاع${nw.some(t => !t.auto) ? " والاستلام" : ""}`; else b.remove(); }
 }
 async function tskBadge() { try { TSK = await run("listTasks", CODE); tskLampTeacher(); } catch (e) {} try { ALR = await run("listAlerts", CODE); alrLampTeacher(); } catch (e) {} try { ACH = await run("myAchievements", CODE); achLampTeacher(); } catch (e) {} }
 async function loadTsk(force) {
@@ -3194,6 +3219,7 @@ function tskWaText(t, n) {
   const body = t.type === TSK_ALERT
     ? `🔔 تنبيه: يرجى استكمال سجل «${SEC_NAMES_AR[t.rec] || t.title}» في موقع القسم.${t.due ? "\nآخر موعد: " + dayName(t.due) + " " + t.due : ""}${t.details ? "\n\n" + t.details : ""}`
     : `📌 تكليف: ${t.type} — ${t.title}\n${when}${extra}`;
+  if (t.auto) return waMsg(n, `📌 تكليف من رئيس الشعبة: ${t.type}\n${dayName(t.date)} ${t.date}\n${t.details}`, "tsk=" + t.id);
   const rmd = t.remind ? `⏰ تذكير: ${tskLeft(t.occ)} ${t.repeat ? "المهمة" : "موعد التكليف"} (${dayName(t.occ)} ${t.occ})\n\n` : "";
   return waMsg(n, rmd + body + "\n\nيرجى تأكيد الاستلام من ركن «المهام والتكاليف».", "tsk=" + t.id);
 }
@@ -3217,6 +3243,11 @@ function openTsk(id, justSent) {
   if ($("tsk-rec")) $("tsk-rec").onclick = () => { go(t.rec, true); window.scrollTo({ top: $("sec-" + (t.rec === "act" ? "ach" : t.rec)).offsetTop - 10, behavior: "smooth" }); };
   $("tsk-pdf").onclick = () => deliverPdf(() => pdfTask(t), `كتاب تكليف - ${t.type} - ${t.title}.pdf`, $("tsk-fmsg"));
   const act = $("tsk-act");
+  if (t.auto) {
+    if (!ME.isHead) { markTskSeen(t.id); tskLampTeacher(); act.innerHTML = `<div class="sub" style="margin-top:10px">تكليف مباشر من رئيس الشعبة، لا يحتاج تأكيد استلام.</div>`; return; }
+    act.innerHTML = `<div class="sub" style="margin-top:10px">تكليف مباشر أُنشئ من «${t.type === "احتياط" ? "سجل الغياب والاحتياط" : "تبديل الحصص"}»، يتغيّر ويُحذف معه تلقائيًا. لا يحتاج استلامًا ولا يُحسب نقصًا.</div><div id="tsk-wa"></div>`;
+    waPanel($("tsk-wa"), t.teachers, n => tskWaText(t, n)); return;
+  }
   if (!ME.isHead) {
     const s = t.mine, done = s.status === "تم التنفيذ";
     act.innerHTML = `<h3>حالتك: <span class="pill ${TSK_PILL[s.status]}">${esc(s.status)}</span></h3>
@@ -4316,8 +4347,9 @@ $("res-form").addEventListener("submit", async e => {
   const note = exc ? "السبب: " + document.querySelector('input[name="rf-reason"]:checked').value + ($("rf-note").value.trim() ? " — " + $("rf-note").value.trim() : "") : $("rf-note").value;
   btn.disabled = true; msg.textContent = "جارٍ الحفظ…";
   try {
-    await run("saveAbsence", CODE, { id: resEditId, date: $("rf-date").value, teacher: $("rf-teacher").value, note, items, kind: exc ? ABS_EXCUSE : "" });
+    const sv = await run("saveAbsence", CODE, { id: resEditId, date: $("rf-date").value, teacher: $("rf-teacher").value, note, items, kind: exc ? ABS_EXCUSE : "" });
     await loadRes(true); renderResItems(); renderResDay(); msg.textContent = "تم الحفظ.";
+    autoTaskPanel($("rf-tasks"), sv && sv.tasks);
   } catch (x) { msg.textContent = cleanErr(x); } finally { btn.disabled = false; }
 });
 $("rf-delete").onclick = () => confirmInline($("rf-delete"), "اضغط مرة ثانية لحذف الغياب", async () => {
