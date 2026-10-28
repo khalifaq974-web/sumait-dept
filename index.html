@@ -2395,9 +2395,9 @@ function pdfTeacherClasses(d) {
       const mine = ids.filter(c => c.split(":")[0] === dp).map(classInfo).sort((a, b) => a.grade - b.grade || a.num - b.num);
       if (depts.length > 1) h += `<div style="font-size:22px;font-weight:900;color:#fff;background:#1E3A5F;border-radius:8px;padding:6px 14px;margin:16px 0 10px">${SUBJECTS[dp]}</div>`;
       [...new Set(mine.map(c => c.grade))].forEach(g => {
-        h += `<div style="display:flex;align-items:center;gap:14px;border-bottom:1px solid #C9D6E3;padding:12px 4px">
-          <div style="min-width:170px;font-size:22px;font-weight:900;color:#1E3A5F">الصف ${GRADE_NAMES[g] || ar(g)}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:10px">${mine.filter(c => c.grade === g).map(c => `<span style="display:inline-block;min-width:78px;text-align:center;font-size:26px;font-weight:900;border:2px solid #1E3A5F;border-radius:10px;padding:4px 12px;background:#fff">${c.label}</span>`).join("")}</div></div>`;
+        h += `<div style="border-bottom:1px solid #C9D6E3;padding:14px 4px 18px">
+          <div style="font-size:30px;font-weight:900;color:#1E3A5F;margin-bottom:12px">الصف ${GRADE_NAMES[g] || ar(g)}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:16px">${mine.filter(c => c.grade === g).map(c => `<span style="display:inline-block;min-width:118px;text-align:center;font-size:46px;font-weight:900;line-height:1.35;color:#0F2740;border:3px solid #1E3A5F;border-radius:14px;padding:6px 16px;background:#F3F7FB">${c.label}</span>`).join("")}</div></div>`;
       });
     });
     blocks.push(`<div>${h}</div>`);
