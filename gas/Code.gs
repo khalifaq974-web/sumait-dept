@@ -1864,13 +1864,7 @@ function teacherGaps(code) {
   const out = {}, add = (t, k, text, ref) => { if (!t || t === HEAD_NAME_ || !tskPool_().includes(t)) return; (out[t] = out[t] || []).push({ k, t: text, ref: ref || "" }); };
   const today = todayIso_(), short = d => arNum_(String(d).slice(8, 10) + "/" + String(d).slice(5, 7));
   // ١) تقارير الأنشطة والإنجازات المصاغة بانتظار اعتماد المعلم
-  // ٢) محاضر الاجتماعات التي لم يطّلع عليها
-  const sigs = sigRows_();
-  rows_(SHEET_MIN).slice(1).filter(r => r[0] && r[0] !== DEMO_MINUTE).forEach(r => { const m = minObj_(r);
-    m.attendees.forEach(t => { if (!sigs.some(x => x[0] === m.id && x[1] === t)) add(t, "min", `الاطلاع على محضر «${m.title}»`, m.id); }); });
-  // ٣) النشرات والتعاميم التي لم يطّلع عليها
-  const acks = nshAcks_();
-  nshRows_().forEach(r => nshTargets_(r[6]).forEach(t => { if (!acks.some(a => a[0] === r[0] && a[1] === t)) add(t, "nsh", `الاطلاع على ${r[1]}: «${r[4]}»`, r[0]); }));
+  // (الاجتماعات والنشرات لا تُحسب نقصًا: تُطبع في القسم ويطّلع عليها المعلمون — قرار رئيس الشعبة ٢٨/١٠/٢٠٢٦)
   // ٤) بطاقات الزيارة الصفية التي لم يطّلع عليها
   visRows_().forEach(r => { const v = visObj_(r, false); if (!v.teacherSignedAt) add(v.teacher, "vis", `الاطلاع على بطاقة الزيارة الصفية (${short(v.date)})`, v.id); });
   // ٥) المهام: لم يستلمها، أو فات موعدها ولم يسجّل التنفيذ (المهام الثابتة: في يومها فقط)
