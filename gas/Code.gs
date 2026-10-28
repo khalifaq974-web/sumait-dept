@@ -776,11 +776,15 @@ function requestSwap(code, q) {
     const ev = swapEvents_(swpRows_());
     const les = effLesson_(teacher, date, p, ev);
     if (!isLes_(les)) throw new Error("ليست لك حصة في هذا الوقت.");
-    const k = les[2].split(":")[1], otherCls = (les[2].split(":")[0] === "hd" ? "qr" : "hd") + ":" + k;
+    const k = les[2].split(":")[1], sj = les[2].split(":")[0];
+    // البديل: معلم المادة الأخرى في الفصل نفسه، أو معلم المادة نفسها في المرحلة نفسها (فصل آخر من الصف نفسه)
+    const okRet_ = c => { const [s2, k2] = String(c || "").split(":"); if (!k2) return false;
+      return (s2 !== sj && k2 === k) || (s2 === sj && k2 !== k && k2.split("-")[0] === k.split("-")[0]); };
     if (!TIMETABLE[other] || other === teacher) throw new Error("اختر المعلم الذي ستبدّل معه.");
     if (isLes_(effLesson_(other, date, p, ev))) throw new Error("أ. " + other + " عنده حصة في هذا الوقت.");
     const rl = effLesson_(other, rd, rp, ev);
-    if (!rl || rl[2] !== otherCls) throw new Error("حصة الرد ليست حصة أ. " + other + " في الفصل نفسه.");
+    if (!isLes_(rl) || !okRet_(rl[2])) throw new Error("حصة الرد ليست حصة أ. " + other + " في الفصل نفسه بالمادة الأخرى أو في المرحلة نفسها بالمادة نفسها.");
+    const otherCls = rl[2];
     if (isLes_(effLesson_(teacher, rd, rp, ev))) throw new Error("عندك حصة في وقت الرد.");
     const abs = rows_(SHEET_ABS).slice(1).filter(r => r[0]);
     if (abs.some(r => (r[1] === date || r[1] === rd) && r[2] === other && r[6] !== ABS_EXCUSE)) throw new Error("أ. " + other + " مسجّل غائبًا في أحد اليومين.");

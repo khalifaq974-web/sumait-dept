@@ -722,7 +722,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <section id="res-req" hidden>
         <div class="card">
           <h2>طلب تبديل حصة</h2>
-          <div class="sub">بدّل حصتك مع معلم المادة الأخرى في الفصل نفسه: يدخل حصتك، وتردّها أنت بدخول حصته في الفصل نفسه في يوم الرد. يقترح الموقع الخيارات التي ليس فيها تعارض، وبعد الاعتماد اطبع «نموذج تبديل حصة» ووقّعه مع زميلك.</div>
+          <div class="sub">بدّل حصتك مع معلم المادة الأخرى في الفصل نفسه، أو مع معلم المادة نفسها في المرحلة نفسها (مثل فصل آخر من الحادي عشر): يدخل حصتك، وتردّها أنت بدخول حصته في الأسبوع نفسه. يقترح الموقع الخيارات التي ليس فيها تعارض، وبعد الاعتماد اطبع «نموذج تبديل حصة» ووقّعه مع زميلك.</div>
           <div class="grid2" style="margin-top:10px"><div id="sw-twrap" hidden><label class="f" for="sw-teacher">المعلم</label><select id="sw-teacher"></select></div><div><label class="f" for="sw-date">يوم الحصة <span class="sub" id="sw-day"></span></label><input type="date" id="sw-date"></div></div>
           <label class="f">حصتك التي تريد تبديلها</label><div class="chips" id="sw-periods"></div>
           <label class="f">خيارات التبديل المتاحة</label><div id="sw-choices" class="attlist"></div>
@@ -4141,17 +4141,19 @@ function effDay(t, date, ev) {
 // خيارات التبديل لحصة المعلم: معلمو المادة الأخرى في الفصل نفسه (من القسمين) الفاضون وقتها،
 // ولكل واحد أقرب حصتين له في الفصل نفسه (بعد يوم الحصة، خلال أسبوعين) يكون المعلم فاضيًا وقتها
 function swapChoices(me, date, period, cls, ev) {
-  const [sj, k] = cls.split(":"), other = (sj === "hd" ? "qr" : "hd") + ":" + k, day = isoDay(date), out = [];
+  // البديل: معلم المادة الأخرى في الفصل نفسه، أو معلم المادة نفسها في المرحلة نفسها (فصل آخر من الصف نفسه)
+  const [sj, k] = cls.split(":"), day = isoDay(date), out = [];
+  const okRet = c => { const [s2, k2] = String(c || "").split(":"); return !!k2 && ((s2 !== sj && k2 === k) || (s2 === sj && k2 !== k && k2.split("-")[0] === k.split("-")[0])); };
   for (const t of Object.keys(TIMETABLE)) {
     if (t === me) continue;
-    const mine = TIMETABLE[t].filter(x => x[2] === other);
+    const mine = TIMETABLE[t].filter(x => okRet(x[2]));
     if (!mine.length || isLesson(effSlot(t, date, period, ev))) continue;
-    for (const [d2, p2] of mine) { // الرد في الأسبوع نفسه (ولو في اليوم نفسه بحصة أخرى)
+    for (const [d2, p2, c2] of mine) { // الرد في الأسبوع نفسه (ولو في اليوم نفسه بحصة أخرى)
       const rd = addDaysISO(date, d2 - day);
       if (rd < todayISO() || (rd === date && p2 === period)) continue;
       const tl = effSlot(t, rd, p2, ev);
-      if (!tl || tl[2] !== other || isLesson(effSlot(me, rd, p2, ev))) continue;
-      out.push({ t, date: rd, period: p2, cls: other });
+      if (!tl || tl[2] !== c2 || isLesson(effSlot(me, rd, p2, ev))) continue;
+      out.push({ t, date: rd, period: p2, cls: c2 });
     }
   }
   const gap = o => Math.abs(isoDay(o.date) - day);
@@ -4215,9 +4217,13 @@ function candidates(date, day, period, cls, absent, absenceId, extra) {
   }
   list.sort((a, b) => a.load - b.load || a.weekCount - b.weekCount || a.total - b.total || a.t.localeCompare(b.t, "ar"));
   const others = list.filter(c => !RES_LAST_RESORT[c.t]);
-  if (others.length) return others;
-  list.forEach(c => c.why.unshift(RES_LAST_RESORT[c.t] + " — لا يوجد غيره متاح"));
-  return list;
+  let out = others;
+  if (!others.length) { list.forEach(c => c.why.unshift(RES_LAST_RESORT[c.t] + " — لا يوجد غيره متاح")); out = list; }
+  // رئيس الشعبة آخر خيار متاح دائمًا (إن لم يكن عنده حصة ولا غائبًا ولا مكلّفًا في الوقت نفسه)
+  const H = HEAD_NAME;
+  if (TIMETABLE[H] && H !== absent && absentToday.indexOf(H) === -1 && takenNow.indexOf(H) === -1 && !isLesson(effSlot(H, date, period, swapEv(RES.swaps))))
+    out = out.concat([{ t: H, head: true, why: ["رئيس الشعبة — آخر خيار"] }]);
+  return out;
 }
 
 let resEditId = "";
@@ -4259,7 +4265,7 @@ function renderResItems() {
     const sel = sv ? (sv.status === COV_DONE ? sv.substitute : sv.status === COV_PRESENT ? "__present" : "__none") : (cands[0] ? cands[0].t : "__none");
     const on = !exc || !!sv; // في العذر الطارئ: الحصص المعلَّمة فقط تُبدَّل
     if (on && !sel.startsWith("__")) extra[sel] = (extra[sel] || 0) + 1;
-    const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 ? "★ الأفضل: " : ""}${esc(c.t)} — ${esc(c.why.join("، "))}</option>`).join("");
+    const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 && !c.head ? "★ الأفضل: " : ""}${esc(c.t)} — ${esc(c.why.join("، "))}</option>`).join("");
     const keep = sv && sv.status === COV_DONE && !cands.some(c => c.t === sv.substitute) ? `<option value="${esc(sv.substitute)}" selected>${esc(sv.substitute)} (مسجّل سابقًا)</option>` : "";
     return `<div class="res-row${exc ? (on ? " exc" : " off") : ""}" data-p="${p}">
       ${exc ? `<label class="res-x"><input type="checkbox" data-x="${p}"${on ? " checked" : ""}> ما يقدر يدخلها</label>` : ""}
