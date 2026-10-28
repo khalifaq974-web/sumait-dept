@@ -735,7 +735,7 @@ function resTasks_(absId, teacher, date, covs) {
   const by = {};
   covs.filter(r => isCov_(r[7]) && r[6] && TEACHERS.some(t => t[0] === r[6] && !t[2])).forEach(r => (by[r[6]] = by[r[6]] || []).push(r));
   return Object.keys(by).map(sub => [`res-${absId}-${sub.replace(/\s+/g, "_")}`, "احتياط", `احتياط بدل أ. ${teacher}`,
-    by[sub].sort((a, b) => a[3] - b[3]).map(r => `- الحصة ${PER_AR_[+r[3]]}: ${clsName_(r[4])}${r[7] === COV_SWAP && r[9] ? ` (تبديل: يردّها لك أ. ${teacher} ${dayDate_(r[9])} الحصة ${PER_AR_[+r[10]]})` : ""}`).join("\n"),
+    by[sub].sort((a, b) => a[3] - b[3]).map(r => `- الحصة ${PER_AR_[+r[3]]}: ${r[4] === "R" ? "حصة احتياط" : r[4] === "RF" ? "احتياط فنية" : clsName_(r[4])}${r[7] === COV_SWAP && r[9] ? ` (تبديل: يردّها لك أ. ${teacher} ${dayDate_(r[9])} الحصة ${PER_AR_[+r[10]]})` : ""}`).join("\n"),
     date, sub]);
 }
 
