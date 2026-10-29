@@ -794,7 +794,9 @@ function requestSwap(code, q) {
   const today = todayIso_();
   if (date < today || rd < today) throw new Error("لا يكون التبديل في يوم مضى.");
   if (date === rd && rp === p) throw new Error("حصة الرد تكون غير الحصة نفسها.");
-  if (isoAdd_(date, -dayOf_(date)) !== isoAdd_(rd, -dayOf_(rd))) throw new Error("الرد يكون في نفس الأسبوع.");
+  // الرد في الأسبوع نفسه، وإذا كانت الحصة يوم الخميس جاز الرد في الأسبوع الذي يليه (قراره ٢٩/١٠/٢٠٢٦)
+  const wk_ = d => isoAdd_(d, -dayOf_(d)), sameWk = wk_(date) === wk_(rd), nextWk = dayOf_(date) === 4 && wk_(rd) === isoAdd_(wk_(date), 7);
+  if (!sameWk && !nextWk) throw new Error("الرد يكون في نفس الأسبوع، أو في الأسبوع الذي يليه إذا كانت الحصة يوم الخميس.");
   return withLock_(() => {
     const ev = swapEvents_(swpRows_());
     const les = effLesson_(teacher, date, p, ev);

@@ -4369,15 +4369,17 @@ function swapChoices(me, date, period, cls, ev) {
     if (t === me) continue;
     const mine = TIMETABLE[t].filter(x => okRet(x[2]));
     if (!mine.length || isLesson(effSlot(t, date, period, ev))) continue;
-    for (const [d2, p2, c2] of mine) { // الرد في الأسبوع نفسه (ولو في اليوم نفسه بحصة أخرى)
-      const rd = addDaysISO(date, d2 - day);
+    // الرد في الأسبوع نفسه (ولو في اليوم نفسه بحصة أخرى)، وحصة الخميس يجوز ردّها في الأسبوع الذي يليه
+    const rets = mine.map(m => [addDaysISO(date, m[0] - day), m[1], m[2]]);
+    if (day === 4) mine.forEach(m => rets.push([addDaysISO(date, 7 - day + m[0]), m[1], m[2]]));
+    for (const [rd, p2, c2] of rets) {
       if (rd < todayISO() || (rd === date && p2 === period)) continue;
       const tl = effSlot(t, rd, p2, ev);
       if (!tl || tl[2] !== c2 || isLesson(effSlot(me, rd, p2, ev))) continue;
       out.push({ t, date: rd, period: p2, cls: c2 });
     }
   }
-  const gap = o => Math.abs(isoDay(o.date) - day);
+  const gap = o => Math.abs(Date.parse(o.date) - Date.parse(date)) / 864e5;
   return out.sort((a, b) => gap(a) - gap(b) || a.date.localeCompare(b.date) || a.period - b.period);
 }
 function shortName(t) { const w = String(t).split(" "); return w.length > 2 ? w[0] + " " + w[w.length - 1] : t; }
