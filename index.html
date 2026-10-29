@@ -2589,13 +2589,16 @@ function pdfDailyReserve(date) {
         isCov(c) ? { t: covName(c), c: "b" } : { t: "لم تُغطَّ", c: "late" }, ""])))] };
 }
 function pdfReserveReport(r) {
-  const d = dF("res"), st = resStats(r), det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT && covIn(c, d, c.absent)).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
+  const d = dF("res"), st = resStats(r), det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT && covIn(c, d, c.absent))
+    .concat(resManual(r).filter(m => tIn(m.teacher, d)).map(m => Object.assign({ man: true }, m))).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
   return { box: ("سجل الغياب والاحتياط " + (r.kind || "")).trim(), signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label + (d ? " · " + dName(d) : ""), "c b"),
     P.h("أولًا: عدّاد الغياب والاحتياط لكل معلم"),
     P.grid(P.th(["المعلم", "أيام الغياب", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"]),
       st.map(s => P.tr(["أ. " + s.t, ...[s.days, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => ({ t: ar(n), c: i === 3 && n > 0 ? "c late" : "c" })), Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—"]))),
     P.h("ثانيًا: تفاصيل حصص الاحتياط"),
-    det.length ? P.grid(P.th(["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"]), det.map(c => P.tr([fmtDate(c.date, true), { t: PERIOD_NAMES[c.period], c: "c" }, { t: classLabel(c.classId), c: "c" }, "أ. " + c.absent,
+    det.length ? P.grid(P.th(["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"]), det.map(c => c.man
+      ? P.tr([fmtDate(c.date, true), { t: PERIOD_NAMES[c.period] || "—", c: "c" }, { t: c.cls || "—", c: "c" }, manFor(c) + " (تكليف احتياط)", "أ. " + c.teacher])
+      : P.tr([fmtDate(c.date, true), { t: PERIOD_NAMES[c.period], c: "c" }, { t: classLabel(c.classId), c: "c" }, "أ. " + c.absent,
       isCov(c) ? covName(c) : { t: "لم تُغطَّ", c: "late" }])), "dense") : P.p("لا توجد حصص احتياط في هذه الفترة.")] };
 }
 function pdfClassSheet(r) {
@@ -4577,6 +4580,12 @@ function resRange() {
 }
 // حصة الاحتياط (R/RF) بلا فصل: تتبع قسم المعلم
 function covIn(c, d, who) { return !d || (/:/.test(c.classId) ? cIn(c.classId, d) : tIn(who, d)); }
+// تكليف «حصة احتياط» من المهام والتكاليف غير المربوط بغياب مسجّل: يُحسب احتياطًا أخذه المعلم في الإحصائية والسجل (طلبه ٢٩/١٠/٢٠٢٦)
+function resManual(r) {
+  const linked = new Set((RES.covers || []).map(c => c.taskId).filter(Boolean));
+  return (RES.manual || []).filter(m => !linked.has(m.id) && m.date >= r.from && m.date <= r.to && TIMETABLE[m.teacher]);
+}
+function manFor(m) { const f = String(m.forName || "").trim(); return f ? (/^أ\./.test(f) ? f : "أ. " + f) : "تكليف مباشر"; }
 function resStats(r) {
   const d = dF("res");
   const covs = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && covIn(c, d, c.absent)), abs = RES.absences.filter(a => a.date >= r.from && a.date <= r.to && tIn(a.teacher, d));
@@ -4586,7 +4595,7 @@ function resStats(r) {
     return { t, days: new Set(abs.filter(a => a.teacher === t && a.kind !== ABS_EXCUSE).map(a => a.date)).size, excuses: abs.filter(a => a.teacher === t && a.kind === ABS_EXCUSE).length, lessons: mine.length,
       covered: mine.filter(isCov).length, uncovered: mine.filter(c => c.status === COV_NONE && !c.taskSub).length,
       // الاحتياط الذي أخذه يُحسب بقسم المعلم البديل (ولو كانت الحصة لمعلم من القسم الآخر)
-      given: RES.covers.filter(c => c.date >= r.from && c.date <= r.to && ((c.substitute === t && c.status === COV_DONE) || c.taskSub === t)).length, by };
+      given: RES.covers.filter(c => c.date >= r.from && c.date <= r.to && ((c.substitute === t && c.status === COV_DONE) || c.taskSub === t)).length + resManual(r).filter(m => m.teacher === t).length, by };
   });
 }
 function renderResLog() {
@@ -4601,14 +4610,15 @@ function renderResLog() {
 function renderResTeacher(r) {
   const t = resLogTeacher, box = $("res-log-body"), s = resStats(r).find(x => x.t === t);
   const dd = dF("res"), abs = RES.absences.filter(a => a.teacher === t && a.date >= r.from && a.date <= r.to).sort((a, b) => b.date.localeCompare(a.date));
-  const given = RES.covers.filter(c => ((c.substitute === t && c.status === COV_DONE) || c.taskSub === t) && c.date >= r.from && c.date <= r.to && covIn(c, dd, c.substitute)).sort((a, b) => b.date.localeCompare(a.date) || a.period - b.period);
+  const given = RES.covers.filter(c => ((c.substitute === t && c.status === COV_DONE) || c.taskSub === t) && c.date >= r.from && c.date <= r.to && covIn(c, dd, c.substitute))
+    .concat(resManual(r).filter(m => m.teacher === t).map(m => Object.assign({ man: true }, m))).sort((a, b) => b.date.localeCompare(a.date) || a.period - b.period);
   box.innerHTML = `<div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="res-back">→ كل المعلمين</button><b>أ. ${esc(t)}</b></div>
     <dl class="meta-grid" style="margin-top:10px"><div><dt>أيام الغياب</dt><dd>${ar(s.days)}</dd></div><div><dt>حصص غيابه</dt><dd>${ar(s.lessons)}</dd></div><div><dt>غُطّيت / لم تُغطَّ</dt><dd>${ar(s.covered)} / ${ar(s.uncovered)}</dd></div><div><dt>احتياط أخذه</dt><dd>${ar(s.given)}</dd></div></dl>
     <h3 class="list-title">من دخل مكانه</h3>${Object.keys(s.by).length ? `<div class="list">${Object.entries(s.by).sort((a, b) => b[1] - a[1]).map(([n, k]) => `<div class="li"><span>أ. ${esc(n)}</span><span class="pill ok">${ar(k)} ${k === 1 ? "حصة" : "حصص"}</span></div>`).join("")}</div>` : '<div class="empty">—</div>'}
     <h3 class="list-title">أيام غيابه</h3>${abs.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>البديل</th></tr></thead><tbody>${abs.map(a => RES.covers.filter(c => c.absenceId === a.id && covIn(c, dd, a.teacher)).sort((x, y) => x.period - y.period).map(c =>
       `<tr><td>${fmtDate(a.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)}</td><td>${isCov(c) ? esc(covName(c)) : `<span class="pill ${c.status === COV_NONE ? "late" : "none"}">${c.status}</span>`}</td></tr>`).join("")).join("")}</tbody></table></div>` : '<div class="empty">لم يغب في هذه الفترة.</div>'}
     <h3 class="list-title">حصص الاحتياط التي أخذها</h3>${given.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>بدلًا من</th></tr></thead><tbody>${given.map(c =>
-      `<tr><td>${fmtDate(c.date, true)}</td><td>${PERIOD_NAMES[c.period]}</td><td>${classLabel(c.classId)}</td><td>أ. ${esc(c.absent)}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">لم يأخذ احتياطًا في هذه الفترة.</div>'}`;
+      `<tr><td>${fmtDate(c.date, true)}</td><td>${PERIOD_NAMES[c.period] || "—"}</td><td>${c.man ? esc(c.cls || "—") : classLabel(c.classId)}</td><td>${c.man ? esc(manFor(c)) + ' <span class="pill none">تكليف</span>' : "أ. " + esc(c.absent)}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">لم يأخذ احتياطًا في هذه الفترة.</div>'}`;
   $("res-back").onclick = () => { resLogTeacher = ""; renderResLog(); };
 }
 // ---------- سجل التبديل (تبديلات المعلمين من حساباتهم) ----------
@@ -4676,9 +4686,10 @@ function buildReserveReport(D, r) {
   const head = ["المعلم", "أيام الغياب", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"].map(t => h.th(t));
   const rows = [head, ...st.map(s => [h.cell("أ. " + s.t, { size: 18 }), ...[s.days, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => h.cell(ar(n), { align: C, size: 19, bold: i === 3 && n > 0, color: i === 3 && n > 0 ? "B4382B" : undefined })),
     h.cell(Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—", { size: 16 })])];
-  const det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT && covIn(c, dF("res"), c.absent)).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
+  const det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT && covIn(c, dF("res"), c.absent))
+    .concat(resManual(r).filter(m => tIn(m.teacher, dF("res"))).map(m => Object.assign({ man: true }, m))).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
   const drows = [["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"].map(t => h.th(t)),
-    ...det.map(c => [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(PERIOD_NAMES[c.period], { align: C, size: 17 }), h.cell(classLabel(c.classId), { align: C, size: 17 }), h.cell("أ. " + c.absent, { size: 17 }),
+    ...det.map(c => c.man ? [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(PERIOD_NAMES[c.period] || "—", { align: C, size: 17 }), h.cell(c.cls || "—", { align: C, size: 17 }), h.cell(manFor(c) + " (تكليف احتياط)", { size: 17 }), h.cell("أ. " + c.teacher, { size: 17 })] : [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(PERIOD_NAMES[c.period], { align: C, size: 17 }), h.cell(classLabel(c.classId), { align: C, size: 17 }), h.cell("أ. " + c.absent, { size: 17 }),
       h.cell(isCov(c) ? covName(c) : "لم تُغطَّ", { size: 17, bold: !isCov(c), color: isCov(c) ? undefined : "B4382B" })])];
   const kids = [...h.formHeader(("سجل الغياب والاحتياط " + (r.kind || "")).trim()), h.para(r.label + (dF("res") ? " · " + dName(dF("res")) : ""), { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
     h.heading("أولًا: عدّاد الغياب والاحتياط لكل معلم"), h.table(rows, [2600, 900, 950, 850, 950, 1000, 2750], h.softBorders("C9D6E3"))];
