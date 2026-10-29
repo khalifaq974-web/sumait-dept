@@ -750,7 +750,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <section id="res-log" hidden>
         <div class="toolbar">
           <select id="res-range" aria-label="نوع السجل"><option value="day">يومي</option><option value="week">أسبوعي</option><option value="month">شهري</option><option value="all" selected>الفصل كله</option></select>
-          <input type="date" id="res-rdate" aria-label="اليوم أو أي يوم من الأسبوع" hidden><input type="month" id="res-rmonth" aria-label="الشهر" hidden>
+          <input type="date" id="res-rdate" aria-label="اليوم أو أي يوم من الأسبوع" hidden><input type="month" id="res-rmonth" aria-label="الشهر" hidden><select id="res-tsel" aria-label="المعلم"></select>
           <button class="btn ghost" id="res-reload" type="button">تحديث</button>
           <button class="btn" id="res-word" type="button">تنزيل سجل الغياب والاحتياط وورد</button><button class="btn ghost" id="res-pdf" type="button">PDF</button>
         </div>
@@ -4601,17 +4601,53 @@ function resStats(r) {
 function renderResLog() {
   const box = $("res-log-body"), r = resRange();
   if (RES.error) { box.innerHTML = `<div class="empty">${esc(RES.error)}</div>`; return; }
+  // اختيار المعلم بجانب اختيار القسم (طلبه ٢٩/١٠/٢٠٢٦)
+  if (resLogTeacher && !tIn(resLogTeacher, dF("res"))) resLogTeacher = "";
+  const ts = $("res-tsel");
+  ts.innerHTML = `<option value="">كل المعلمين</option>` + Object.keys(TIMETABLE).filter(t => tIn(t, dF("res"))).map(t => `<option value="${esc(t)}">أ. ${esc(t)}</option>`).join("");
+  ts.value = resLogTeacher;
   if (resLogTeacher) return renderResTeacher(r);
   const st = resStats(r);
   box.innerHTML = `<div class="sub" style="margin-top:8px">${r.label}${dF("res") ? " · " + dName(dF("res")) : ""}</div><div class="tablebox"><table class="vis-sum"><thead><tr><th>المعلم</th><th>أيام الغياب</th><th>أعذار طارئة</th><th>حصص غيابه</th><th>غُطّيت</th><th>لم تُغطَّ</th><th>حصص احتياط أخذها</th></tr></thead><tbody>${st.map(s =>
     `<tr data-t="${esc(s.t)}" tabindex="0"><td class="t">${esc(s.t)}</td><td>${ar(s.days)}</td><td>${ar(s.excuses)}</td><td>${ar(s.lessons)}</td><td>${ar(s.covered)}</td><td>${s.uncovered ? `<span class="pill late">${ar(s.uncovered)}</span>` : "٠"}</td><td>${ar(s.given)}</td></tr>`).join("")}</tbody></table></div>`;
   box.querySelectorAll("tr[data-t]").forEach(tr => { const open = () => { resLogTeacher = tr.dataset.t; renderResLog(); }; tr.onclick = open; tr.onkeydown = e => { if (e.key === "Enter") open(); }; });
 }
-function renderResTeacher(r) {
-  const t = resLogTeacher, box = $("res-log-body"), s = resStats(r).find(x => x.t === t);
+function resTeacherData(r, t) {
+  const s = resStats(r).find(x => x.t === t);
   const dd = dF("res"), abs = RES.absences.filter(a => a.teacher === t && a.date >= r.from && a.date <= r.to).sort((a, b) => b.date.localeCompare(a.date));
   const given = RES.covers.filter(c => ((c.substitute === t && c.status === COV_DONE) || c.taskSub === t) && c.date >= r.from && c.date <= r.to && covIn(c, dd, c.substitute))
     .concat(resManual(r).filter(m => m.teacher === t).map(m => Object.assign({ man: true }, m))).sort((a, b) => b.date.localeCompare(a.date) || a.period - b.period);
+  const absRows = abs.flatMap(a => RES.covers.filter(c => c.absenceId === a.id && covIn(c, dd, a.teacher)).sort((x, y) => x.period - y.period).map(c => ({ a, c })));
+  return { s, abs, given, absRows };
+}
+function pdfResTeacher(r, t) {
+  const { s, given, absRows } = resTeacherData(r, t), d = dF("res");
+  return { box: ("سجل الغياب والاحتياط " + (r.kind || "")).trim(), signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label + (d ? " · " + dName(d) : ""), "c b"),
+    P.info([["المعلم", "أ. " + t], ["أيام الغياب", ar(s.days)], ["أعذار طارئة", ar(s.excuses)], ["حصص غيابه", ar(s.lessons)], ["غُطّيت / لم تُغطَّ", `${ar(s.covered)} / ${ar(s.uncovered)}`], ["احتياط أخذه", ar(s.given)]], 3),
+    P.h("أولًا: حصص غيابه ومن دخل مكانه"),
+    absRows.length ? P.grid(P.th(["اليوم والتاريخ", "الحصة", "الفصل", "البديل"]), absRows.map(({ a, c }) => P.tr([fmtDate(a.date, true), { t: PERIOD_NAMES[c.period] || "—", c: "c" }, { t: classLabel(c.classId), c: "c" },
+      isCov(c) ? covName(c) : { t: c.status, c: c.status === COV_NONE ? "late" : "" }])), "dense") : P.p("لم يغب في هذه الفترة."),
+    P.h("ثانيًا: حصص الاحتياط التي أخذها"),
+    given.length ? P.grid(P.th(["اليوم والتاريخ", "الحصة", "الفصل", "بدلًا من"]), given.map(c => P.tr([fmtDate(c.date, true), { t: PERIOD_NAMES[c.period] || "—", c: "c" }, { t: c.man ? (c.cls || "—") : classLabel(c.classId), c: "c" },
+      c.man ? manFor(c) + " (تكليف احتياط)" : "أ. " + c.absent])), "dense") : P.p("لم يأخذ احتياطًا في هذه الفترة.")] };
+}
+function buildResTeacherDoc(D, r, t) {
+  const h = H(D), C = h.C, { s, given, absRows } = resTeacherData(r, t), cs = (x, o = {}) => h.cell(x, Object.assign({ size: 18 }, o));
+  const kids = [...h.formHeader(("سجل الغياب والاحتياط " + (r.kind || "")).trim()), h.para(r.label + (dF("res") ? " · " + dName(dF("res")) : ""), { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
+    h.table([[h.lab("المعلم", { w: 1700 }), cs("أ. " + t, { w: 3300, bold: true }), h.lab("أيام الغياب", { w: 1700 }), cs(ar(s.days), { w: 900, align: C }), h.lab("أعذار طارئة", { w: 1500 }), cs(ar(s.excuses), { w: 900, align: C })],
+      [h.lab("حصص غيابه"), cs(ar(s.lessons), { align: C }), h.lab("غُطّيت / لم تُغطَّ"), cs(`${ar(s.covered)} / ${ar(s.uncovered)}`, { align: C }), h.lab("احتياط أخذه"), cs(ar(s.given), { align: C })]],
+      [1700, 3300, 1700, 900, 1500, 900], h.softBorders("C9D6E3")),
+    h.heading("أولًا: حصص غيابه ومن دخل مكانه"),
+    absRows.length ? h.table([["اليوم والتاريخ", "الحصة", "الفصل", "البديل"].map(x => h.th(x)), ...absRows.map(({ a, c }) => [cs(fmtDate(a.date, true)), cs(PERIOD_NAMES[c.period] || "—", { align: C }), cs(classLabel(c.classId), { align: C }),
+      cs(isCov(c) ? covName(c) : c.status, { bold: !isCov(c), color: c.status === COV_NONE ? "B4382B" : undefined })])], [2800, 1500, 2000, 3700], h.softBorders("C9D6E3")) : h.para("لم يغب في هذه الفترة.", { size: 20 }),
+    h.heading("ثانيًا: حصص الاحتياط التي أخذها"),
+    given.length ? h.table([["اليوم والتاريخ", "الحصة", "الفصل", "بدلًا من"].map(x => h.th(x)), ...given.map(c => [cs(fmtDate(c.date, true)), cs(PERIOD_NAMES[c.period] || "—", { align: C }), cs(c.man ? (c.cls || "—") : classLabel(c.classId), { align: C }),
+      cs(c.man ? manFor(c) + " (تكليف احتياط)" : "أ. " + c.absent)])], [2800, 1500, 2000, 3700], h.softBorders("C9D6E3")) : h.para("لم يأخذ احتياطًا في هذه الفترة.", { size: 20 }),
+    h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000)];
+  return h.doc(kids);
+}
+function renderResTeacher(r) {
+  const t = resLogTeacher, box = $("res-log-body"), { s, abs, given } = resTeacherData(r, t), dd = dF("res");
   box.innerHTML = `<div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="res-back">→ كل المعلمين</button><b>أ. ${esc(t)}</b></div>
     <dl class="meta-grid" style="margin-top:10px"><div><dt>أيام الغياب</dt><dd>${ar(s.days)}</dd></div><div><dt>حصص غيابه</dt><dd>${ar(s.lessons)}</dd></div><div><dt>غُطّيت / لم تُغطَّ</dt><dd>${ar(s.covered)} / ${ar(s.uncovered)}</dd></div><div><dt>احتياط أخذه</dt><dd>${ar(s.given)}</dd></div></dl>
     <h3 class="list-title">من دخل مكانه</h3>${Object.keys(s.by).length ? `<div class="list">${Object.entries(s.by).sort((a, b) => b[1] - a[1]).map(([n, k]) => `<div class="li"><span>أ. ${esc(n)}</span><span class="pill ok">${ar(k)} ${k === 1 ? "حصة" : "حصص"}</span></div>`).join("")}</div>` : '<div class="empty">—</div>'}
@@ -4659,10 +4695,12 @@ $("swap-reload").onclick = async () => { await loadRes(true); renderSwapLog(); }
 $("swap-pdf").onclick = () => deliverPdf(() => pdfSwapLog(), `سجل التبديل${dFile(dF("res"))}.pdf`, $("swap-msg"));
 $("res-range").onchange = renderResLog; $("res-rdate").onchange = renderResLog; $("res-rmonth").onchange = renderResLog;
 $("res-reload").onclick = async () => { await loadRes(true); renderResLog(); };
-$("res-pdf").onclick = () => deliverPdf(() => pdfReserveReport(resRange()), `سجل الغياب والاحتياط ${resRange().kind}${dFile(dF("res"))} - ${resRange().label}.pdf`, $("res-lmsg"));
+$("res-tsel").onchange = () => { resLogTeacher = $("res-tsel").value; renderResLog(); };
+const resFileName = ext => `سجل الغياب والاحتياط ${resRange().kind}${resLogTeacher ? " - أ. " + resLogTeacher : dFile(dF("res"))} - ${resRange().label}.${ext}`;
+$("res-pdf").onclick = () => deliverPdf(() => resLogTeacher ? pdfResTeacher(resRange(), resLogTeacher) : pdfReserveReport(resRange()), resFileName("pdf"), $("res-lmsg"));
 $("res-word").onclick = async () => {
   const m = $("res-lmsg"); m.textContent = "جارٍ إنشاء الملف…";
-  try { await deliver(await window.docx.Packer.toBlob(buildReserveReport(window.docx, resRange())), `سجل الغياب والاحتياط ${resRange().kind}${dFile(dF("res"))} - ${resRange().label}.docx`, m); }
+  try { await deliver(await window.docx.Packer.toBlob(resLogTeacher ? buildResTeacherDoc(window.docx, resRange(), resLogTeacher) : buildReserveReport(window.docx, resRange())), resFileName("docx"), m); }
   catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
 };
 
