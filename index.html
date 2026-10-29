@@ -2288,33 +2288,33 @@ function buildPermissionDoc(D, p) {
   const h = H(D), C = h.C, R = h.R, NAVY = h.NAVY, box = c => c ? "■" : "□";
   const [fh, fm] = hm(p.from), [th, tm] = hm(p.to);
   const sigImg = (data, label) => data ? new D.Paragraph({ alignment: C, children: [h.img(b64ToBytes(data), 130, 48, "png")] }) : h.para("", { after: 0, line: 700 });
-  const timeTable = (hh, mm) => h.table([[h.th("ساعة", { w: 900 }), h.th("دقيقة", { w: 900 })], [h.cell(hh, { align: C, size: 22, bold: true }), h.cell(mm, { align: C, size: 22, bold: true })]], [900, 900], h.softBorders("C9D6E3"));
+  const timeTable = (hh, mm) => h.table([[h.th("ساعة", { w: 900 }), h.th("دقيقة", { w: 900 })], [h.cell(hh, { align: C, size: 26, bold: true }), h.cell(mm, { align: C, size: 26, bold: true })]], [900, 900], h.softBorders("C9D6E3"));
   const kids = [...h.formHeader("إذن خروج", 10000, false, true),
-    h.table([[h.cell([h.para(`المسلسل: ${ar(p.serial)}`, { size: 21, bold: true, color: NAVY, after: 0 })], { w: 3300 }),
-      h.cell([h.para("إخطار بمدة الاستئذان المصرح بها", { size: 22, bold: true, color: NAVY, align: C, after: 0 })], { w: 3400 }),
-      h.cell([h.para("نموذج رقم (٥م)", { size: 21, bold: true, color: NAVY, align: D.AlignmentType.LEFT, after: 0 })], { w: 3300 })]], [3300, 3400, 3300], h.noBorders),
-    h.para(PERM_TYPES.map(t => `${box(p.type === t)} ${t}`).join("        "), { size: 21, align: C, before: 80, after: 120, bold: true }),
-    h.para([h.run("السيد المحترم / مدير معهد عبدالرحمن السميط الديني الثانوي بنين", { size: 22, bold: true }), h.run("          بعد التحية،", { size: 22 })], { after: 120 }),
+    h.table([[h.cell([h.para(`المسلسل: ${ar(p.serial)}`, { size: 25, bold: true, color: NAVY, after: 0 })], { w: 3300 }),
+      h.cell([h.para("إخطار بمدة الاستئذان المصرح بها", { size: 26, bold: true, color: NAVY, align: C, after: 0 })], { w: 3400 }),
+      h.cell([h.para("نموذج رقم (٥م)", { size: 25, bold: true, color: NAVY, align: D.AlignmentType.LEFT, after: 0 })], { w: 3300 })]], [3300, 3400, 3300], h.noBorders),
+    h.para(PERM_TYPES.map(t => `${box(p.type === t)} ${t}`).join("        "), { size: 25, align: C, before: 80, after: 120, bold: true }),
+    h.para([h.run("السيد المحترم / مدير معهد عبدالرحمن السميط الديني الثانوي بنين", { size: 26, bold: true }), h.run("          بعد التحية،", { size: 26 })], { after: 120 }),
     h.table([
-      [h.lab("لقد تم التصريح للسيد:", { w: 2100 }), h.cell("أ. " + p.teacher, { w: 3300, size: 21, bold: true }), h.lab("القسم:", { w: 1500 }), h.cell(p.dept, { w: 3100, size: 20 })],
-      [h.lab("سبب التصريح:"), new D.TableCell({ columnSpan: 3, margins: { top: 80, bottom: 80, left: 100, right: 100 }, children: [h.para(p.reason, { size: 21, after: 0 })] })],
-      [h.lab("الوظيفة:"), h.cell(p.job, { size: 21 }), h.lab("الرقم المدني:"), h.cell(ar(p.civil), { size: 21, bold: true })],
-      [h.lab("بالاستئذان يوم:"), h.cell(DAYS[isoDay(p.date)] || "", { size: 21 }), h.lab("الموافق:"), h.cell(fmtDate(p.date), { size: 21 })]
+      [h.lab("لقد تم التصريح للسيد:", { w: 2100, size: 24 }), h.cell("أ. " + p.teacher, { w: 3300, size: 25, bold: true }), h.lab("القسم:", { w: 1500, size: 24 }), h.cell(p.dept, { w: 3100, size: 24 })],
+      [h.lab("سبب التصريح:", { size: 24 }), new D.TableCell({ columnSpan: 3, margins: { top: 80, bottom: 80, left: 100, right: 100 }, children: [h.para(p.reason, { size: 25, after: 0 })] })],
+      [h.lab("الوظيفة:", { size: 24 }), h.cell(p.job, { size: 25 }), h.lab("الرقم المدني:", { size: 24 }), h.cell(ar(p.civil), { size: 25, bold: true })],
+      [h.lab("بالاستئذان يوم:", { size: 24 }), h.cell(DAYS[isoDay(p.date)] || "", { size: 25 }), h.lab("الموافق:", { size: 24 }), h.cell(fmtDate(p.date), { size: 25 })]
     ], [2100, 3300, 1500, 3100], h.softBorders("C9D6E3")),
     h.para("", { after: 80 }),
-    h.table([[h.cell([h.para("اعتبارًا من:", { size: 22, bold: true, color: NAVY, after: 0 })], { w: 1700 }), h.cell([timeTable(fh, fm)], { w: 2300 }),
-      h.cell([h.para("حتى:", { size: 22, bold: true, color: NAVY, align: C, after: 0 })], { w: 1000 }),
-      h.cell([p.to === END_DAY ? h.para("■ نهاية الدوام", { size: 22, bold: true, align: C, after: 0 }) : timeTable(th, tm)], { w: 2300 }),
-      h.cell([h.para(p.to === END_DAY ? "" : `(${permDur(p)})`, { size: 20, align: C, after: 0 })], { w: 2700 })]], [1700, 2300, 1000, 2300, 2700], h.noBorders),
-    h.para([h.run(`${box(p.mode !== "بديل")}  المعلم متفرغ`, { size: 22, bold: true }), h.run(`          ${box(p.mode === "بديل")}  بديل المعلم: ${p.mode === "بديل" ? "أ. " + p.substitute : "........................................"}`, { size: 22, bold: true })], { before: 120, after: 160 }),
-    h.table([[h.cell([h.para("توقيع المعلم", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.teacherSig), h.para("أ. " + p.teacher, { size: 18, align: C, after: 0 })], { w: 3300 }),
-      h.cell([h.para("توقيع رئيس الشعبة", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.headSig), h.para(HEAD_SIGN, { size: 18, align: C, after: 0 })], { w: 3400 }),
-      h.cell([h.para("توقيع المدير المساعد", { size: 20, bold: true, color: NAVY, align: C, after: 0 }), h.para("", { after: 0, line: 900 })], { w: 3300 })]], [3300, 3400, 3300], h.noBorders),
+    h.table([[h.cell([h.para("اعتبارًا من:", { size: 26, bold: true, color: NAVY, after: 0 })], { w: 1700 }), h.cell([timeTable(fh, fm)], { w: 2300 }),
+      h.cell([h.para("حتى:", { size: 26, bold: true, color: NAVY, align: C, after: 0 })], { w: 1000 }),
+      h.cell([p.to === END_DAY ? h.para("■ نهاية الدوام", { size: 26, bold: true, align: C, after: 0 }) : timeTable(th, tm)], { w: 2300 }),
+      h.cell([h.para(p.to === END_DAY ? "" : `(${permDur(p)})`, { size: 24, align: C, after: 0 })], { w: 2700 })]], [1700, 2300, 1000, 2300, 2700], h.noBorders),
+    h.para([h.run(`${box(p.mode !== "بديل")}  المعلم متفرغ`, { size: 26, bold: true }), h.run(`          ${box(p.mode === "بديل")}  بديل المعلم: ${p.mode === "بديل" ? "أ. " + p.substitute : "........................................"}`, { size: 26, bold: true })], { before: 120, after: 160 }),
+    h.table([[h.cell([h.para("توقيع المعلم", { size: 24, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.teacherSig), h.para("أ. " + p.teacher, { size: 22, align: C, after: 0 })], { w: 3300 }),
+      h.cell([h.para("توقيع رئيس الشعبة", { size: 24, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.headSig), h.para(HEAD_SIGN, { size: 22, align: C, after: 0 })], { w: 3400 }),
+      h.cell([h.para("توقيع المدير المساعد", { size: 24, bold: true, color: NAVY, align: C, after: 0 }), h.para("", { after: 0, line: 900 })], { w: 3300 })]], [3300, 3400, 3300], h.noBorders),
     h.para("", { after: 80, line: 120, rule: true }),
-    h.para(`□  تأخر عن الموعد لمدة: ........ ساعة`, { size: 22, bold: true, before: 80, after: 80 }),
-    h.para(`□  لم يعد حتى نهاية الدوام.`, { size: 22, bold: true, after: 120 }),
-    h.table([[h.cell([h.para("تضاف مدة التأخير", { size: 22, bold: true, after: 0 })], { w: 2200 }), h.cell([h.para("وقدرها", { size: 22, bold: true, align: C, after: 0 })], { w: 1100 }),
-      h.cell([timeTable("", "")], { w: 2300 }), h.cell([h.para("إلى مدد التأخير الشهرية.", { size: 22, bold: true, after: 0 })], { w: 4400 })]], [2200, 1100, 2300, 4400], h.noBorders),
+    h.para(`□  تأخر عن الموعد لمدة: ........ ساعة`, { size: 26, bold: true, before: 80, after: 80 }),
+    h.para(`□  لم يعد حتى نهاية الدوام.`, { size: 26, bold: true, after: 120 }),
+    h.table([[h.cell([h.para("تضاف مدة التأخير", { size: 26, bold: true, after: 0 })], { w: 2200 }), h.cell([h.para("وقدرها", { size: 26, bold: true, align: C, after: 0 })], { w: 1100 }),
+      h.cell([timeTable("", "")], { w: 2300 }), h.cell([h.para("إلى مدد التأخير الشهرية.", { size: 26, bold: true, after: 0 })], { w: 4400 })]], [2200, 1100, 2300, 4400], h.noBorders),
     h.para("", { after: 200 }),
     h.signRow([["مدير المعهد", PRINCIPAL]], 10000)];
   return h.doc(kids);
@@ -2650,7 +2650,10 @@ function pdfPermission(p) {
   const [fh, fm] = hm(p.from), [th, tm] = hm(p.to), bx = c => c ? "■" : "□";
   const tt = (h, m) => `<span class="tbx"><i>ساعة</i>${h || "&nbsp;"}</span><span class="tbx"><i>دقيقة</i>${m || "&nbsp;"}</span>`;
   const sig = (r, n, img) => `<div><b>${r}</b>${img ? `<img src="${img}">` : `<div class="sp"></div>`}<div class="n" style="font-size:12px">${PE(n)}</div></div>`;
-  return { box: "إذن خروج", noDept: true, signs: [["مدير المعهد", PRINCIPAL]], blocks: [
+  // خط أكبر وأوضح لورقة الاستئذان (طلب رئيس الشعبة ٢٩/١٠/٢٠٢٦)
+  const css = `<style>.pp .bd{font-size:17.5px;line-height:1.9}.pp table.info td{font-size:17px;padding:7px 10px}.pp table.plain td{font-size:17px;padding:5px 4px}
+    .pp .tbx{min-width:72px;font-size:17px}.pp table.plain td{white-space:nowrap}.pp .tbx i{font-size:13px}.pp .sg{font-size:16px}.pp .sg .sp{height:46px}.pp .sg .n{font-size:14.5px!important}</style>`;
+  return { box: "إذن خروج", noDept: true, signs: [["مدير المعهد", PRINCIPAL]], blocks: [css,
     `<table class="plain"><tr><td class="b" style="color:#1E3A5F">المسلسل: ${p.serial ? ar(p.serial) : "........"}</td><td class="c b" style="color:#1E3A5F">إخطار بمدة الاستئذان المصرح بها</td><td class="b" style="color:#1E3A5F;text-align:left">نموذج رقم (٥م)</td></tr></table>`,
     P.p(PERM_TYPES.map(t => `${bx(p.type === t)} ${t}`).join("        "), "c b"),
     `<p><b>السيد المحترم / مدير معهد عبدالرحمن السميط الديني الثانوي بنين</b>      بعد التحية،</p>`,
