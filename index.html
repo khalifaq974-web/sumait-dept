@@ -728,8 +728,9 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <h2>طلب تبديل حصة</h2>
           <div class="sub">بدّل حصتك مع معلم المادة الأخرى في الفصل نفسه، أو مع معلم المادة نفسها في المرحلة نفسها (مثل فصل آخر من الحادي عشر): يدخل حصتك، وتردّها أنت بدخول حصته في الأسبوع نفسه. يقترح الموقع الخيارات التي ليس فيها تعارض، وبعد الاعتماد اطبع «نموذج تبديل حصة» ووقّعه مع زميلك.</div>
           <div class="grid2" style="margin-top:10px"><div id="sw-twrap" hidden><label class="f" for="sw-teacher">المعلم</label><select id="sw-teacher"></select></div><div><label class="f" for="sw-date">يوم الحصة <span class="sub" id="sw-day"></span></label><input type="date" id="sw-date"></div></div>
-          <label class="f">حصتك التي تريد تبديلها</label><div class="chips" id="sw-periods"></div>
-          <label class="f">خيارات التبديل المتاحة</label><div id="sw-choices" class="attlist"></div>
+          <label class="f">حصص اليوم وخيارات التبديل</label>
+          <div class="sub">لكل حصة قائمة بخيارات التبديل المتاحة بلا تعارض (★ الأفضل أولًا). اختر التبديل للحصة التي تريدها، واترك الباقي «بدون تبديل».</div>
+          <div id="sw-periods" class="res-items"></div><div id="sw-choices" hidden></div>
           <div class="row-actions" style="margin-top:14px"><button class="btn" type="button" id="sw-send" disabled>اعتماد التبديل وطباعة النموذج</button></div>
           <div class="saved" id="sw-msg"></div><div id="sw-wa"></div>
         </div>
@@ -2038,42 +2039,52 @@ async function swapTab(force) {
   if (!SWAPS || force) { try { SWAPS = await run("listSwaps", CODE); } catch (e) { $("sw-msg").textContent = cleanErr(e); SWAPS = SWAPS || []; } }
   renderSwapPeriods(); renderMySwaps();
 }
+// طلب تبديل حصة بنفس طريقة نموذج الغياب والاحتياط (قرار ٢٩/١٠/٢٠٢٦): حصص اليوم كلها، ولكل حصة قائمة خياراتها
 function renderSwapPeriods() {
-  const date = $("sw-date").value, day = isoDay(date), ev = swapEv(SWAPS);
-  $("sw-day").textContent = day >= 0 ? "(" + DAYS[day] + ")" : ""; $("sw-choices").innerHTML = ""; $("sw-send").disabled = true;
-  if (!TIMETABLE[swT()]) { $("sw-periods").innerHTML = `<div class="sub">لا يوجد ${swT() === ME.name ? "لك" : "للمعلم"} جدول حصص في الموقع.</div>`; return; }
-  if (day < 0 || day > 4) { $("sw-periods").innerHTML = '<div class="sub">اختر يوم دوام.</div>'; return; }
-  const mine = effDay(swT(), date, ev).filter(x => !x.swappedOut && isLesson([0, x.p, x.cls]));
-  $("sw-periods").innerHTML = mine.length ? mine.map(x => `<label class="chip"><input type="radio" name="sw-p" value="${x.p}" data-cls="${esc(x.cls)}"><span>الحصة ${PERIOD_NAMES[x.p]} · ${classLabel(x.cls)} ${subjOf(x.cls)}</span></label>`).join("")
-    : `<div class="sub">${swT() === ME.name ? "ليست لك" : "ليست للمعلم"} حصص قابلة للتبديل في هذا اليوم.</div>`;
-  document.querySelectorAll('input[name="sw-p"]').forEach(r => r.onchange = renderSwapChoices);
-}
-function renderSwapChoices() {
-  const r = document.querySelector('input[name="sw-p"]:checked'); if (!r) return;
-  const date = $("sw-date").value, me = swT() === ME.name, list = swapChoices(swT(), date, +r.value, r.dataset.cls, swapEv(SWAPS));
-  $("sw-choices").innerHTML = list.length ? list.map((o, i) => `<label class="check"><input type="radio" name="sw-o" value="${i}"${i === 0 ? " checked" : ""}> ${i === 0 ? "★ الأفضل: " : ""}أ. ${esc(o.t)} يدخل ${me ? "حصتك، وتردّها" : "حصته، ويردّها"} ${o.date === date ? "في اليوم نفسه" : DAYS[isoDay(o.date)] + " " + fmtDate(o.date)} الحصة ${PERIOD_NAMES[o.period]} (${classLabel(o.cls)} ${subjOf(o.cls)})</label>`).join("")
-    : '<div class="sub">لا يوجد خيار تبديل بلا تعارض لهذه الحصة في الأسبوع نفسه.</div>';
-  $("sw-choices").dataset.list = JSON.stringify(list); $("sw-send").disabled = !list.length;
+  const date = $("sw-date").value, day = isoDay(date), ev = swapEv(SWAPS), T = swT(), me = T === ME.name, box = $("sw-periods");
+  $("sw-day").textContent = day >= 0 ? "(" + DAYS[day] + ")" : ""; $("sw-send").disabled = true;
+  if (!TIMETABLE[T]) { box.innerHTML = `<div class="empty">لا يوجد ${me ? "لك" : "للمعلم"} جدول حصص في الموقع.</div>`; return; }
+  if (day < 0 || day > 4) { box.innerHTML = '<div class="empty">اختر يوم دوام.</div>'; return; }
+  const slots = effDay(T, date, ev).filter(x => x.swappedOut || isLesson([0, x.p, x.cls]));
+  if (!slots.length) { box.innerHTML = `<div class="empty">${me ? "ليست لك" : "ليست للمعلم"} حصص في هذا اليوم.</div>`; return; }
+  const lists = {};
+  box.innerHTML = slots.map(({ p, cls, swappedOut, swappedIn }) => {
+    if (swappedOut) return `<div class="res-row muted-row"><div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)} · ${subjOf(cls)}</span></div><span class="sub">⇄ مبدّلة: يدخلها أ. ${esc(swappedOut)}</span></div>`;
+    const list = swappedIn ? [] : swapChoices(T, date, p, cls, ev); lists[p] = { cls, list };
+    const opts = list.map((o, i) => `<option value="${i}">${i === 0 ? "★ الأفضل: " : ""}أ. ${esc(o.t)} — ${me ? "تردّها" : "يردّها"} ${o.date === date ? "في اليوم نفسه" : DAYS[isoDay(o.date)] + " " + fmtDate(o.date)} الحصة ${PERIOD_NAMES[o.period]} (${classLabel(o.cls)} ${subjOf(o.cls)})</option>`).join("");
+    return `<div class="res-row" data-p="${p}">
+      <div class="res-p"><b>الحصة ${PERIOD_NAMES[p]}</b><span class="sub">${classLabel(cls)}${subjOf(cls) ? " · " + subjOf(cls) : ""}${swappedIn ? ` · ⇄ حصة تبديل من أ. ${esc(swappedIn)}` : ""}</span></div>
+      <select data-sw="${p}" aria-label="التبديل في الحصة ${PERIOD_NAMES[p]}"><option value="">— بدون تبديل —</option>${opts}</select>
+      ${swappedIn ? '<span class="sub">هذه حصة تبديل، لا تُبدَّل مرة أخرى.</span>' : list.length ? "" : '<span class="sub">لا يوجد خيار تبديل بلا تعارض في الأسبوع نفسه.</span>'}</div>`;
+  }).join("");
+  box.dataset.lists = JSON.stringify(lists);
+  const upd = () => { $("sw-send").disabled = ![...box.querySelectorAll("select[data-sw]")].some(x => x.value !== ""); };
+  box.querySelectorAll("select[data-sw]").forEach(x => x.onchange = upd); upd();
 }
 $("sw-date").onchange = renderSwapPeriods;
 $("sw-send").onclick = async () => {
-  const r = document.querySelector('input[name="sw-p"]:checked'), o = document.querySelector('input[name="sw-o"]:checked'), m = $("sw-msg");
-  if (!r || !o) { m.textContent = "اختر الحصة وخيار التبديل."; return; }
-  const c = JSON.parse($("sw-choices").dataset.list || "[]")[+o.value];
+  const m = $("sw-msg"), lists = JSON.parse($("sw-periods").dataset.lists || "{}");
+  const picks = [...$("sw-periods").querySelectorAll("select[data-sw]")].filter(x => x.value !== "").map(x => ({ p: +x.dataset.sw, c: lists[x.dataset.sw].list[+x.value] }));
+  if (!picks.length) { m.textContent = "اختر تبديلًا لحصة واحدة على الأقل."; return; }
+  const seen = {}; for (const k of picks) { const key = k.c.t + "|" + k.c.date + "|" + k.c.period; if (seen[key]) { m.textContent = `اخترت ردّ حصتين في الوقت نفسه (${DAYS[isoDay(k.c.date)]} الحصة ${PERIOD_NAMES[k.c.period]}). غيّر أحدهما.`; return; } seen[key] = 1; }
   $("sw-send").disabled = true; m.textContent = "جارٍ الاعتماد…";
-  try {
-    const res = await run("requestSwap", CODE, { teacher: swT(), date: $("sw-date").value, period: +r.value, other: c.t, retDate: c.date, retPeriod: c.period });
-    SWAPS = null; await swapTab(true);
-    const x = SWAPS.find(y => y.id === res.id);
-    // رئيس الشعبة: كتاب تكليف لكل معلم، ومعه «نموذج تبديل حصة» للإدارة إن كان التبديل بين المادتين (حديث ⇄ قرآن)
-    if (ME.isHead) { const cross = x && x.cls.split(":")[0] !== x.retCls.split(":")[0];
-      m.textContent = "تم اعتماد التبديل ✓ ووصل التكليف للمعلمَين.";
-      await autoTaskPanel($("sw-wa"), res.tasks);
-      if (cross) { deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, m); }
-      return; }
-    m.textContent = "تم اعتماد التبديل ✓ — جارٍ تجهيز النموذج…";
-    if (x) deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, m);
-  } catch (e) { m.textContent = /غير معروف/.test(cleanErr(e)) ? "تبديل الحصص يعمل بعد تحديث كود السيرفر." : cleanErr(e); $("sw-send").disabled = false; }
+  const done = [], fails = [], tasks = [];
+  for (const k of picks) {
+    try { const res = await run("requestSwap", CODE, { teacher: swT(), date: $("sw-date").value, period: k.p, other: k.c.t, retDate: k.c.date, retPeriod: k.c.period });
+      done.push(res.id); (res.tasks || []).forEach(t => tasks.push(t)); }
+    catch (e) { fails.push(`الحصة ${PERIOD_NAMES[k.p]}: ${/غير معروف/.test(cleanErr(e)) ? "تبديل الحصص يعمل بعد تحديث كود السيرفر." : cleanErr(e)}`); }
+  }
+  SWAPS = null; await swapTab(true);
+  const xs = done.map(id => SWAPS.find(y => y.id === id)).filter(Boolean);
+  let pm = $("sw-pmsg"); if (!pm) { pm = document.createElement("div"); pm.id = "sw-pmsg"; pm.className = "saved"; $("sw-msg").after(pm); } pm.textContent = "";
+  m.textContent = (done.length ? `تم اعتماد ${done.length === 1 ? "التبديل" : ar(done.length) + " تبديلات"} ✓` + (ME.isHead ? " ووصل التكليف للمعلمين." : "") : "") + (fails.length ? (done.length ? " — " : "") + "لم يُعتمد: " + fails.join("؛ ") : "");
+  if (ME.isHead) {
+    if (tasks.length) await autoTaskPanel($("sw-wa"), tasks);
+    // «نموذج تبديل حصة» للإدارة فقط إذا كان التبديل بين المادتين (حديث ⇄ قرآن)
+    for (const x of xs) if (x.cls.split(":")[0] !== x.retCls.split(":")[0]) await deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, pm);
+    return;
+  }
+  for (const x of xs) await deliverPdf(() => pdfSwapForm(x), `نموذج تبديل حصة - ${shortName(x.teacher)} و${shortName(x.other)} - ${x.date}.pdf`, pm);
 };
 function renderMySwaps() {
   const T = swT(), list = (SWAPS || []).filter(x => x.status === SWP_ACTIVE && (x.teacher === T || x.other === T));
