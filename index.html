@@ -4429,9 +4429,10 @@ function candidates(date, day, period, cls, absent, absenceId, extra) {
     list.push({ t, n, load, weekCount, total, why });
   }
   list.sort((a, b) => a.load - b.load || a.weekCount - b.weekCount || a.total - b.total || a.t.localeCompare(b.t, "ar"));
+  // المشرف (أ. أحمد صلاح) يظهر دائمًا بعد الأفضل وقبل رئيس الشعبة، ومكتوب جنبه أنه مشرف (قرار ٢٩/١٠/٢٠٢٦)
   const others = list.filter(c => !RES_LAST_RESORT[c.t]);
-  let out = others;
-  if (!others.length) { list.forEach(c => c.why.unshift(RES_LAST_RESORT[c.t] + " — لا يوجد غيره متاح")); out = list; }
+  const sups = list.filter(c => RES_LAST_RESORT[c.t]).map(c => Object.assign(c, { sup: true, why: [RES_LAST_RESORT[c.t]].concat(c.why) }));
+  let out = others.concat(sups);
   // رئيس الشعبة آخر خيار متاح دائمًا (إن لم يكن عنده حصة ولا غائبًا ولا مكلّفًا في الوقت نفسه)
   const H = HEAD_NAME;
   if (TIMETABLE[H] && H !== absent && absentToday.indexOf(H) === -1 && takenNow.indexOf(H) === -1 && !isLesson(effSlot(H, date, period, swapEv(RES.swaps))))
@@ -4478,7 +4479,7 @@ function renderResItems() {
     const sel = sv ? (sv.status === COV_DONE ? sv.substitute : sv.status === COV_PRESENT ? "__present" : "__none") : (cands[0] ? cands[0].t : "__none");
     const on = !exc || !!sv; // في العذر الطارئ: الحصص المعلَّمة فقط تُبدَّل
     if (on && !sel.startsWith("__")) extra[sel] = (extra[sel] || 0) + 1;
-    const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 && !c.head ? "★ الأفضل: " : ""}${esc(c.t)} — ${esc(c.why.join("، "))}</option>`).join("");
+    const opts = cands.map((c, i) => `<option value="${esc(c.t)}"${sel === c.t ? " selected" : ""}>${i === 0 && !c.head && !c.sup ? "★ الأفضل: " : ""}${esc(c.t)}${c.sup ? " [مشرف]" : ""} — ${esc(c.why.join("، "))}</option>`).join("");
     const keep = sv && sv.status === COV_DONE && !cands.some(c => c.t === sv.substitute) ? `<option value="${esc(sv.substitute)}" selected>${esc(sv.substitute)} (مسجّل سابقًا)</option>` : "";
     return `<div class="res-row${exc ? (on ? " exc" : " off") : ""}" data-p="${p}">
       ${exc ? `<label class="res-x"><input type="checkbox" data-x="${p}"${on ? " checked" : ""}> ما يقدر يدخلها</label>` : ""}
