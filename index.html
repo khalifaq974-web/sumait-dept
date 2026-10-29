@@ -749,7 +749,8 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       </section>
       <section id="res-log" hidden>
         <div class="toolbar">
-          <select id="res-range" aria-label="الفترة"><option value="week">هذا الأسبوع</option><option value="month">هذا الشهر</option><option value="all" selected>الفصل كله</option></select>
+          <select id="res-range" aria-label="نوع السجل"><option value="day">يومي</option><option value="week">أسبوعي</option><option value="month">شهري</option><option value="all" selected>الفصل كله</option></select>
+          <input type="date" id="res-rdate" aria-label="اليوم أو أي يوم من الأسبوع" hidden><input type="month" id="res-rmonth" aria-label="الشهر" hidden>
           <button class="btn ghost" id="res-reload" type="button">تحديث</button>
           <button class="btn" id="res-word" type="button">تنزيل سجل الغياب والاحتياط وورد</button><button class="btn ghost" id="res-pdf" type="button">PDF</button>
         </div>
@@ -2494,7 +2495,7 @@ async function buildPdf(spec) {
 }
 async function deliverPdf(specFn, filename, msgEl) {
   msgEl.textContent = "جارٍ إنشاء ملف PDF…";
-  try { const spec = await specFn(); await deliver(await buildPdf(spec), filename.replace(/\.docx$/, "") + ".pdf", msgEl); }
+  try { const spec = await specFn(); await deliver(await buildPdf(spec), filename.replace(/\.(docx|pdf)$/i, "") + ".pdf", msgEl); }
   catch (e) { msgEl.textContent = "لم يتم إنشاء ملف PDF: " + cleanErr(e); }
 }
 
@@ -2589,7 +2590,7 @@ function pdfDailyReserve(date) {
 }
 function pdfReserveReport(r) {
   const d = dF("res"), st = resStats(r), det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT && covIn(c, d, c.absent)).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
-  return { box: "سجل الغياب والاحتياط", signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label + (d ? " · " + dName(d) : ""), "c b"),
+  return { box: ("سجل الغياب والاحتياط " + (r.kind || "")).trim(), signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label + (d ? " · " + dName(d) : ""), "c b"),
     P.h("أولًا: عدّاد الغياب والاحتياط لكل معلم"),
     P.grid(P.th(["المعلم", "أيام الغياب", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"]),
       st.map(s => P.tr(["أ. " + s.t, ...[s.days, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => ({ t: ar(n), c: i === 3 && n > 0 ? "c late" : "c" })), Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—"]))),
@@ -4562,11 +4563,17 @@ $("res-daily-word").onclick = async () => {
 };
 
 // ---------- السجل والعدادات ----------
+// السجل يومي أو أسبوعي أو شهري أو للفصل كله، ويختار رئيس الشعبة اليوم أو الأسبوع أو الشهر (طلبه ٢٩/١٠/٢٠٢٦)
 function resRange() {
-  const k = $("res-range").value, today = todayISO();
-  if (k === "week") { const s = weekStartISO(today); return { from: s, to: addDaysISO(s, 6), label: `الأسبوع من ${fmtDate(s)} إلى ${fmtDate(addDaysISO(s, 4))}` }; }
-  if (k === "month") { const s = today.slice(0, 8) + "01"; return { from: s, to: today.slice(0, 8) + "31", label: "شهر " + ar(+today.slice(5, 7)) + "/" + ar(today.slice(0, 4)) }; }
-  return { from: "0000", to: "9999", label: "الفصل الدراسي الأول ٢٠٢٦/٢٠٢٧" };
+  const k = $("res-range").value, today = todayISO(), dEl = $("res-rdate"), mEl = $("res-rmonth");
+  if (!dEl.value) dEl.value = today;
+  if (!mEl.value) mEl.value = today.slice(0, 7);
+  dEl.hidden = !(k === "day" || k === "week"); mEl.hidden = k !== "month";
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(dEl.value) ? dEl.value : today;
+  if (k === "day") return { kind: "اليومي", from: d, to: d, label: `يوم ${DAYS[isoDay(d)] || ""} ${fmtDate(d)}` };
+  if (k === "week") { const s = weekStartISO(d); return { kind: "الأسبوعي", from: s, to: addDaysISO(s, 6), label: `الأسبوع من ${fmtDate(s)} إلى ${fmtDate(addDaysISO(s, 4))}` }; }
+  if (k === "month") { const m = /^\d{4}-\d{2}$/.test(mEl.value) ? mEl.value : today.slice(0, 7); return { kind: "الشهري", from: m + "-01", to: m + "-31", label: "شهر " + monthLabel(m) }; }
+  return { kind: "", from: "0000", to: "9999", label: "الفصل الدراسي الأول ٢٠٢٦/٢٠٢٧" };
 }
 // حصة الاحتياط (R/RF) بلا فصل: تتبع قسم المعلم
 function covIn(c, d, who) { return !d || (/:/.test(c.classId) ? cIn(c.classId, d) : tIn(who, d)); }
@@ -4640,12 +4647,12 @@ function pdfSwapLog() {
 $("swap-filter").onchange = renderSwapLog;
 $("swap-reload").onclick = async () => { await loadRes(true); renderSwapLog(); };
 $("swap-pdf").onclick = () => deliverPdf(() => pdfSwapLog(), `سجل التبديل${dFile(dF("res"))}.pdf`, $("swap-msg"));
-$("res-range").onchange = renderResLog;
+$("res-range").onchange = renderResLog; $("res-rdate").onchange = renderResLog; $("res-rmonth").onchange = renderResLog;
 $("res-reload").onclick = async () => { await loadRes(true); renderResLog(); };
-$("res-pdf").onclick = () => deliverPdf(() => pdfReserveReport(resRange()), `سجل الغياب والاحتياط${dFile(dF("res"))} - ${resRange().label}.pdf`, $("res-lmsg"));
+$("res-pdf").onclick = () => deliverPdf(() => pdfReserveReport(resRange()), `سجل الغياب والاحتياط ${resRange().kind}${dFile(dF("res"))} - ${resRange().label}.pdf`, $("res-lmsg"));
 $("res-word").onclick = async () => {
   const m = $("res-lmsg"); m.textContent = "جارٍ إنشاء الملف…";
-  try { await deliver(await window.docx.Packer.toBlob(buildReserveReport(window.docx, resRange())), `سجل الغياب والاحتياط${dFile(dF("res"))} - ${resRange().label}.docx`, m); }
+  try { await deliver(await window.docx.Packer.toBlob(buildReserveReport(window.docx, resRange())), `سجل الغياب والاحتياط ${resRange().kind}${dFile(dF("res"))} - ${resRange().label}.docx`, m); }
   catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
 };
 
@@ -4673,7 +4680,7 @@ function buildReserveReport(D, r) {
   const drows = [["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"].map(t => h.th(t)),
     ...det.map(c => [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(PERIOD_NAMES[c.period], { align: C, size: 17 }), h.cell(classLabel(c.classId), { align: C, size: 17 }), h.cell("أ. " + c.absent, { size: 17 }),
       h.cell(isCov(c) ? covName(c) : "لم تُغطَّ", { size: 17, bold: !isCov(c), color: isCov(c) ? undefined : "B4382B" })])];
-  const kids = [...h.formHeader("سجل الغياب والاحتياط"), h.para(r.label + (dF("res") ? " · " + dName(dF("res")) : ""), { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
+  const kids = [...h.formHeader(("سجل الغياب والاحتياط " + (r.kind || "")).trim()), h.para(r.label + (dF("res") ? " · " + dName(dF("res")) : ""), { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
     h.heading("أولًا: عدّاد الغياب والاحتياط لكل معلم"), h.table(rows, [2600, 900, 950, 850, 950, 1000, 2750], h.softBorders("C9D6E3"))];
   kids.push(h.heading("ثانيًا: تفاصيل حصص الاحتياط"), det.length ? h.table(drows, [2300, 1300, 1000, 2700, 2700], h.softBorders("C9D6E3")) : h.para("لا توجد حصص احتياط في هذه الفترة.", { size: 20 }));
   kids.push(h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
