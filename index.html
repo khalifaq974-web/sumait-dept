@@ -80,6 +80,19 @@ select:focus-visible, input:focus-visible, button:focus-visible { outline: 3px s
 
 .toolbar { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
 .toolbar select { width: auto; flex: 1 1 160px; }
+.tt-sum { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.tt-sum span { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.tt-sum b { font-family: var(--f-display); }
+table.tt { min-width: 640px; table-layout: fixed; }
+table.tt th, table.tt td { text-align: center; vertical-align: middle; border: 1px solid var(--line); padding: 7px 4px; }
+table.tt th.day, table.tt td.day { width: 92px; font-weight: 700; background: var(--bg); color: var(--ink); position: static; }
+table.tt td.l b { display: block; font-family: var(--f-display); font-size: 16px; }
+table.tt td.l small { display: block; font-size: 11.5px; color: var(--muted); }
+table.tt td.l.qr { background: #EEF6EF; } table.tt td.l.hd { background: var(--accent-soft); }
+table.tt td.r { background: repeating-linear-gradient(135deg, var(--bg) 0 6px, transparent 6px 12px); color: var(--muted); font-size: 12px; font-weight: 700; }
+table.tt tr.today td { box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent); }
+table.tt tr.today td.day { background: var(--accent); color: var(--accent-ink); }
+.tt-dayh { margin: 18px 0 4px; font-family: var(--f-display); font-size: 15px; }
 .tablebox { overflow-x: auto; margin-top: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 760px; }
 th, td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -417,6 +430,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <button id="nav-prm" aria-selected="false"><b>الاستئذان</b><span>طلب الاستئذان والسجل</span><i class="lamp" id="lamp-prm" hidden></i></button>
       <button id="nav-nsh" aria-selected="false"><b>سجل النشرات والتعاميم</b><span>الاطلاع والتوقيع</span><i class="lamp" id="lamp-nsh" hidden></i></button>
       <button id="nav-res" aria-selected="false"><b>سجل الغياب والاحتياط</b><span id="nav-res-sub">الغياب والبدلاء وتبديل الحصص</span><i class="lamp" id="lamp-res" hidden></i></button>
+      <button id="nav-tt" aria-selected="false"><b>جدول الحصص الدراسية</b><span>جداول المعلمين الأسبوعية</span></button>
       <button id="nav-tsk" aria-selected="false"><b>المهام والتكاليف</b><span id="nav-tsk-sub">تكليف المعلمين ومتابعة التنفيذ</span><i class="lamp" id="lamp-tsk" hidden></i></button>
       <button id="nav-alr" aria-selected="false"><b>تنبيهات الاستكمال</b><span id="nav-alr-sub">تنبيه المعلمين بالنواقص</span><i class="lamp" id="lamp-alr" hidden></i></button>
       <button id="nav-mrp" aria-selected="false" class="head-only" hidden><b>إنجازات القسم</b><span>التقارير الشهرية</span></button>
@@ -590,6 +604,20 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
     </section>
     <!-- سجل النشرات والتعاميم -->
     <!-- المهام والتكاليف: رئيس الشعبة يكلّف، والمعلم يستلم وينفّذ -->
+    <!-- ركن جدول الحصص الدراسية (يطّلع عليه كل المعلمين) -->
+    <section id="sec-tt" hidden>
+      <nav class="tabs" role="tablist">
+        <button id="tttab-t" role="tab" aria-selected="true">جدول المعلم</button>
+        <button id="tttab-d" role="tab" aria-selected="false">الجدول العام</button>
+      </nav>
+      <div class="toolbar">
+        <select id="tt-teacher" aria-label="المعلم"></select>
+        <select id="tt-dept" aria-label="القسم" hidden><option value="">القسمان</option><option value="hd">قسم الحديث الشريف</option><option value="qr">قسم القرآن الكريم</option></select>
+        <span class="row-actions"><button class="btn ghost sm" type="button" id="tt-word">وورد</button><button class="btn ghost sm" type="button" id="tt-pdf">PDF</button></span>
+      </div>
+      <div class="saved" id="tt-msg"></div>
+      <div id="tt-box"></div>
+    </section>
     <section id="sec-tsk" hidden>
       <div class="row-actions head-only" hidden style="margin-top:14px"><button class="btn" id="tsk-new" type="button">+ تكليف جديد</button></div>
       <form class="card" id="tsk-form" hidden>
@@ -1325,7 +1353,7 @@ $("logout").onclick = () => {
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
 };
 
-const SECTIONS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tsk", "alr", "mrp"];
+const SECTIONS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tt", "tsk", "alr", "mrp"];
 function go(sec, byUser) {
   if (SECTIONS.indexOf(sec) === -1 || (sec === "mrp" && !ME.isHead)) sec = "curr";
   const shown = sec === "act" ? "ach" : sec;
@@ -1350,6 +1378,7 @@ function go(sec, byUser) {
   if (sec === "min") loadMinutes();
   if (sec === "vis") visTab(ME.isHead ? (visSub === "mine" ? "new" : visSub) : "mine");
   if (sec === "res") resTab(resSub);
+  if (sec === "tt") ttTab(ttSub);
   if (sec === "tsk") { TSK = null; loadTsk(); }
   if (sec === "alr") { ALR = null; loadAlr().then(() => loadGaps(true)); }
 }
@@ -4930,6 +4959,90 @@ function buildMinuteDoc(D, m, sigs) {
 // دخول تلقائي إذا كان الرمز محفوظًا على هذا الجهاز
 (function () { let c = ""; try { c = localStorage.getItem("code") || ""; } catch (e) {} if (c) { $("code").value = c; doLogin(c, true); } })();
 
+
+// ================= ركن جدول الحصص الدراسية (طلبه ١/١١/٢٠٢٦) =================
+// يطّلع عليه كل المعلمين. المصدر: TIMETABLE (الجدول العام للقسم). «R» احتياط و«RF» احتياط فنية.
+let ttSub = "t", ttT = "";
+const TT_DAYS = [0, 1, 2, 3, 4];
+function ttNames(d) { return TEACHERS.map(x => x[0]).filter(n => TIMETABLE[n] && (!d || (DEPT_OF[n] || []).indexOf(d) !== -1)); }
+function ttCell(c) {
+  if (!c) return { kind: "", a: "", b: "" };
+  if (c === "R" || c === "RF") return { kind: "r", a: classLabel(c), b: "" };
+  return { kind: "l " + c.split(":")[0], a: classLabel(c), b: subjOf(c) };
+}
+function ttLoad(n) { const L = (TIMETABLE[n] || []).filter(x => isLesson(x)); return { lessons: L.length, res: (TIMETABLE[n] || []).length - L.length }; }
+function ttTab(which) {
+  ttSub = which;
+  $("tttab-t").setAttribute("aria-selected", which === "t"); $("tttab-d").setAttribute("aria-selected", which === "d");
+  $("tt-teacher").hidden = which !== "t"; $("tt-dept").hidden = which !== "d";
+  if (which === "t") {
+    const names = ttNames();
+    if (!ttT) ttT = names.indexOf(ME.name) !== -1 ? ME.name : names[0];
+    $("tt-teacher").innerHTML = names.map(n => `<option value="${esc(n)}"${n === ttT ? " selected" : ""}>أ. ${esc(n)}${n === ME.name ? " (جدولي)" : ""}</option>`).join("");
+  }
+  $("tt-msg").textContent = "";
+  which === "t" ? renderTtTeacher() : renderTtAll();
+}
+$("tttab-t").onclick = () => ttTab("t");
+$("tttab-d").onclick = () => ttTab("d");
+$("tt-teacher").onchange = e => { ttT = e.target.value; renderTtTeacher(); };
+$("tt-dept").onchange = () => renderTtAll();
+function ttTd(c) { const x = ttCell(c); return `<td class="${x.kind}">${x.kind ? (x.kind === "r" ? esc(x.a) : `<b>${esc(x.a)}</b><small>${esc(x.b)}</small>`) : ""}</td>`; }
+const ttHead = first => `<thead><tr><th class="day">${first}</th>${PERIOD_NAMES.slice(1).map(p => `<th>${p}</th>`).join("")}</tr></thead>`;
+function renderTtTeacher() {
+  const n = ttT, today = isoDay(todayISO()), ld = ttLoad(n);
+  const rows = TT_DAYS.map(d => `<tr${d === today ? ' class="today"' : ""}><td class="day">${DAYS[d]}</td>${[1, 2, 3, 4, 5, 6, 7].map(p => ttTd((slotOf(n, d, p) || [])[2])).join("")}</tr>`).join("");
+  $("tt-box").innerHTML = `<div class="tt-sum"><span>أ. <b>${esc(n)}</b></span><span>${(DEPT_OF[n] || []).map(dName).join(" · ")}</span><span>النصاب الأسبوعي: <b>${ar(ld.lessons)}</b> حصة</span>${ld.res ? `<span>الاحتياط: <b>${ar(ld.res)}</b></span>` : ""}</div>
+    <div class="tablebox"><table class="tt">${ttHead("اليوم / الحصة")}<tbody>${rows}</tbody></table></div>`;
+}
+function renderTtAll() {
+  const d = $("tt-dept").value, names = ttNames(d), today = isoDay(todayISO());
+  $("tt-box").innerHTML = TT_DAYS.map(day => `<h3 class="tt-dayh">${DAYS[day]}${day === today ? " · اليوم" : ""}</h3>
+    <div class="tablebox" style="margin-top:6px"><table class="tt">${ttHead("المعلم / الحصة")}<tbody>${names.map(n => `<tr${n === ME.name ? ' class="today"' : ""}><td class="day">أ. ${esc(shortName(n))}</td>${[1, 2, 3, 4, 5, 6, 7].map(p => ttTd((slotOf(n, day, p) || [])[2])).join("")}</tr>`).join("")}</tbody></table></div>`).join("");
+}
+// ---------- PDF ----------
+const TT_PDF_CSS = `<style>.pp table.ttp{table-layout:fixed}.pp table.ttp th,.pp table.ttp td{text-align:center;vertical-align:middle}.pp .tt-gap{height:22px}.pp table.ttp td{height:52px;font-size:15px}.pp table.ttp td b{display:block;font-size:19px;color:#0F2740}.pp table.ttp td small{display:block;font-size:11px;color:#5A6B7B}.pp table.ttp td.day{background:#EEF3F8!important;color:#1E3A5F;font-weight:800;font-size:15px;width:110px}.pp table.ttp td.r{color:#6B7782;font-size:12px;font-weight:700;background:#F2F4F6!important}.pp table.ttd td{height:44px;font-size:12px}.pp table.ttd td b{font-size:14px}.pp table.ttd td small{font-size:9.5px}.pp table.ttd td.day{font-size:12px;width:150px;text-align:right}</style>`;
+function ttPdfCell(c) { const x = ttCell(c); return x.kind ? (x.kind === "r" ? { t: x.a, c: "r" } : { html: `<b>${PE(x.a)}</b><small>${PE(x.b)}</small>` }) : ""; }
+function pdfTtTeacher(n) {
+  const ld = ttLoad(n);
+  return { box: "جدول الحصص الدراسية", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [TT_PDF_CSS,
+    P.info([[n === HEAD_NAME ? "رئيس الشعبة" : "المعلم", "أ. " + n], ["القسم", (DEPT_OF[n] || []).map(dName).join(" · ")], ["النصاب الأسبوعي", ar(ld.lessons) + " حصة" + (ld.res ? ` · الاحتياط: ${ar(ld.res)}` : "")], ["العام الدراسي", "١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م"]], 2),
+    P.grid(P.th(["اليوم / الحصة", ...PERIOD_NAMES.slice(1)]), TT_DAYS.map(d => P.tr([{ t: DAYS[d], c: "day" }, ...[1, 2, 3, 4, 5, 6, 7].map(p => ttPdfCell((slotOf(n, d, p) || [])[2]))])), "ttp"), '<div class="tt-gap"></div>'] };
+}
+function pdfTtAll(d) {
+  const names = ttNames(d), blocks = [TT_PDF_CSS, P.p((d ? dName(d) : "قسما الحديث الشريف والقرآن الكريم") + " · العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م", "c b")];
+  TT_DAYS.forEach((day, i) => blocks.push(...(i ? ['<div class="pgbrk"></div>', P.p((d ? dName(d) : "قسما الحديث الشريف والقرآن الكريم") + " · العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م", "c b")] : []), P.h(DAYS[day]), P.grid(P.th(["المعلم / الحصة", ...PERIOD_NAMES.slice(1)]), names.map(n => P.tr([{ t: "أ. " + shortName(n), c: "day" }, ...[1, 2, 3, 4, 5, 6, 7].map(p => ttPdfCell((slotOf(n, day, p) || [])[2]))])), "ttp ttd")));
+  return { box: "الجدول العام للحصص الدراسية", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks };
+}
+$("tt-pdf").onclick = () => ttSub === "t" ? deliverPdf(() => pdfTtTeacher(ttT), `جدول الحصص - أ. ${shortName(ttT)}.pdf`, $("tt-msg"))
+  : deliverPdf(() => pdfTtAll($("tt-dept").value), `الجدول العام للحصص${$("tt-dept").value ? " - " + SUBJECTS[$("tt-dept").value] : ""}.pdf`, $("tt-msg"));
+// ---------- وورد ----------
+function buildTtDoc(D, mode, key) {
+  const h = H(D), C = h.C, P7 = [1, 2, 3, 4, 5, 6, 7], W0 = 1900, WP = Math.floor((14400 - W0) / 7), widths = [W0, ...P7.map(() => WP)];
+  const cellOf = c => { const x = ttCell(c); if (!x.kind) return h.cell("", {});
+    if (x.kind === "r") return h.cell(x.a, { align: C, size: 17, bold: true, color: h.MUTED || "6B7782", fill: "F2F4F6" });
+    return h.cell([h.para(x.a, { align: C, size: 24, bold: true, after: 0, line: 260 }), h.para(x.b, { align: C, size: 15, color: "5A6B7B", after: 0, line: 220 })], { fill: x.kind.indexOf("qr") !== -1 ? "EEF6EF" : "EEF3F8" }); };
+  const head = first => [h.th(first, { w: W0 }), ...PERIOD_NAMES.slice(1).map(p => h.th(p, { w: WP }))];
+  const signs = h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400);
+  if (mode === "t") {
+    const n = key, ld = ttLoad(n);
+    const info = h.table([[h.lab(n === HEAD_NAME ? "رئيس الشعبة:" : "المعلم:", { w: 2000 }), h.cell("أ. " + n, { w: 5200, size: 21, bold: true }), h.lab("القسم:", { w: 2000 }), h.cell((DEPT_OF[n] || []).map(dName).join(" · "), { w: 5200, size: 20 })],
+      [h.lab("النصاب الأسبوعي:"), h.cell(ar(ld.lessons) + " حصة" + (ld.res ? ` · الاحتياط: ${ar(ld.res)}` : ""), { size: 20 }), h.lab("العام الدراسي:"), h.cell("١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م", { size: 20 })]], [2000, 5200, 2000, 5200], h.softBorders("C9D6E3"));
+    const rows = [head("اليوم / الحصة"), ...TT_DAYS.map(d => [h.cell(DAYS[d], { align: C, bold: true, color: h.NAVY || "1E3A5F", fill: "EEF3F8", size: 22 }), ...P7.map(p => cellOf((slotOf(n, d, p) || [])[2]))])];
+    return h.doc([...h.formHeader("جدول الحصص الدراسية", 14400), info, h.para("", { after: 120 }), h.table(rows, widths, h.softBorders("C9D6E3")), h.para("", { after: 300 }), signs], { landscape: true });
+  }
+  const names = ttNames(key), kids = [...h.formHeader("الجدول العام للحصص الدراسية", 14400), h.para((key ? dName(key) : "قسما الحديث الشريف والقرآن الكريم") + " · العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م", { size: 21, align: C, after: 120 })];
+  TT_DAYS.forEach(day => kids.push(h.heading(DAYS[day]), h.table([head("المعلم / الحصة"), ...names.map(n => [h.cell("أ. " + shortName(n), { bold: true, size: 18, fill: "EEF3F8" }), ...P7.map(p => cellOf((slotOf(n, day, p) || [])[2]))])], widths, h.softBorders("C9D6E3"))));
+  kids.push(h.para("", { after: 300 }), signs);
+  return h.doc(kids, { landscape: true });
+}
+$("tt-word").onclick = async () => {
+  const m = $("tt-msg"); m.textContent = "جارٍ إنشاء الملف…";
+  try {
+    const d = $("tt-dept").value, doc = ttSub === "t" ? buildTtDoc(window.docx, "t", ttT) : buildTtDoc(window.docx, "d", d);
+    await deliver(await window.docx.Packer.toBlob(doc), ttSub === "t" ? `جدول الحصص - أ. ${shortName(ttT)}.docx` : `الجدول العام للحصص${d ? " - " + SUBJECTS[d] : ""}.docx`, m);
+  } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
+};
 </script>
 </body>
 </html>
