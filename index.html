@@ -306,7 +306,7 @@ input[type="time"] { width: 100%; font: inherit; color: var(--ink); background: 
 .cls-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 .cls-top b { font-family: var(--f-display); font-size: 16px; }
 .cls-prog { display: flex; gap: 6px; flex-wrap: wrap; }
-.cls-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0 4px; }
+.cls-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0 4px; }
 .cls-stats > div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
 .cls-stats b { display: block; font-family: var(--f-display); font-size: 20px; }
 .cls-stats span { font-size: 12.5px; color: var(--muted); }
@@ -362,7 +362,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
 .srep-li { font: inherit; color: var(--ink); text-align: right; cursor: pointer; width: 100%; }
 .srep-li:hover { border-color: var(--accent); }
 #cls-rep .attlist { margin-top: 2px; }
-@media (max-width: 640px) { .cls-stats { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .cls-stats { grid-template-columns: 1fr 1fr 1fr; } }
 .srep-choose { margin: 10px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
 .plan-t input, .plan-t select { width: 100%; }
 .res-items { display: grid; gap: 10px; margin-top: 14px; }
@@ -1553,7 +1553,7 @@ async function loadClasses(force) {
 function clsProgress(c) {
   const t = c["t" + clsTerm], n = c.students;
   if (!n) return `<span class="pill none">لا توجد قائمة متعلمين</span>`;
-  let p = !t || !t.any ? `<span class="pill none">لم يبدأ الرصد</span>`
+  let p = !t || !t.any ? ``
     : t.form >= n ? `<span class="pill ok">اكتمل الرصد</span>` : `<span class="pill ahead">اكتمل رصد ${ar(t.form)} من ${ar(n)}</span>`;
   if (t && t.low) p += ` <span class="pill late">دون ٥٠٪: ${ar(t.low)}</span>`;
   return p;
@@ -1569,9 +1569,9 @@ function renderClsList() {
   const sortFn = (a, b) => { const x = classInfo(a.cls), y = classInfo(b.cls); return (x.dept === y.dept ? 0 : x.dept === "hd" ? -1 : 1) || x.grade - y.grade || x.num - y.num; };
   const stats = list => {
     const t = c => c["t" + clsTerm];
-    const done = list.filter(c => c.students && t(c) && t(c).form >= c.students).length, none = list.filter(c => !t(c) || !t(c).any).length;
+    const done = list.filter(c => c.students && t(c) && t(c).form >= c.students).length;
     const low = list.reduce((a, c) => a + ((t(c) || {}).low || 0), 0);
-    return `<div class="cls-stats"><div><b>${ar(list.length)}</b><span>صفًا</span></div><div class="ok"><b>${ar(done)}</b><span>اكتمل رصده</span></div><div class="none"><b>${ar(none)}</b><span>لم يبدأ الرصد</span></div><div class="late"><b>${ar(low)}</b><span>متعلمًا دون ٥٠٪ (أقل من ٢٠ من ٤٠)</span></div></div>`;
+    return `<div class="cls-stats"><div><b>${ar(list.length)}</b><span>صفًا</span></div><div class="ok"><b>${ar(done)}</b><span>اكتمل رصده</span></div><div class="late"><b>${ar(low)}</b><span>متعلمًا دون ٥٠٪ (أقل من ٢٠ من ٤٠)</span></div></div>`;
   };
   let html = "";
   const depts = ["hd", "qr"].filter(d => items.some(c => c.cls.indexOf(d + ":") === 0));
@@ -1768,7 +1768,7 @@ function pdfClsSummary() {
   return { box: "ملخص كشوف متابعة المتعلمين", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(`الفصل الدراسي ${TERM_NAMES[clsTerm]}${d ? " · " + dName(d) : ""}`, "c b"),
     P.h("أولًا: حالة الرصد لكل صف"),
     P.grid(P.th(["الصف", "المادة", "المعلم", "عدد المتعلمين", "اكتمل رصدهم", "الحالة", "دون ٥٠٪"]), cls.map(c => { const ci = classInfo(c.cls), x = t(c), full = c.students && x.form >= c.students;
-      return P.tr([{ t: ci.label, c: "c b" }, { t: SUBJECTS[ci.dept], c: "c" }, "أ. " + c.teacher, { t: ar(c.students), c: "c" }, { t: ar(x.form || 0), c: "c" }, { t: !x.any ? "لم يبدأ الرصد" : full ? "اكتمل" : "جارٍ", c: !x.any ? "c late" : full ? "c ok" : "c" }, { t: ar(x.low || 0), c: x.low ? "c late" : "c" }]); })),
+      return P.tr([{ t: ci.label, c: "c b" }, { t: SUBJECTS[ci.dept], c: "c" }, "أ. " + c.teacher, { t: ar(c.students), c: "c" }, { t: ar(x.form || 0), c: "c" }, { t: !x.any ? "—" : full ? "اكتمل" : "جارٍ", c: full ? "c ok" : "c" }, { t: ar(x.low || 0), c: x.low ? "c late" : "c" }]); })),
     P.h("ثانيًا: تقارير المتعلمين (فائق / متعثر)"),
     reps.length ? P.grid(P.th(["الصف", "المادة", "رقم المتعلم", "نوع التقرير", "المعلم", "الخطة العلاجية", "تاريخ الإرسال"]), reps.map(r => { const ci = classInfo(r.cls);
       return P.tr([{ t: ci.label, c: "c" }, { t: SUBJECTS[ci.dept], c: "c" }, { t: ar(r.student), c: "c b" }, { t: r.type, c: "c" }, "أ. " + r.teacher, { t: r.plan ? (r.plan.result || "قيد المتابعة") : "—", c: "c" }, fmtStamp(r.createdAt)]); }), "dense")
