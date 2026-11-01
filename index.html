@@ -93,6 +93,9 @@ table.tt td.r { background: repeating-linear-gradient(135deg, var(--bg) 0 6px, t
 table.tt tr.today td { box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent); }
 table.tt tr.today td.day { background: var(--accent); color: var(--accent-ink); }
 .tt-dayh { margin: 18px 0 4px; font-family: var(--f-display); font-size: 15px; }
+.duty-card { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-color: var(--accent); background: var(--accent-soft); }
+.duty-card[hidden] { display: none; }
+.duty-card span { flex: 1 1 220px; }
 .tablebox { overflow-x: auto; margin-top: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 760px; }
 th, td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -435,6 +438,11 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <button id="nav-alr" aria-selected="false"><b>تنبيهات الاستكمال</b><span id="nav-alr-sub">تنبيه المعلمين بالنواقص</span><i class="lamp" id="lamp-alr" hidden></i></button>
       <button id="nav-mrp" aria-selected="false" class="head-only" hidden><b>إنجازات القسم</b><span>التقارير الشهرية</span></button>
     </nav>
+    <div class="card duty-card" id="duty-card" hidden role="status">
+      <b>⏰ تذكير</b>
+      <span>اليوم الثلاثاء: موعد <b>المناوبة والمراقبة الصباحية</b> لقسمي الحديث الشريف والقرآن الكريم.</span>
+      <button class="btn ghost sm" type="button" id="duty-hide">حسنًا</button>
+    </div>
     <div class="card wa-card" id="wa-card" hidden>
       <h3 style="margin-top:0">📱 رقم الواتساب</h3>
       <div class="sub" id="wa-card-sub">سجّل رقم الواتساب ليصلك عليه تكليف رئيس الشعبة وتنبيهاته، مع رابط يفتح لك الأمر في الموقع مباشرة.</div>
@@ -1336,6 +1344,8 @@ async function doLogin(code, silent) {
     if (r.isHead) $("demo-admin").ontoggle = () => { if ($("demo-admin").open) loadDemos(); };
     let last = "curr"; try { last = localStorage.getItem("section") || "curr"; } catch (e) {}
     go(last);
+    // تذكير المناوبة والمراقبة الصباحية كل ثلاثاء (تذكير فقط، لا تكليف — قراره ١/١١/٢٠٢٦)
+    { let hid = false; try { hid = sessionStorage.getItem("dutyHide") === todayISO(); } catch (e) {} $("duty-card").hidden = r.isHead || isoDay(todayISO()) !== 2 || hid; }
     if (!r.isHead) { $("wa-phone").value = r.phone || ""; let later = false; try { later = sessionStorage.getItem("waLater") === "1"; } catch (e) {} $("wa-card").hidden = !!r.phone || later; }
     if (DEEP) { const [k, v] = DEEP.split("="); DEEP = ""; try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} if (SECTIONS.indexOf(k) !== -1) openRef(k, decodeURIComponent(v || "")); }
     msg.textContent = "";
@@ -1350,9 +1360,10 @@ $("logout").onclick = () => {
   CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; ACH_T = null; tskT = ""; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); TSK = null; ALR = null; $("wa-panel").hidden = true; $("alr-banner") && $("alr-banner").remove(); PHONES = null; $("wa-card").hidden = true; $("tsk-form").hidden = true; $("tsk-banner") && $("tsk-banner").remove(); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
-  $("app").hidden = true; $("view-login").hidden = false; $("code").value = "";
+  $("app").hidden = true; $("view-login").hidden = false; $("code").value = ""; $("duty-card").hidden = true;
 };
 
+$("duty-hide").onclick = () => { $("duty-card").hidden = true; try { sessionStorage.setItem("dutyHide", todayISO()); } catch (e) {} };
 const SECTIONS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tt", "tsk", "alr", "mrp"];
 function go(sec, byUser) {
   if (SECTIONS.indexOf(sec) === -1 || (sec === "mrp" && !ME.isHead)) sec = "curr";
