@@ -440,7 +440,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
     </nav>
     <div class="card duty-card" id="duty-card" hidden role="status">
       <b>⏰ تذكير</b>
-      <span>اليوم الثلاثاء: موعد <b>المناوبة والمراقبة الصباحية</b> لقسمي الحديث الشريف والقرآن الكريم.</span>
+      <span id="duty-text"></span>
       <button class="btn ghost sm" type="button" id="duty-hide">حسنًا</button>
     </div>
     <div class="card wa-card" id="wa-card" hidden>
@@ -1345,7 +1345,11 @@ async function doLogin(code, silent) {
     let last = "curr"; try { last = localStorage.getItem("section") || "curr"; } catch (e) {}
     go(last);
     // تذكير المناوبة والمراقبة الصباحية كل ثلاثاء (تذكير فقط، لا تكليف — قراره ١/١١/٢٠٢٦)
-    { let hid = false; try { hid = sessionStorage.getItem("dutyHide") === todayISO(); } catch (e) {} $("duty-card").hidden = r.isHead || isoDay(todayISO()) !== 2 || hid; }
+    // وتذكير كل أحد بإحضار التحضير الكتابي لرئيس الشعبة لاعتماده والاطلاع عليه (قراره ٢/١١/٢٠٢٦)، ويظهر لرئيس الشعبة أن المعلمين ذُكِّروا
+    { let hid = false; try { hid = sessionStorage.getItem("dutyHide") === todayISO(); } catch (e) {}
+      const wd = isoDay(todayISO()), txt = wd === 0 ? (r.isHead ? "اليوم الأحد: وصل للمعلمين تذكير بإحضار <b>التحضير الكتابي</b> إليك لاعتماده والاطلاع عليه." : "اليوم الأحد: إحضار <b>التحضير الكتابي</b> لرئيس الشعبة لاعتماده والاطلاع عليه.")
+        : wd === 2 && !r.isHead ? "اليوم الثلاثاء: موعد <b>المناوبة والمراقبة الصباحية</b> لقسمي الحديث الشريف والقرآن الكريم." : "";
+      $("duty-text").innerHTML = txt; $("duty-card").hidden = !txt || hid; }
     if (!r.isHead) { $("wa-phone").value = r.phone || ""; let later = false; try { later = sessionStorage.getItem("waLater") === "1"; } catch (e) {} $("wa-card").hidden = !!r.phone || later; }
     if (DEEP) { const [k, v] = DEEP.split("="); DEEP = ""; try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} if (SECTIONS.indexOf(k) !== -1) openRef(k, decodeURIComponent(v || "")); }
     msg.textContent = "";
