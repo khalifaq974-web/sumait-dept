@@ -84,6 +84,7 @@ select:focus-visible, input:focus-visible, button:focus-visible { outline: 3px s
 .tt-sum span { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
 .tt-sum b { font-family: var(--f-display); }
 table.tt { min-width: 640px; table-layout: fixed; }
+table.tt.prof { table-layout: auto; min-width: 760px; } table.tt.prof td.nm { text-align: right; font-weight: 700; white-space: nowrap; }
 table.tt th, table.tt td { text-align: center; vertical-align: middle; border: 1px solid var(--line); padding: 7px 4px; }
 table.tt th.day, table.tt td.day { width: 92px; font-weight: 700; background: var(--bg); color: var(--ink); position: static; }
 table.tt td.l b { display: block; font-family: var(--f-display); font-size: 16px; }
@@ -617,6 +618,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <nav class="tabs" role="tablist">
         <button id="tttab-t" role="tab" aria-selected="true">جدول المعلم</button>
         <button id="tttab-d" role="tab" aria-selected="false">الجدول العام</button>
+        <button id="tttab-p" role="tab" aria-selected="false" class="head-only" hidden>بيانات المعلمين</button>
       </nav>
       <div class="toolbar">
         <select id="tt-teacher" aria-label="المعلم"></select>
@@ -1369,7 +1371,7 @@ async function doLogin(code, silent) {
 $("login-form").addEventListener("submit", e => { e.preventDefault(); doLogin($("code").value); });
 $("logout").onclick = () => {
   try { localStorage.removeItem("code"); } catch (e) {}
-  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; ACH_T = null; tskT = ""; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); TSK = null; ALR = null; $("wa-panel").hidden = true; $("alr-banner") && $("alr-banner").remove(); PHONES = null; $("wa-card").hidden = true; $("tsk-form").hidden = true; $("tsk-banner") && $("tsk-banner").remove(); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
+  CODE = ""; ME = null; MINE = {}; ALL = {}; ACH = null; ACH_ALL = null; MIN = null; CUR_MIN = null; achSub = "mine"; ACH_T = null; tskT = ""; VIS = null; visTeacherFilter = ""; visSub = "new"; RES = null; resSub = "new"; resLogTeacher = ""; PRM = null; PRM_PROF = undefined; NSH = null; NSH_FILE = null; MRP = null; ACT = null; SEC_SEEN = {}; clearInterval(actTimer); $("act-panel").hidden = true; $("bell-n").hidden = true; LAMP_SECS.forEach(s => $("lamp-" + s).hidden = true); TSK = null; ALR = null; $("wa-panel").hidden = true; $("alr-banner") && $("alr-banner").remove(); PHONES = null; TT_PROF = null; $("wa-card").hidden = true; $("tsk-form").hidden = true; $("tsk-banner") && $("tsk-banner").remove(); CUR_PRM = null; prmSub = "new"; SWAPS = null; $("pf-civil").value = ""; $("pf-job").value = ""; $("pf-dept").value = ""; $("prm-detail").hidden = true; CLS = null; CUR_CLS = null; clsDirty = false; clsTeacherFilter = ""; $("cls-teacher").innerHTML = ""; SREPS = null; CUR_SREP = null; srepFilter = ""; $("srep-filter").value = ""; clsView("cls-home");
   for (const k in photoCache) delete photoCache[k];
   ["ach-detail", "min-detail", "min-form", "vis-detail"].forEach(id => $(id).hidden = true); $("ach-all-list").hidden = false; $("ach-filter").hidden = false; $("min-listwrap").hidden = false;
   $("app").hidden = true; $("view-login").hidden = false; $("code").value = ""; $("duty-card").hidden = true;
@@ -5017,21 +5019,23 @@ function ttCell(c) {
 }
 function ttLoad(n) { const L = (TIMETABLE[n] || []).filter(x => isLesson(x)); return { lessons: L.length, res: (TIMETABLE[n] || []).length - L.length }; }
 function ttTab(which) {
+  if (which === "p" && !ME.isHead) which = "t";
   ttSub = which;
-  $("tttab-t").setAttribute("aria-selected", which === "t"); $("tttab-d").setAttribute("aria-selected", which === "d");
-  $("tt-teacher").hidden = which !== "t"; $("tt-dept").hidden = which !== "d";
+  $("tttab-t").setAttribute("aria-selected", which === "t"); $("tttab-d").setAttribute("aria-selected", which === "d"); $("tttab-p").setAttribute("aria-selected", which === "p");
+  $("tt-teacher").hidden = which !== "t"; $("tt-dept").hidden = which === "t";
   if (which === "t") {
     const names = ttNames();
     if (!ttT) ttT = names.indexOf(ME.name) !== -1 ? ME.name : names[0];
     $("tt-teacher").innerHTML = names.map(n => `<option value="${esc(n)}"${n === ttT ? " selected" : ""}>أ. ${esc(n)}${n === ME.name ? " (جدولي)" : ""}</option>`).join("");
   }
   $("tt-msg").textContent = "";
-  which === "t" ? renderTtTeacher() : renderTtAll();
+  which === "t" ? renderTtTeacher() : which === "p" ? renderTtProf() : renderTtAll();
 }
 $("tttab-t").onclick = () => ttTab("t");
 $("tttab-d").onclick = () => ttTab("d");
+$("tttab-p").onclick = () => ttTab("p");
 $("tt-teacher").onchange = e => { ttT = e.target.value; renderTtTeacher(); };
-$("tt-dept").onchange = () => renderTtAll();
+$("tt-dept").onchange = () => ttSub === "p" ? renderTtProf() : renderTtAll();
 function ttTd(c) { const x = ttCell(c); return `<td class="${x.kind}">${x.kind ? (x.kind === "r" ? esc(x.a) : `<b>${esc(x.a)}</b><small>${esc(x.b)}</small>`) : ""}</td>`; }
 const ttHead = first => `<thead><tr><th class="day">${first}</th>${PERIOD_NAMES.slice(1).map(p => `<th>${p}</th>`).join("")}</tr></thead>`;
 function renderTtTeacher() {
@@ -5092,7 +5096,7 @@ function pdfTtAll(d) {
   (d ? [d] : ["hd", "qr"]).forEach((x, i) => { if (i) blocks.push('<div class="pgbrk"></div>'); blocks.push(...ttWeekPage(x)); });
   return { box: "الجدول الأسبوعي للحصص الدراسية", signs: [], blocks };
 }
-$("tt-pdf").onclick = () => ttSub === "t" ? deliverPdf(() => pdfTtTeacher(ttT), `جدول الحصص - أ. ${shortName(ttT)}.pdf`, $("tt-msg"))
+$("tt-pdf").onclick = () => ttSub === "p" ? ttProfLoad().then(() => deliverPdf(() => pdfTtProf($("tt-dept").value), `بيانات المعلمين${$("tt-dept").value ? " - " + SUBJECTS[$("tt-dept").value] : ""}.pdf`, $("tt-msg"))).catch(e => $("tt-msg").textContent = cleanErr(e)) : ttSub === "t" ? deliverPdf(() => pdfTtTeacher(ttT), `جدول الحصص - أ. ${shortName(ttT)}.pdf`, $("tt-msg"))
   : deliverPdf(() => pdfTtAll($("tt-dept").value), `الجدول الأسبوعي للحصص${$("tt-dept").value ? " - " + SUBJECTS[$("tt-dept").value] : ""}.pdf`, $("tt-msg"));
 // ---------- وورد ----------
 function buildTtDoc(D, mode, key) {
@@ -5131,10 +5135,49 @@ function buildTtDoc(D, mode, key) {
   });
   return h.doc(kids);
 }
+
+// ---------- بيانات المعلمين (لرئيس الشعبة فقط — طلبه ٢/١١/٢٠٢٦) ----------
+// كل قسم في جدول مستقل: الاسم، الوظيفة، الصفوف، النصاب، رقم الواتساب، الرقم المدني. الوظيفة والرقم المدني مما عبّاه المعلم في «طلب استئذان».
+let TT_PROF = null;
+async function ttProfLoad(force) { if (!TT_PROF || force) TT_PROF = await run("teacherProfiles", CODE); return TT_PROF; }
+function ttProfRows(d) {
+  return ttNames(d).map(n => { const p = (TT_PROF || {})[n] || {}, cls = (TEACHERS.find(x => x[0] === n) || [, []])[1].filter(c => c.split(":")[0] === d).map(classInfo).sort((a, b) => a.grade - b.grade || a.num - b.num);
+    const job = n === HEAD_NAME ? "رئيس الشعبة" : p.job && p.job.indexOf(n.split(" ")[0]) === -1 ? p.job : "معلم";
+    const ph = String(p.phone || "").replace(/^965(?=\d{8}$)/, "");
+    return { n, job, cls: cls.map(c => c.label).join("، "), load: (TIMETABLE[n] || []).filter(x => isLesson(x) && x[2].split(":")[0] === d).length, phone: ph ? ar(ph) : "", civil: p.civil ? ar(p.civil) : "" }; });
+}
+async function renderTtProf() {
+  const box = $("tt-box");
+  if (!TT_PROF) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { await ttProfLoad(); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
+  if (ttSub !== "p") return;
+  const ds = $("tt-dept").value ? [$("tt-dept").value] : ["hd", "qr"];
+  box.innerHTML = `<div class="sub" style="margin:6px 0">خاص برئيس الشعبة. الوظيفة والرقم المدني مما سجّله المعلم في «طلب استئذان»، ورقم الواتساب مما سجّله في الموقع؛ والخانة الفارغة لم يسجّلها المعلم بعد.</div>` + ds.map(d => `<h3 class="tt-dayh">${esc(dName(d))}</h3>
+    <div class="tablebox" style="margin-top:6px"><table class="tt prof"><thead><tr><th>م</th><th>الاسم</th><th>الوظيفة</th><th>الصفوف</th><th>النصاب</th><th>رقم الواتساب</th><th>الرقم المدني</th></tr></thead><tbody>${ttProfRows(d).map((r, i) => `<tr><td>${ar(i + 1)}</td><td class="nm">أ. ${esc(r.n)}</td><td>${esc(r.job)}</td><td>${esc(r.cls)}</td><td>${ar(r.load)}</td><td dir="ltr">${r.phone || "—"}</td><td dir="ltr">${r.civil || "—"}</td></tr>`).join("")}</tbody></table></div>`).join("");
+}
+const TT_PROF_CSS = `<style>.pp table.prf th,.pp table.prf td{text-align:center;vertical-align:middle;font-size:13.5px;padding:7px 5px}.pp table.prf td.nm{text-align:right;font-weight:800;color:#0F2740}.pp table.prf td.lt{direction:ltr}.pp h3.prf-h{margin:14px 0 6px}</style>`;
+function pdfTtProf(d) {
+  const blocks = [TT_PROF_CSS];
+  (d ? [d] : ["hd", "qr"]).forEach(x => { blocks.push(`<h3 class="prf-h">${PE(dName(x))}</h3>`, P.grid(P.th(["م", "الاسم", "الوظيفة", "الصفوف", "النصاب", "رقم الواتساب", "الرقم المدني"]),
+    ttProfRows(x).map((r, i) => P.tr([ar(i + 1), { t: "أ. " + r.n, c: "nm" }, r.job, r.cls, ar(r.load), { t: r.phone || "—", c: "lt" }, { t: r.civil || "—", c: "lt" }])), "prf")); });
+  return { box: "بيانات المعلمين", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks };
+}
+function buildTtProfDoc(D, d) {
+  const h = H(D), C = h.C, W = [600, 3700, 1500, 3500, 1000, 1900, 2200];
+  const kids = [...h.formHeader("بيانات المعلمين", 14400)];
+  (d ? [d] : ["hd", "qr"]).forEach(x => {
+    kids.push(h.para(dName(x), { size: 24, bold: true, color: "1E3A5F", before: 120, after: 80 }));
+    kids.push(h.table([["م", "الاسم", "الوظيفة", "الصفوف", "النصاب", "رقم الواتساب", "الرقم المدني"].map((t, j) => h.th(t, { w: W[j], size: 19 })),
+      ...ttProfRows(x).map((r, i) => [ar(i + 1), "أ. " + r.n, r.job, r.cls, ar(r.load), r.phone || "—", r.civil || "—"].map((t, j) => h.cell(t, { w: W[j], size: 19, bold: j === 1, align: j === 1 ? undefined : C })))], W, h.softBorders("C9D6E3")));
+  });
+  kids.push(h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400));
+  return h.doc(kids, { landscape: true });
+}
 $("tt-word").onclick = async () => {
   const m = $("tt-msg"); m.textContent = "جارٍ إنشاء الملف…";
   try {
-    const d = $("tt-dept").value, doc = ttSub === "t" ? buildTtDoc(window.docx, "t", ttT) : buildTtDoc(window.docx, "d", d);
+    const d = $("tt-dept").value;
+    if (ttSub === "p") { await ttProfLoad(); await deliver(await window.docx.Packer.toBlob(buildTtProfDoc(window.docx, d)), `بيانات المعلمين${d ? " - " + SUBJECTS[d] : ""}.docx`, m); return; }
+    const doc = ttSub === "t" ? buildTtDoc(window.docx, "t", ttT) : buildTtDoc(window.docx, "d", d);
     await deliver(await window.docx.Packer.toBlob(doc), ttSub === "t" ? `جدول الحصص - أ. ${shortName(ttT)}.docx` : `الجدول الأسبوعي للحصص${d ? " - " + SUBJECTS[d] : ""}.docx`, m);
   } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); }
 };

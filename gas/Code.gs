@@ -66,7 +66,7 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, edi
   myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
   listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen,
-  listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones, phonesList,
+  listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones, phonesList, teacherProfiles,
   listAlerts, saveAlert, deleteAlert, tickAlert, teacherGaps, addInquiry, listInquiries };
 
 function doPost(e) {
@@ -1272,6 +1272,13 @@ function myProfile(code) {
   const me = who_(code), sh = sh_(SHEET_PROF);
   const r = sh ? sh.getDataRange().getDisplayValues().slice(1).find(x => x[0] === me.name) : null;
   return r ? { job: r[1], civil: r[2], dept: r[3] } : null;
+}
+/** لرئيس الشعبة فقط: بيانات المعلمين (الوظيفة، الرقم المدني) ورقم الواتساب لكشف «بيانات المعلمين» (طلبه ٢/١١/٢٠٢٦) */
+function teacherProfiles(code) {
+  const me = head_(code); if (me.isDemo) throw new Error("غير متاح في الحساب التجريبي.");
+  const sh = sh_(SHEET_PROF), rows = sh ? sh.getDataRange().getDisplayValues().slice(1) : [], ph = phones_(), out = {};
+  TEACHERS.forEach(([n]) => { const r = rows.find(x => x[0] === n) || []; out[n] = { job: r[1] || "", civil: r[2] || "", phone: ph[n] || "" }; });
+  return out;
 }
 function saveProfile_(name, p) {
   const sh = profSheet_(), row = findRow_(sh, 1, name), vals = [name, p.job, p.civil, p.dept, nowText_()];
