@@ -686,6 +686,14 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="saved" id="af-msg"></div>
       </form>
       <div id="alr-listwrap">
+        <details class="card head-only" id="prep-card" hidden>
+          <summary><b>📒 التحضير الكتابي</b> <span class="sub">من لم يُحضر التحضير الكتابي</span></summary>
+          <div class="sub" style="margin-top:6px">اختر المعلم الذي لم يُحضر التحضير الكتابي إلى المكتب، واضغط «تنبيه بعدم الإحضار»، فيصله تنبيه في الموقع ويُحفظ في سجل التنبيهات. وإذا أحضره علّم «تم» من حسابه.</div>
+          <div class="row-actions" style="margin-top:8px;align-items:center"><label class="sub">أسبوع الأحد: <input type="date" id="prep-date" style="max-width:170px"></label></div>
+          <div class="chips" id="prep-teachers" style="margin-top:8px"></div>
+          <div class="row-actions" style="margin-top:8px"><button class="btn sm" type="button" id="prep-send">🔔 تنبيه بعدم الإحضار</button></div>
+          <div class="saved" id="prep-msg"></div><div id="prep-wa"></div>
+        </details>
         <details class="card head-only" id="gaps-card" hidden>
           <summary><b>🔎 النواقص المكتشفة تلقائيًا</b> <span class="sub" id="gaps-sum"></span></summary>
           <div class="sub" style="margin-top:6px">يفحص الموقع السجلات ويطلع لكل معلم ما ينقصه. الخيارات معلَّمة، شيل اللي ما تبيه واضغط «إرسال التنبيه». (رصد الدرجات لا يُحسب نقصًا، والملفات الورقية تختارها من «🔔 تنبيه جديد».)</div>
@@ -3484,7 +3492,7 @@ const ALR_ITEMS = [
   ["act", "سجل الأنشطة والمسابقات", ["رفع نشاط أو مسابقة مع الصور"]],
   ["vis", "الزيارات الصفية", ["الاطلاع على بطاقة الزيارة الصفية"]],
   ["tsk", "المهام والتكاليف", ["تأكيد استلام المهمة المكلَّف بها", "تسجيل تنفيذ المهمة"]],
-  ["", "ملفات وسجلات ورقية (خارج الموقع)", ["دفتر التحضير", "الخطة الفصلية", "سجل الدرجات الورقي", "ملف الإنجاز", "متابعة كراسات المتعلمين", "توقيع كشف أو نموذج"]]
+  ["", "ملفات وسجلات ورقية (خارج الموقع)", ["إحضار التحضير الكتابي لرئيس الشعبة لاعتماده والاطلاع عليه", "دفتر التحضير", "الخطة الفصلية", "سجل الدرجات الورقي", "ملف الإنجاز", "متابعة كراسات المتعلمين", "توقيع كشف أو نموذج"]]
 ];
 let ALR = null, ALR_EDIT = null, alrFilter = "open";
 $("af-teachers").innerHTML = TEACHERS.filter(t => t[0] !== HEAD_NAME).map(t => t[0]).concat(TSK_DEMOS)
@@ -3631,7 +3639,7 @@ async function loadAlr(force) {
   $("alr-form").hidden = true; $("alr-detail").hidden = true; $("alr-listwrap").hidden = false; $("alr-newwrap").hidden = !ME.isHead;
   const box = $("alr-list");
   if (!ALR || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { ALR = await run("listAlerts", CODE); if (ME.isHead && !ME.isDemo) INQ = await run("listInquiries", CODE).catch(() => []); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
-  alrLampTeacher();
+  alrLampTeacher(); prepCard();
   const F = [["open", "لم تكتمل"], ["done", "المكتملة"], ["all", "الكل"]];
   $("alr-filter").innerHTML = F.map(([k, l]) => `<label class="chip"><input type="radio" name="alr-f" value="${k}"${k === alrFilter ? " checked" : ""}><span>${l} (${ar(ALR.filter(a => k === "all" || (k === "done") === alrDone(a)).length)})</span></label>`).join("");
   document.querySelectorAll('input[name="alr-f"]').forEach(r => r.onchange = () => { alrFilter = r.value; loadAlr(); });
@@ -3643,6 +3651,28 @@ async function loadAlr(force) {
   box.querySelectorAll("[data-alr]").forEach(b => b.onclick = () => openAlr(b.dataset.alr));
 }
 $("alr-reload").onclick = () => loadAlr(true);
+
+// ---------- التحضير الكتابي: تنبيه من لم يُحضره يوم الأحد (طلبه ٢/١١/٢٠٢٦) ----------
+const PREP_MISS = "عدم إحضار التحضير الكتابي لرئيس الشعبة";
+const prepText = d => `${PREP_MISS} (الأحد ${fmtDate(d)}): يُرجى إحضاره لاعتماده والاطلاع عليه`;
+function prepCard() {
+  const c = $("prep-card"); c.hidden = !ME.isHead || ME.isDemo; if (c.hidden) return;
+  if (!$("prep-date").value) $("prep-date").value = weekStartISO(todayISO());
+  const d = $("prep-date").value, was = new Set([...document.querySelectorAll('input[name="prep-t"]:checked')].map(x => x.value));
+  $("prep-teachers").innerHTML = TEACHERS.filter(t => t[0] !== HEAD_NAME).map(t => t[0]).filter(n => tIn(n, dF("alr"))).map(n => { const sent = gapSent(n, prepText(d));
+    return `<label class="chip"><input type="checkbox" name="prep-t" value="${esc(n)}"${was.has(n) && !sent ? " checked" : ""}${sent ? " disabled" : ""}><span>أ. ${esc(shortName(n))}${sent ? " ✓ نُبِّه" : ""}</span></label>`; }).join("");
+}
+$("prep-date").onchange = () => { $("prep-date").value = weekStartISO($("prep-date").value || todayISO()); $("prep-msg").textContent = ""; prepCard(); };
+$("prep-send").onclick = async () => {
+  const m = $("prep-msg"), names = [...document.querySelectorAll('input[name="prep-t"]:checked')].map(c => c.value), d = $("prep-date").value;
+  if (!names.length) { m.textContent = "اختر المعلم الذي لم يُحضر التحضير."; return; }
+  $("prep-send").disabled = true; m.textContent = "جارٍ الإرسال…"; const made = {};
+  try { for (const n of names) { const r = await run("saveAlert", CODE, { teachers: [n], items: [{ k: "", t: prepText(d) }], due: "", note: "" }); made[n] = r.id; }
+    ALR = await run("listAlerts", CODE); loadAlr(); $("prep-card").open = true;
+    m.textContent = `✓ أُرسل التنبيه لـ ${ar(names.length)} ${names.length === 1 ? "معلم" : "معلمين"}، وظهر لهم في الموقع. أرسله واتساب من الأزرار:`;
+    waPanel($("prep-wa"), names, t => alrWaText(ALR.find(a => a.id === made[t]), t));
+  } catch (e) { m.textContent = cleanErr(e); } finally { $("prep-send").disabled = false; }
+};
 
 // ---------- النواقص المكتشفة تلقائيًا ----------
 let GAPS = null;
