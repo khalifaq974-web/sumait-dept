@@ -1638,6 +1638,8 @@ function ensureReminders_() {
         appendText_(sh, [now, n, "tsk", text, "", r[0]]);
       });
     });
+    // كل أحد: تذكير المعلمين بإحضار التحضير الكتابي لرئيس الشعبة لاعتماده والاطلاع عليه، ويصله إشعار بذلك (قراره ٢/١١/٢٠٢٦)
+    if (dayOf_(t) === 0) TEACHERS.filter(x => !x[2]).forEach(x => appendText_(sh, [now, x[0], "alr", "⏰ تم تذكيره بإحضار التحضير الكتابي لرئيس الشعبة لاعتماده والاطلاع عليه", "", ""]));
   });
 }
 function tskMine_(key, id) { return key === id || key.indexOf(id + "@") === 0; }
