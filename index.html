@@ -5076,42 +5076,43 @@ function pdfTtTeacher(n) {
     P.grid(P.th(["اليوم / الحصة", ...PERIOD_NAMES.slice(1)]), TT_DAYS.map(d => P.tr([{ t: DAYS[d], c: "day" }, ...[1, 2, 3, 4, 5, 6, 7].map(p => ttPdfCell((slotOf(n, d, p) || [])[2]))])), "ttp"), '<div class="tt-gap"></div>'] };
 }
 // الجدول الأسبوعي الكامل لكل قسم في صفحة واحدة (طلبه ١/١١/٢٠٢٦): المعلمون صفوفًا، والأيام الخمسة × الحصص السبع أعمدة
+// الجدول الأسبوعي لكل قسم في صفحة أفقية (طلبه ٣/١١/٢٠٢٦): المعلمون صفوفًا، والأيام × الحصص السبع أعمدة
 const TT_WK_CSS = `<style>.pp table.ttw{table-layout:fixed;width:100%;border-collapse:collapse;margin:0}
-.pp table.ttw th,.pp table.ttw td{border:1px solid #C9D6E3;text-align:center;vertical-align:middle;padding:0;line-height:1.15}
-.pp table.ttw thead th{background:#1E3A5F;color:#fff;font-weight:800;font-size:12.5px;height:34px;border-color:#2E4D73;padding:0 3px}
-.pp table.ttw tr{height:19.5px}
-.pp table.ttw td{font-size:13.5px;font-weight:800;color:#0F2740}
-.pp table.ttw td.dy{background:#1E3A5F;color:#fff;font-size:14px;border-color:#1E3A5F}
-.pp table.ttw td.pn{background:#EEF3F8;color:#1E3A5F;font-size:12px}
-.pp table.ttw td.o{background:#E9F1FA}.pp table.ttw td.x{background:#F6E7C8;color:#6B5A2E;font-size:12px}
-.pp table.ttw td.rr{background:repeating-linear-gradient(135deg,#E6EAEE 0 4px,#fff 4px 8px);color:#4A5B6B;font-size:11.5px}
-.pp table.ttw tr.d1 td{border-top:2.5px solid #1E3A5F}
-.pp table.ttw tfoot td{background:#EEF3F8;color:#1E3A5F;font-size:13px;height:24px;border-top:2.5px solid #1E3A5F}
+.pp table.ttw th,.pp table.ttw td{border:1px solid #C9D6E3;text-align:center;vertical-align:middle;padding:0;line-height:1.1}
+.pp table.ttw thead th{background:#1E3A5F;color:#fff;font-weight:800;border-color:#2E4D73}
+.pp table.ttw thead tr.ttdh th{font-size:13.5px;height:26px}
+.pp table.ttw thead tr.ttph th{font-size:11px;height:20px;background:#2E4D73}
+.pp table.ttw td{font-size:12px;font-weight:800;color:#0F2740;height:62px;padding:0 1px}
+.pp table.ttw td.nm{text-align:right;padding:0 6px;font-size:13px;background:#EEF3F8;color:#1E3A5F}
+.pp table.ttw td.ld{background:#EEF3F8;color:#1E3A5F;font-size:14px}
+.pp table.ttw td.o{background:#E9F1FA}.pp table.ttw td.x{background:#F6E7C8;color:#6B5A2E}.pp table.ttw td.x small{display:block;font-size:8px;font-weight:700}
+.pp table.ttw td.rr{background:repeating-linear-gradient(135deg,#E6EAEE 0 4px,#fff 4px 8px);color:#4A5B6B;font-size:8.5px;line-height:1.25}
+.pp table.ttw .p1{border-right:2.5px solid #1E3A5F}
 .pp .ttw-lg{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;font-size:11.5px;color:#33475B;margin:6px 0 0}.pp .ttw-lg i{display:inline-block;width:16px;height:11px;border:1px solid #C9D6E3;vertical-align:middle;margin-left:5px}
 .pp h1.ttw-t{font-size:17px;margin:0 0 6px}</style>`;
 function ttWeekPage(d) {
   const names = ttNames(d), other = d === "hd" ? "qr" : "hd", P7 = [1, 2, 3, 4, 5, 6, 7];
   const cell = (n, day, p) => {
-    const c = (slotOf(n, day, p) || [])[2];
-    if (!c) return "<td></td>";
-    if (c === "R") return '<td class="rr">احتياط</td>';
-    if (c === "RF") return '<td class="rr">احتياط فنية</td>';
-    if (c.split(":")[0] !== d) return `<td class="x">${classLabel(c)} ${other === "qr" ? "قرآن" : "حديث"}</td>`;
-    return `<td class="o">${classLabel(c)}</td>`;
+    const c = (slotOf(n, day, p) || [])[2], b = p === 1 ? " p1" : "";
+    if (!c) return `<td class="${b}"></td>`;
+    if (c === "R") return `<td class="rr${b}">احتياط</td>`;
+    if (c === "RF") return `<td class="rr${b}">احتياط<br>فنية</td>`;
+    if (c.split(":")[0] !== d) return `<td class="x${b}">${classLabel(c)}<small>${other === "qr" ? "قرآن" : "حديث"}</small></td>`;
+    return `<td class="o${b}">${classLabel(c)}</td>`;
   };
-  const cols = `<colgroup><col style="width:62px"><col style="width:48px">${names.map(() => "<col>").join("")}</colgroup>`;
-  const head = `<thead><tr><th>اليوم</th><th>الحصة</th>${names.map(n => `<th>أ. ${PE(shortName(n))}</th>`).join("")}</tr></thead>`;
-  const body = TT_DAYS.map(day => P7.map(p => `<tr${p === 1 ? ' class="d1"' : ""}>${p === 1 ? `<td class="dy" rowspan="7">${DAYS[day]}</td>` : ""}<td class="pn">${ar(p)}</td>${names.map(n => cell(n, day, p)).join("")}</tr>`).join("")).join("");
-  const foot = `<tfoot><tr><td colspan="2">النصاب</td>${names.map(n => `<td>${ar((TIMETABLE[n] || []).filter(x => isLesson(x) && x[2].split(":")[0] === d).length)}</td>`).join("")}</tr></tfoot>`;
+  const cols = `<colgroup><col style="width:132px">${TT_DAYS.map(() => P7.map(() => "<col>").join("")).join("")}<col style="width:44px"></colgroup>`;
+  const head = `<thead><tr class="ttdh"><th rowspan="2">المعلم</th>${TT_DAYS.map(day => `<th class="p1" colspan="7">${DAYS[day]}</th>`).join("")}<th rowspan="2">النصاب</th></tr>
+    <tr class="ttph">${TT_DAYS.map(() => P7.map(p => `<th${p === 1 ? ' class="p1"' : ""}>${ar(p)}</th>`).join("")).join("")}</tr></thead>`;
+  const body = names.map(n => `<tr><td class="nm">أ. ${PE(shortName(n))}</td>${TT_DAYS.map(day => P7.map(p => cell(n, day, p)).join("")).join("")}<td class="ld">${ar((TIMETABLE[n] || []).filter(x => isLesson(x) && x[2].split(":")[0] === d).length)}</td></tr>`).join("");
   const hasX = names.some(n => (TIMETABLE[n] || []).some(x => isLesson(x) && x[2].split(":")[0] !== d));
-  return [`<h1 class="ttw-t">${PE(dName(d))} – العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م</h1>`, `<table class="ttw">${cols}${head}<tbody>${body}</tbody>${foot}</table>`,
+  return [`<h1 class="ttw-t">${PE(dName(d))} – العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م</h1>`, `<table class="ttw">${cols}${head}<tbody>${body}</tbody></table>`,
     `<div class="ttw-lg"><span><i style="background:#E9F1FA"></i>حصة في ${PE(dName(d))}</span>${hasX ? `<span><i style="background:#F6E7C8"></i>حصة في قسم ${PE(SUBJECTS[other])}</span>` : ""}<span><i style="background:repeating-linear-gradient(135deg,#E6EAEE 0 3px,#fff 3px 6px)"></i>احتياط</span><span>النصاب = حصص القسم الأسبوعية</span></div>`,
     pdfSigns([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]])];
 }
 function pdfTtAll(d) {
   const blocks = [TT_WK_CSS];
   (d ? [d] : ["hd", "qr"]).forEach((x, i) => { if (i) blocks.push('<div class="pgbrk"></div>'); blocks.push(...ttWeekPage(x)); });
-  return { box: "الجدول الأسبوعي للحصص الدراسية", signs: [], blocks };
+  return { box: "الجدول الأسبوعي للحصص الدراسية", landscape: true, signs: [], blocks };
 }
 $("tt-pdf").onclick = () => ttSub === "p" ? ttProfLoad().then(() => deliverPdf(() => pdfTtProf($("tt-dept").value), `بيانات المعلمين${$("tt-dept").value ? " - " + SUBJECTS[$("tt-dept").value] : ""}.pdf`, $("tt-msg"))).catch(e => $("tt-msg").textContent = cleanErr(e)) : ttSub === "t" ? deliverPdf(() => pdfTtTeacher(ttT), `جدول الحصص - أ. ${shortName(ttT)}.pdf`, $("tt-msg"))
   : deliverPdf(() => pdfTtAll($("tt-dept").value), `الجدول الأسبوعي للحصص${$("tt-dept").value ? " - " + SUBJECTS[$("tt-dept").value] : ""}.pdf`, $("tt-msg"));
@@ -5130,27 +5131,33 @@ function buildTtDoc(D, mode, key) {
     const rows = [head("اليوم / الحصة"), ...TT_DAYS.map(d => [h.cell(DAYS[d], { align: C, bold: true, color: h.NAVY || "1E3A5F", fill: "EEF3F8", size: 22 }), ...P7.map(p => cellOf((slotOf(n, d, p) || [])[2]))])];
     return h.doc([...h.formHeader("جدول الحصص الدراسية", 14400), info, h.para("", { after: 120 }), h.table(rows, widths, h.softBorders("C9D6E3")), h.para("", { after: 300 }), signs], { landscape: true });
   }
-  // الجدول الأسبوعي لكل قسم في صفحة (عمودية): الأيام × الحصص صفوفًا، والمعلمون أعمدة
+  // الجدول الأسبوعي لكل قسم في صفحة أفقية: المعلمون صفوفًا، والأيام × الحصص أعمدة
   const kids = [];
   (key ? [key] : ["hd", "qr"]).forEach((d, i) => {
-    const names = ttNames(d), other = d === "hd" ? "qr" : "hd", WD = 1000, WPn = 700, WT = Math.floor((10000 - WD - WPn) / names.length), m = { top: 10, bottom: 10, left: 40, right: 40 };
-    const c1 = (t, o = {}) => h.cell([h.para(t, { align: C, size: o.size || 19, bold: true, color: o.color, after: 0, line: 230 })], { fill: o.fill, m, w: o.w });
+    const names = ttNames(d), other = d === "hd" ? "qr" : "hd", WN = 1900, WL = 700, WC = Math.floor((14400 - WN - WL) / 35), m = { top: 20, bottom: 20, left: 10, right: 10 };
+    const sh = f => ({ type: D.ShadingType.CLEAR, fill: f, color: "auto" });
+    const tc = (paras, o = {}) => new D.TableCell({ children: paras, shading: o.fill ? sh(o.fill) : undefined, margins: m, verticalAlign: D.VerticalAlign.CENTER,
+      columnSpan: o.span, rowSpan: o.rows, width: o.w ? { size: o.w, type: D.WidthType.DXA } : undefined });
+    const pr = (t, o = {}) => h.para(t, { align: o.align || C, size: o.size || 16, bold: true, color: o.color, after: 0, line: 200 });
     const slot = (n, day, p) => { const c = (slotOf(n, day, p) || [])[2];
-      if (!c) return c1("", { w: WT });
-      if (c === "R" || c === "RF") return c1(classLabel(c), { w: WT, size: 16, color: "4A5B6B", fill: "E6EAEE" });
-      if (c.split(":")[0] !== d) return c1(classLabel(c) + (other === "qr" ? " قرآن" : " حديث"), { w: WT, size: 17, color: "6B5A2E", fill: "F6E7C8" });
-      return c1(classLabel(c), { w: WT, fill: "E9F1FA" }); };
-    const rows = [[h.th("اليوم", { w: WD }), h.th("الحصة", { w: WPn }), ...names.map(n => h.th("أ. " + shortName(n), { w: WT, size: 17 }))]];
-    TT_DAYS.forEach(day => [1, 2, 3, 4, 5, 6, 7].forEach(p => rows.push([
-      ...(p === 1 ? [new D.TableCell({ rowSpan: 7, verticalAlign: D.VerticalAlign.CENTER, shading: { type: D.ShadingType.CLEAR, fill: "1E3A5F", color: "auto" }, width: { size: WD, type: D.WidthType.DXA }, children: [h.para(DAYS[day], { align: C, size: 22, bold: true, color: "FFFFFF", after: 0 })] })] : []),
-      c1(ar(p), { w: WPn, fill: "EEF3F8", color: "1E3A5F", size: 17 }), ...names.map(n => slot(n, day, p))])));
-    rows.push([new D.TableCell({ columnSpan: 2, shading: { type: D.ShadingType.CLEAR, fill: "EEF3F8", color: "auto" }, margins: m, verticalAlign: D.VerticalAlign.CENTER, children: [h.para("النصاب", { align: C, size: 19, bold: true, color: "1E3A5F", after: 0 })] }),
-      ...names.map(n => c1(ar((TIMETABLE[n] || []).filter(x => isLesson(x) && x[2].split(":")[0] === d).length), { w: WT, fill: "EEF3F8", color: "1E3A5F" }))]);
+      if (!c) return tc([pr("")], { w: WC });
+      if (c === "R" || c === "RF") return tc([pr("احتياط", { size: 12, color: "4A5B6B" }), ...(c === "RF" ? [pr("فنية", { size: 12, color: "4A5B6B" })] : [])], { w: WC, fill: "E6EAEE" });
+      if (c.split(":")[0] !== d) return tc([pr(classLabel(c), { size: 15, color: "6B5A2E" }), pr(other === "qr" ? "قرآن" : "حديث", { size: 11, color: "6B5A2E" })], { w: WC, fill: "F6E7C8" });
+      return tc([pr(classLabel(c), { size: 16 })], { w: WC, fill: "E9F1FA" }); };
+    const white = (t, size) => pr(t, { size, color: "FFFFFF" });
+    const rows = [
+      [tc([white("المعلم", 18)], { w: WN, rows: 2, fill: "1E3A5F" }), ...TT_DAYS.map(day => tc([white(DAYS[day], 19)], { span: 7, fill: "1E3A5F" })), tc([white("النصاب", 16)], { w: WL, rows: 2, fill: "1E3A5F" })],
+      TT_DAYS.flatMap(() => [1, 2, 3, 4, 5, 6, 7].map(p => tc([white(ar(p), 15)], { w: WC, fill: "2E4D73" })))];
+    names.forEach(n => rows.push([tc([pr("أ. " + shortName(n), { size: 18, color: "1E3A5F", align: D.AlignmentType.RIGHT })], { w: WN, fill: "EEF3F8" }),
+      ...TT_DAYS.flatMap(day => [1, 2, 3, 4, 5, 6, 7].map(p => slot(n, day, p))),
+      tc([pr(ar((TIMETABLE[n] || []).filter(x => isLesson(x) && x[2].split(":")[0] === d).length), { size: 20, color: "1E3A5F" })], { w: WL, fill: "EEF3F8" })]));
+    const tbl = new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: [WN, ...Array(35).fill(WC), WL],
+      width: { size: WN + WL + 35 * WC, type: D.WidthType.DXA }, rows: rows.map((r, k) => new D.TableRow({ children: r, height: { value: k < 2 ? 340 : 820, rule: D.HeightRule.ATLEAST }, tableHeader: k < 2 })), borders: h.softBorders("C9D6E3") });
     if (i) kids.push(new D.Paragraph({ children: [new D.PageBreak()] }));
-    kids.push(...h.formHeader("الجدول الأسبوعي للحصص الدراسية"), h.para(`${dName(d)} – العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م`, { size: 24, bold: true, color: "1E3A5F", align: C, after: 80 }),
-      h.table(rows, [WD, WPn, ...names.map(() => WT)], h.softBorders("C9D6E3")), h.para("", { after: 120 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
+    kids.push(...h.formHeader("الجدول الأسبوعي للحصص الدراسية", 14400), h.para(`${dName(d)} – العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م`, { size: 24, bold: true, color: "1E3A5F", align: C, after: 80 }),
+      tbl, h.para("", { after: 160 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400));
   });
-  return h.doc(kids);
+  return h.doc(kids, { landscape: true });
 }
 
 // ---------- بيانات المعلمين (لرئيس الشعبة فقط — طلبه ٢/١١/٢٠٢٦) ----------
