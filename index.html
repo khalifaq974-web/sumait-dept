@@ -3189,13 +3189,30 @@ function waMsg(name, body, hash) {
   return `السلام عليكم ورحمة الله وبركاته\nالأستاذ الفاضل / ${name}     المحترم\n\n${body}\n\nللاطلاع من موقع القسم (يفتح لك الأمر مباشرة):\n${SITE_LINK}#${hash}\n\nرئيس الشعبة\n${HEAD_SIGN}`;
 }
 /** لوحة الإرسال: زر لكل معلم يفتح محادثته في الواتساب والرسالة جاهزة */
-async function waPanel(box, names, textFn, pill) {
+async function waPanel(box, names, textFn, pill, groupText) {
   if (!box) return;
   box.className = "card wa-card"; box.innerHTML = '<div class="sub">جارٍ تحميل أرقام المعلمين…</div>';
   const ph = await loadPhones(), missing = names.filter(n => !ph[n]).length;
-  box.innerHTML = `<h3 style="margin-top:0">📲 إرسال واتساب</h3><div class="sub">اضغط «إرسال» عند المعلم: يفتح الواتساب على رقمه والرسالة جاهزة، ثم اضغط إرسال في الواتساب.${missing ? ` (${ar(missing)} لم يسجّلوا أرقامهم بعد: زرّهم يفتح الواتساب لتختار المعلم من جهاتك.)` : ""}</div>
+  const grp = groupText ? `<h3 style="margin-top:0">📢 رسالة جماعية للقروب</h3><div class="sub">رسالة واحدة لكل المعلمين: اضغط «إرسال للقروب» فيفتح الواتساب والرسالة جاهزة، ثم اختر قروب القسم واضغط إرسال. أو انسخها والصقها في القروب.</div>
+    <div class="row-actions" style="margin:10px 0 16px"><a class="btn sm wa-btn" target="_blank" rel="noopener" id="wa-grp" href="${esc(waUrl("", groupText))}">إرسال للقروب</a><button class="btn ghost sm" type="button" id="wa-grp-copy">نسخ الرسالة</button></div>` : "";
+  box.innerHTML = grp + `<h3 style="margin-top:0">📲 إرسال واتساب لكل معلم</h3><div class="sub">اضغط «إرسال» عند المعلم: يفتح الواتساب على رقمه والرسالة جاهزة، ثم اضغط إرسال في الواتساب.${missing ? ` (${ar(missing)} لم يسجّلوا أرقامهم بعد: زرّهم يفتح الواتساب لتختار المعلم من جهاتك.)` : ""}</div>
     <div class="wa-list">${names.map((n, i) => `<div class="wa-row"><span><b>${/^تجريبي/.test(n) ? esc(n) : "أ. " + esc(shortName(n))}</b> ${pill ? pill(n) : ""}<br><span class="sub" dir="ltr">${ph[n] ? "+" + esc(ph[n]) : "لم يسجّل رقمه"}</span></span><a class="btn sm wa-btn" target="_blank" rel="noopener" data-wa="${i}" href="${esc(waUrl(ph[n], textFn(n)))}">إرسال</a></div>`).join("")}</div>`;
   box.querySelectorAll("[data-wa]").forEach(a => a.addEventListener("click", () => { a.textContent = "✓ فُتح"; a.classList.add("ghost"); }));
+  if (groupText) {
+    $("wa-grp").addEventListener("click", () => { $("wa-grp").textContent = "✓ فُتح"; $("wa-grp").classList.add("ghost"); });
+    $("wa-grp-copy").onclick = async () => {
+      const b = $("wa-grp-copy");
+      try { await navigator.clipboard.writeText(groupText); b.textContent = "✓ نُسخت"; }
+      catch (e) { const t = document.createElement("textarea"); t.value = groupText; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); b.textContent = "✓ نُسخت"; } catch (e2) { b.textContent = "تعذّر النسخ"; } t.remove(); }
+    };
+  }
+}
+/** رسالة جماعية للقروب عن محضر: العنوان والتاريخ وجدول الأعمال ورابط المحضر */
+function minGroupMsg(m) {
+  const ag = lines(m.agenda);
+  return `السلام عليكم ورحمة الله وبركاته\nالإخوة الأفاضل معلمي ${/القرآن/.test(m.title) ? "قسم القرآن الكريم" : /الحديث/.test(m.title) ? "قسم الحديث الشريف" : "القسم"}، حفظكم الله\n\nتم رفع محضر *${m.title}* (${fmtDate(m.date, true)}) في موقع القسم، ركن «محاضر الاجتماعات».\n`
+    + (ag.length ? `\nجدول الأعمال:\n${ag.map((x, i) => `${ar(i + 1)}. ${x}`).join("\n")}\n` : "")
+    + `\nيُرجى من الجميع الدخول على الموقع وقراءة المحضر، والضغط على زر «اطّلعت»، والالتزام بما ورد فيه.\n\nرابط المحضر (يفتحه مباشرة):\n${SITE_LINK}#min=${m.id}\n\nشاكرين تعاونكم\nرئيس الشعبة\n${HEAD_SIGN}`;
 }
 
 // ================= عرض السجل حسب المعلم (لرئيس الشعبة) =================
@@ -3951,7 +3968,7 @@ async function openMinute(id) {
   d.innerHTML = html;
   if (ME.isHead) { d.insertAdjacentHTML("beforeend", '<div id="min-wa"></div>');
     waPanel($("min-wa"), m.attendees.filter(n => n !== HEAD_NAME), n => waMsg(n, `📝 محضر اجتماع: ${m.title}\nيرجى الاطلاع على المحضر في الموقع والضغط على «اطّلعت».`, "min=" + m.id),
-      n => signed[n] ? '<span class="pill ok">اطّلع</span>' : '<span class="pill late">لم يطّلع</span>'); }
+      n => signed[n] ? '<span class="pill ok">اطّلع</span>' : '<span class="pill late">لم يطّلع</span>', minGroupMsg(m)); }
   $("min-back").onclick = () => loadMinutes(true);
   if (attendee && !mine) $("sig-submit").onclick = async () => {
     const msg = $("sig-msg");
