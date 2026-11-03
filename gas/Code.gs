@@ -704,7 +704,9 @@ const COV_DONE = "مغطاة", COV_NONE = "غير مغطاة", COV_PRESENT = "ح
 // التبديل: معلم المادة الأخرى في الفصل نفسه يدخل حصة الغائب، ثم يردّها الغائب بدخول حصة ذلك المعلم في الفصل نفسه في يوم آخر
 const COV_SWAP = "تبديل", RET_PENDING = "لم يُرد", RET_DONE = "تم الرد";
 const COV_HEAD = ["المعرف", "معرف الغياب", "التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل", "الحالة", "تاريخ التسجيل",
-  "تاريخ الرد", "حصة الرد", "فصل الرد", "حالة الرد"];
+  "تاريخ الرد", "حصة الرد", "فصل الرد", "حالة الرد", "حصة الدخول"];
+// «حصة الدخول» (طلبه ٣/١١/٢٠٢٦): عند تبديل حصة الغائب مع معلم من خارج القسم تنتقل الحصة إلى وقت آخر ويدخلها البديل فيه؛ فارغة = يدخلها في وقتها
+const covAt_ = r => r[13] || r[3];
 function covSheet_() {
   const sh = sheet_(SHEET_COV, COV_HEAD, true), n = COV_HEAD.length;
   if (sh.getMaxColumns() < n) sh.insertColumnsAfter(sh.getMaxColumns(), n - sh.getMaxColumns());
@@ -712,6 +714,7 @@ function covSheet_() {
     sh.getRange(1, 10, sh.getMaxRows(), n - 9).setNumberFormat("@");
     sh.getRange(1, 1, 1, n).setValues([COV_HEAD]);
   }
+  if (sh.getRange(1, 14).getDisplayValue() !== COV_HEAD[13]) { sh.getRange(1, 14, sh.getMaxRows(), 1).setNumberFormat("@"); sh.getRange(1, 14).setValue(COV_HEAD[13]); }
   return sh;
 }
 function isCov_(status) { return status === COV_DONE || status === COV_SWAP; }
@@ -735,7 +738,7 @@ function resTasks_(absId, teacher, date, covs) {
   const by = {};
   covs.filter(r => isCov_(r[7]) && r[6] && TEACHERS.some(t => t[0] === r[6] && !t[2])).forEach(r => (by[r[6]] = by[r[6]] || []).push(r));
   return Object.keys(by).map(sub => [`res-${absId}-${sub.replace(/\s+/g, "_")}`, "احتياط", `احتياط بدل أ. ${teacher}`,
-    by[sub].sort((a, b) => a[3] - b[3]).map(r => `- الحصة ${PER_AR_[+r[3]]}: ${r[4] === "R" ? "حصة احتياط" : r[4] === "RF" ? "احتياط فنية" : clsName_(r[4])}${r[7] === COV_SWAP && r[9] ? ` (تبديل: يردّها لك أ. ${teacher} ${dayDate_(r[9])} الحصة ${PER_AR_[+r[10]]})` : ""}`).join("\n"),
+    by[sub].sort((a, b) => covAt_(a) - covAt_(b)).map(r => `- الحصة ${PER_AR_[+covAt_(r)]}: ${r[4] === "R" ? "حصة احتياط" : r[4] === "RF" ? "احتياط فنية" : clsName_(r[4])}${r[13] ? ` (حصة ${PER_AR_[+r[3]]} انتقلت بالتبديل مع معلم من خارج القسم)` : ""}${r[7] === COV_SWAP && r[9] ? ` (تبديل: يردّها لك أ. ${teacher} ${dayDate_(r[9])} الحصة ${PER_AR_[+r[10]]})` : ""}`).join("\n"),
     date, sub]);
 }
 
@@ -850,7 +853,7 @@ const ABS_EXCUSE = "عذر طارئ";
 function absObj_(r) { return { id: r[0], date: r[1], teacher: r[2], note: r[3], createdAt: r[4], updatedAt: r[5], kind: r[6] === ABS_EXCUSE ? ABS_EXCUSE : "" }; }
 function covObj_(r) {
   return { id: r[0], absenceId: r[1], date: r[2], period: Number(r[3]), classId: r[4], absent: r[5], substitute: r[6], status: r[7],
-    retDate: r[9] || "", retPeriod: Number(r[10]) || 0, retClass: r[11] || "", retStatus: r[12] || "" };
+    retDate: r[9] || "", retPeriod: Number(r[10]) || 0, retClass: r[11] || "", retStatus: r[12] || "", at: Number(r[13]) || 0 };
 }
 
 /** كل بيانات الغياب والاحتياط */
@@ -887,9 +890,9 @@ function saveAbsence(code, a) {
     const excIds = absRows.slice(1).filter(r => r[0] && r[0] !== id && r[6] === ABS_EXCUSE).map(r => r[0]);
     const excBusy = covRows.slice(1).filter(r => r[0] && r[2] === date && excIds.indexOf(r[1]) !== -1).map(r => r[5] + "|" + r[3]);
     const myPeriods = items.map(it => String(Math.floor(Number(it.period))));
-    const asSub = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && isCov_(r[7]) && r[6] === teacher && (!excuse || myPeriods.indexOf(r[3]) !== -1));
-    if (asSub.length) throw new Error("أ. " + teacher + " مسجّل بديلًا في هذا اليوم (الحصة " + asSub.map(r => r[3]).join("، ") + " بدلًا من أ. " + asSub[0][5] + "). غيّر البديل هناك أولًا.");
-    const busy = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && isCov_(r[7])).map(r => r[6] + "|" + r[3]);
+    const asSub = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && isCov_(r[7]) && r[6] === teacher && (!excuse || myPeriods.indexOf(covAt_(r)) !== -1));
+    if (asSub.length) throw new Error("أ. " + teacher + " مسجّل بديلًا في هذا اليوم (الحصة " + asSub.map(r => covAt_(r)).join("، ") + " بدلًا من أ. " + asSub[0][5] + "). غيّر البديل هناك أولًا.");
+    const busy = covRows.slice(1).filter(r => r[0] && r[1] !== id && r[2] === date && isCov_(r[7])).map(r => r[6] + "|" + covAt_(r));
     tskRows_().filter(r => r[1] === TSK_RES && r[4] === date).forEach(r => busy.push(r[10].split("|")[0] + "|" + PER_AR_.indexOf(String(r[5]).replace("الحصة ", ""))));
     // ساعات رد التبديل المحجوزة في تبديلات أخرى: "المعلم|التاريخ|الحصة"
     const retBusy = [];
@@ -904,16 +907,21 @@ function saveAbsence(code, a) {
       if (seen[period]) return; seen[period] = 1;
       let status = [COV_DONE, COV_NONE, COV_PRESENT].indexOf(it.status) !== -1 ? it.status : COV_NONE;
       let sub = String(it.substitute || ""), ret = ["", "", "", ""];
+      // تبديل مع معلم من خارج القسم: الحصة انتقلت إلى وقت آخر (at) ويدخلها البديل فيه
+      let at = Math.floor(Number(it.at)) || 0;
+      if (at && (at < 1 || at > 7 || at === period || status !== COV_DONE || excuse)) at = 0;
+      const P = at || period;
       if (isCov_(status)) {
         if (!TIMETABLE[sub] || sub === teacher) throw new Error("اختر المعلم البديل للحصة " + period + ".");
-        const l2 = effLesson_(sub, date, period, ev);
-        if (l2 && l2[2] !== "R" && l2[2] !== "RF") throw new Error("أ. " + sub + " عنده حصة في الحصة " + period + ".");
+        const l2 = effLesson_(sub, date, P, ev);
+        if (l2 && l2[2] !== "R" && l2[2] !== "RF") throw new Error("أ. " + sub + " عنده حصة في الحصة " + P + ".");
         if (absentToday.indexOf(sub) !== -1) throw new Error("أ. " + sub + " غائب في هذا اليوم.");
-        if (busy.indexOf(sub + "|" + period) !== -1) throw new Error("أ. " + sub + " مكلّف باحتياط آخر في الحصة " + period + ".");
-        if (excBusy.indexOf(sub + "|" + period) !== -1) throw new Error("أ. " + sub + " عنده عذر طارئ في الحصة " + period + ".");
+        if (busy.indexOf(sub + "|" + P) !== -1) throw new Error("أ. " + sub + " مكلّف باحتياط آخر في الحصة " + P + ".");
+        if (excBusy.indexOf(sub + "|" + P) !== -1) throw new Error("أ. " + sub + " عنده عذر طارئ في الحصة " + P + ".");
         if (status === COV_SWAP) ret = swapReturn_(teacher, sub, les[2], date, it, retBusy, absentOn, period);
+        busy.push(sub + "|" + P);
       } else sub = "";
-      out.push([newId_(), id, date, String(period), les[2], teacher, sub, status, nowText_()].concat(ret));
+      out.push([newId_(), id, date, String(period), les[2], teacher, sub, status, nowText_()].concat(ret, [at ? String(at) : ""]));
     });
     const now = nowText_();
     const absVals = [id, date, teacher, String(a.note || "").slice(0, 300), rowIdx > 0 ? absRows[rowIdx - 1][4] : now, now, excuse ? ABS_EXCUSE : ""];
