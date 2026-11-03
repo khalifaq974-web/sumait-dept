@@ -2603,7 +2603,9 @@ function achWho(a) { return a.teacher === HEAD_NAME ? ["رئيس الشعبة", 
 function achSigns(a) { return a.teacher === HEAD_NAME ? [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] : [["المعلم", "أ. " + a.teacher], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]]; }
 function pdfMinute(m) {
   const sig = {}; (m.signatures || []).forEach(s => sig[s.teacher] = s);
-  const ag = lines(m.agenda), dec = lines(m.decisions), blocks = [P.title(m.title),
+  // خط المحضر أكبر (طلبه ٣/١١/٢٠٢٦)
+  const MZ = ":is(.pp:has(.mntk),.pp:has(.mntk)~.pp)";
+  const ag = lines(m.agenda), dec = lines(m.decisions), blocks = [`<style>${MZ} .bd{font-size:16.5px;line-height:1.75}${MZ} p{font-size:16.5px;margin:0 0 6px}${MZ} h1{font-size:23px}${MZ} h3{font-size:18px}${MZ} table.info td{font-size:15.5px;padding:5px 10px}${MZ} table.grid td{font-size:15.5px;padding:6px 8px}${MZ} table.grid th{font-size:15px;padding:6px}${MZ} .sg{font-size:15.5px}</style><i class="mntk"></i>`, P.title(m.title),
     P.info([["التاريخ", fmtDate(m.date, true)], ["الوقت", ar(m.time || "—")], ["المكان", m.place || "—"], ["رئيس الاجتماع", HEAD_SIGN]])];
   if (ag.length) blocks.push(P.h("أولًا: جدول الأعمال"), ag.map((x, i) => P.p(`${ar(i + 1)}. ${x}`)).join(""));
   if (m.discussion) blocks.push(P.h("ثانيًا: ما دار في الاجتماع"), String(m.discussion).split(/\n+/).filter(s => s.trim()).map(s => P.p(s.trim())).join(""));
@@ -4997,23 +4999,23 @@ function buildMonthlyDoc(D, r, imgs) {
   return h.doc(kids);
 }
 function buildMinuteDoc(D, m, sigs) {
-  const h = H(D);
+  const h = H(D), bigH = t => h.para(t, { size: 30, bold: true, color: h.NAVY, before: 200, after: 100, keepNext: true, shade: "EEF3F8" });
   const info = h.table([
-    [h.lab("التاريخ:", { w: 1600 }), h.cell(fmtDate(m.date, true), { w: 3400, size: 19 }), h.lab("الوقت:", { w: 1600 }), h.cell(ar(m.time || "—"), { w: 3400, size: 19 })],
-    [h.lab("المكان:"), h.cell(m.place || "—", { size: 19 }), h.lab("رئيس الاجتماع:"), h.cell(HEAD_SIGN, { size: 19 })]
+    [h.lab("التاريخ:", { w: 1600, size: 23 }), h.cell(fmtDate(m.date, true), { w: 3400, size: 23 }), h.lab("الوقت:", { w: 1600, size: 23 }), h.cell(ar(m.time || "—"), { w: 3400, size: 23 })],
+    [h.lab("المكان:", { size: 23 }), h.cell(m.place || "—", { size: 23 }), h.lab("رئيس الاجتماع:", { size: 23 }), h.cell(HEAD_SIGN, { size: 23 })]
   ], [1600, 3400, 1600, 3400], h.softBorders("C9D6E3"));
   const children = [...h.formHeader("محضر اجتماع"),
-    h.para(m.title, { size: 30, bold: true, color: h.NAVY, align: h.C, after: 140 }), info, h.para("", { after: 100 })];
+    h.para(m.title, { size: 36, bold: true, color: h.NAVY, align: h.C, after: 140 }), info, h.para("", { after: 100 })];
   const ag = lines(m.agenda), dec = lines(m.decisions);
-  if (ag.length) { children.push(h.heading("أولًا: جدول الأعمال")); ag.forEach((x, i) => children.push(h.para(`${ar(i + 1)}. ${x}`, { indent: 200, after: 60 }))); }
-  if (m.discussion) { children.push(h.heading("ثانيًا: ما دار في الاجتماع")); String(m.discussion).split(/\n+/).filter(s => s.trim()).forEach(p => children.push(h.para(p.trim(), { justify: true, after: 100 }))); }
-  if (dec.length) { children.push(h.heading("ثالثًا: التوصيات والقرارات")); dec.forEach((x, i) => children.push(h.para(`${ar(i + 1)}. ${x}`, { indent: 200, after: 60 }))); }
-  children.push(h.heading("رابعًا: الحضور والتوقيعات"));
-  const rows = [[h.th("م"), h.th("الاسم"), h.th("التوقيع")]];
+  if (ag.length) { children.push(bigH("أولًا: جدول الأعمال")); ag.forEach((x, i) => children.push(h.para(`${ar(i + 1)}. ${x}`, { indent: 200, after: 80, size: 30 }))); }
+  if (m.discussion) { children.push(bigH("ثانيًا: ما دار في الاجتماع")); String(m.discussion).split(/\n+/).filter(s => s.trim()).forEach(p => children.push(h.para(p.trim(), { justify: true, after: 120, size: 30 }))); }
+  if (dec.length) { children.push(bigH("ثالثًا: التوصيات والقرارات")); dec.forEach((x, i) => children.push(h.para(`${ar(i + 1)}. ${x}`, { indent: 200, after: 80, size: 30 }))); }
+  children.push(bigH("رابعًا: الحضور والتوقيعات"));
+  const rows = [[h.th("م", { size: 24 }), h.th("الاسم", { size: 24 }), h.th("التوقيع", { size: 24 })]];
   m.attendees.forEach((n, i) => {
     const s = sigs[n];
     const sigCell = s ? h.cell([new D.Paragraph({ alignment: h.C, children: [h.img(s.data, Math.min(110, 36 * s.w / s.h), Math.min(36, 110 * s.h / s.w), "png")] })]) : h.cell("", {});
-    rows.push([h.cell(ar(i + 1), { align: h.C }), h.cell(n), sigCell]);
+    rows.push([h.cell(ar(i + 1), { align: h.C, size: 26 }), h.cell(n, { size: 26 }), sigCell]);
   });
   children.push(h.table(rows, [700, 5300, 4000], h.softBorders("C9D6E3")));
   children.push(h.para("", { after: 200 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
