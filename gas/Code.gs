@@ -67,7 +67,7 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, edi
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
   listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen,
   listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones, phonesList, teacherProfiles,
-  listAlerts, saveAlert, deleteAlert, tickAlert, teacherGaps, addInquiry, listInquiries };
+  listAlerts, saveAlert, deleteAlert, tickAlert, teacherGaps, addInquiry, listInquiries, listPlans, savePlan, deletePlan };
 
 function doPost(e) {
   let out;
@@ -1919,4 +1919,47 @@ function listInquiries(code) {
   head_(code);
   const sh = sh_(SHEET_INQ); if (!sh) return [];
   return sh.getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(r => ({ id: r[0], teacher: r[1], items: jsonOr_(r[2], []), at: r[3], demo: isDemo_(r[1]) })).reverse();
+}
+
+
+// ======================= سجل خطة القسم (طلبه ٣/١١/٢٠٢٦) =======================
+// رئيس الشعبة يكتب خطة فصلية أو شهرية لكل قسم على حدة (لا يُجمع القسمان)، والمعلمون يطّلعون عليها.
+// «خطة القسم»: 0 المعرف | 1 النوع (فصلية/شهرية) | 2 القسم hd/qr | 3 الفصل الدراسي | 4 الشهر yyyy-MM | 5 العنوان | 6 البنود JSON | 7 ملاحظة | 8 وقت الإنشاء | 9 آخر تعديل
+const SHEET_PLN = "خطة القسم", PLN_TYPES = ["فصلية", "شهرية"], PLN_F = ["f", "g", "a", "r", "w", "i", "n"];
+function plnSheet_() { return sheet_(SHEET_PLN, ["المعرف", "النوع", "القسم", "الفصل الدراسي", "الشهر", "العنوان", "البنود", "ملاحظة", "وقت الإنشاء", "آخر تعديل"], true); }
+function plnObj_(r) { return { id: r[0], type: r[1], dept: r[2], term: r[3], month: r[4], title: r[5], items: jsonOr_(r[6], []), note: r[7], createdAt: r[8], updatedAt: r[9] }; }
+function listPlans(code) {
+  const me = who_(code);
+  if (me.isDemo && !me.isHead) return [];
+  return plnSheet_().getDataRange().getDisplayValues().slice(1).filter(r => r[0]).map(plnObj_)
+    .filter(p => me.isHead || (me.classes || []).some(c => String(c).split(":")[0] === p.dept))
+    .sort((a, b) => (b.term + (b.month || "") + b.createdAt).localeCompare(a.term + (a.month || "") + a.createdAt));
+}
+function savePlan(code, p) {
+  const me = head_(code); if (me.isDemo) throw new Error("غير متاح في الحساب التجريبي.");
+  const type = PLN_TYPES.indexOf(p && p.type) !== -1 ? p.type : "";
+  if (!type) throw new Error("اختر نوع الخطة.");
+  const dept = ["hd", "qr"].indexOf(p.dept) !== -1 ? p.dept : ""; if (!dept) throw new Error("اختر القسم.");
+  const term = String(p.term || "").trim().slice(0, 40); if (!term) throw new Error("اختر الفصل الدراسي.");
+  const month = type === "شهرية" ? String(p.month || "").slice(0, 7) : "";
+  if (type === "شهرية" && !/^\d{4}-\d{2}$/.test(month)) throw new Error("اختر الشهر.");
+  const title = String(p.title || "").trim().slice(0, 200);
+  const items = (Array.isArray(p.items) ? p.items : []).slice(0, 80).map(x => { const o = {}; PLN_F.forEach(k => o[k] = String(x && x[k] || "").trim().slice(0, 1500)); return o; })
+    .filter(o => PLN_F.some(k => o[k]));
+  const note = String(p.note || "").trim().slice(0, 3000);
+  return withLock_(() => {
+    const sh = plnSheet_(), at = nowText_();
+    if (p.id) {
+      const row = findRow_(sh, 1, String(p.id)); if (row < 0) throw new Error("الخطة غير موجودة.");
+      const old = sh.getRange(row, 1, 1, 10).getDisplayValues()[0];
+      writeRow_(sh, row, [old[0], type, dept, term, month, title, JSON.stringify(items), note, old[8], at]);
+      return { id: old[0], updatedAt: at };
+    }
+    const id = newId_(); appendText_(sh, [id, type, dept, term, month, title, JSON.stringify(items), note, at, at]);
+    return { id, updatedAt: at };
+  });
+}
+function deletePlan(code, id) {
+  head_(code);
+  return withLock_(() => { const sh = plnSheet_(), row = findRow_(sh, 1, String(id)); if (row < 0) throw new Error("الخطة غير موجودة."); sh.deleteRow(row); return true; });
 }

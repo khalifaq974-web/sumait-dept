@@ -372,6 +372,9 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
 .res-items { display: grid; gap: 10px; margin-top: 14px; }
 .res-row { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
 .res-row.muted-row { opacity: .75; }
+.pln-item { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: var(--bg); display: grid; gap: 6px; grid-template-columns: 1fr 1fr; }
+.pln-item .wide { grid-column: 1 / -1; } .pln-item label { font-size: 12.5px; color: var(--muted); } .pln-item textarea, .pln-item input { width: 100%; }
+.pln-item .pln-h { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; } @media (max-width: 640px) { .pln-item { grid-template-columns: 1fr; } }
 .res-at { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; } .res-at select { width: auto; flex: 1 1 200px; font-size: 13px; padding: 6px 8px; }
 .res-p { display: grid; } .res-p .sub { font-size: 12.5px; }
 @media (max-width: 640px) { .res-row { grid-template-columns: 1fr; } }
@@ -430,6 +433,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
 
     <nav class="sections" aria-label="أركان الموقع">
       <button id="nav-curr" aria-selected="true"><b>ما قطع من المنهج</b><span>متابعة الخطة</span><i class="lamp" id="lamp-curr" hidden></i></button>
+      <button id="nav-pln" aria-selected="false"><b>سجل خطة القسم</b><span>الخطة الفصلية والشهرية</span></button>
       <button id="nav-cls" aria-selected="false"><b>كشف متابعة المتعلمين</b><span>الدرجات وتقارير المتعلمين</span><i class="lamp" id="lamp-cls" hidden></i></button>
       <button id="nav-ach" aria-selected="false"><b>التنمية المهنية وإنجاز الموظف</b><span>الدورات والورش والزيارات</span><i class="lamp" id="lamp-ach" hidden></i></button>
       <button id="nav-act" aria-selected="false"><b>سجل الأنشطة والمسابقات</b><span>الأنشطة والمسابقات والإذاعة</span><i class="lamp" id="lamp-act" hidden></i></button>
@@ -606,6 +610,32 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="saved" id="mf-msg"></div>
       </form>
     </section>
+    <!-- سجل خطة القسم: خطة فصلية أو شهرية لكل قسم (رئيس الشعبة يكتب، والمعلمون يطّلعون) -->
+    <section id="sec-pln" hidden>
+      <div id="pln-listwrap">
+        <div class="card"><h2>سجل خطة القسم</h2><div class="sub">الخطة الفصلية والشهرية لكل قسم على حدة. كل خطة جدول بنود (المجال، الأهداف، الإجراءات والأنشطة، المسؤول، الزمن، مؤشرات التحقق، ملاحظات)، وتُنزَّل وورد و PDF بالديباجة.</div>
+          <div class="row-actions" style="margin-top:10px"><button class="btn head-only" id="pln-new" type="button" hidden>+ خطة جديدة</button><button class="btn ghost sm" id="pln-reload" type="button">تحديث</button></div></div>
+        <div class="list" id="pln-list"></div>
+      </div>
+      <form class="card" id="pln-form" hidden>
+        <h2 id="pln-h">خطة جديدة</h2>
+        <div class="grid3">
+          <div><label class="f">نوع الخطة</label><div class="chips"><label class="chip"><input type="radio" name="pln-type" value="فصلية" checked><span>فصلية</span></label><label class="chip"><input type="radio" name="pln-type" value="شهرية"><span>شهرية</span></label></div></div>
+          <div><label class="f" for="pln-dept">القسم</label><select id="pln-dept"><option value="hd">قسم الحديث الشريف</option><option value="qr">قسم القرآن الكريم</option></select></div>
+          <div><label class="f" for="pln-term">الفصل الدراسي</label><select id="pln-term"><option>الفصل الدراسي الأول</option><option>الفصل الدراسي الثاني</option></select></div>
+        </div>
+        <div class="grid3"><div id="pln-monthw" hidden><label class="f" for="pln-month">الشهر</label><input type="month" id="pln-month"></div>
+          <div style="grid-column:span 2"><label class="f" for="pln-title">عنوان الخطة (اختياري)</label><input type="text" id="pln-title" maxlength="200" placeholder="يُكتب تلقائيًا إن تركته فارغًا"></div></div>
+        <label class="f">بنود الخطة</label>
+        <div id="pln-items"></div>
+        <div class="row-actions" style="margin-top:6px"><button class="btn ghost sm" type="button" id="pln-add">+ بند</button></div>
+        <label class="f" for="pln-note">ملاحظة (اختياري)</label>
+        <textarea id="pln-note" rows="2" maxlength="3000"></textarea>
+        <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="pln-save">حفظ الخطة</button><button class="btn ghost" type="button" id="pln-cancel">إلغاء</button></div>
+        <div class="saved" id="pln-msg"></div>
+      </form>
+      <div class="card detail" id="pln-detail" hidden></div>
+    </section>
     <!-- إنجازات القسم: التقارير الشهرية (رئيس الشعبة) -->
     <section id="sec-mrp" hidden>
       <div id="mrp-listwrap">
@@ -711,6 +741,14 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
         <div class="chips" id="alr-filter" style="margin-top:12px"></div>
         <div class="row-actions" style="margin-top:8px"><button class="btn ghost sm" id="alr-reload" type="button">تحديث</button><button class="btn ghost sm head-only" id="alr-logpdf" type="button" hidden>سجل التنبيهات PDF</button></div>
         <div class="saved" id="alr-lmsg"></div>
+        <details class="card head-only" id="alrw-card" hidden style="margin-top:10px">
+          <summary><b>📄 التقرير الدوري للمعلم (كل أسبوعين)</b> <span class="sub" id="alrw-sum"></span></summary>
+          <div class="sub" style="margin-top:6px">لكل معلم صفحة بالديباجة عن آخر أسبوعين: الغياب والاستئذان، وما قطع من المنهج إن كان متأخرًا، والتحضير الكتابي، والنواقص التي لم يستكملها، ثم الإيجابيات والمشاركات (الاحتياط، التنمية المهنية، الأنشطة، المهام، الزيارات)، وخانة لملاحظاتك. وقبلها ملخص لكل قسم.</div>
+          <div class="row-actions" style="margin-top:8px;align-items:center"><label class="sub">الأسبوعان المنتهيان بأسبوع يوم: <input type="date" id="alrw-date" style="max-width:170px"></label>
+            <select id="alrw-t" aria-label="المعلم" style="max-width:220px"></select>
+            <button class="btn sm" type="button" id="alrw-load">تجهيز التقرير</button><button class="btn ghost sm" type="button" id="alrw-word">وورد</button><button class="btn ghost sm" type="button" id="alrw-pdf">PDF</button></div>
+          <div class="saved" id="alrw-msg"></div><div id="alrw-list"></div>
+        </details>
         <div class="list" id="alr-list"></div>
       </div>
       <div class="card detail" id="alr-detail" hidden></div>
@@ -1385,7 +1423,7 @@ $("logout").onclick = () => {
 };
 
 $("duty-hide").onclick = () => { $("duty-card").hidden = true; try { sessionStorage.setItem("dutyHide", todayISO()); } catch (e) {} };
-const SECTIONS = ["curr", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tt", "tsk", "alr", "mrp"];
+const SECTIONS = ["curr", "pln", "cls", "ach", "act", "min", "vis", "prm", "nsh", "res", "tt", "tsk", "alr", "mrp"];
 function go(sec, byUser) {
   if (SECTIONS.indexOf(sec) === -1 || (sec === "mrp" && !ME.isHead)) sec = "curr";
   const shown = sec === "act" ? "ach" : sec;
@@ -1405,6 +1443,7 @@ function go(sec, byUser) {
   if (sec === "ach" || sec === "act") { setAchDept(); setAchKind(sec === "act" ? "act" : "pd"); achTab(ME.isHead && achSub === "all" ? "all" : "mine"); }
   if (sec === "nsh") loadNsh();
   if (sec === "mrp") loadMrp();
+  if (sec === "pln") { PLN = null; loadPln(); }
   if (sec === "cls") { if (!CUR_CLS && $("cls-rep").hidden) clsHome(); }
   if (sec === "prm") { if ($("prm-detail").hidden || !CUR_PRM) prmTab(prmSub); }
   if (sec === "min") loadMinutes();
@@ -1415,6 +1454,87 @@ function go(sec, byUser) {
   if (sec === "alr") { ALR = null; loadAlr().then(() => loadGaps(true)); }
 }
 SECTIONS.forEach(s => $("nav-" + s).onclick = () => go(s, true));
+
+
+// ================= سجل خطة القسم (طلبه ٣/١١/٢٠٢٦) =================
+const PLN_COLS = [["f", "المجال"], ["g", "الأهداف"], ["a", "الإجراءات والأنشطة"], ["r", "المسؤول عن التنفيذ"], ["w", "زمن التنفيذ"], ["i", "مؤشرات التحقق"], ["n", "ملاحظات"]];
+let PLN = null, PLN_EDIT = null;
+const plnMonth = m => m ? `${MONTHS_AR[+m.slice(5, 7) - 1]} ${ar(m.slice(0, 4))}` : "";
+const plnTitle = p => p.title || `الخطة ${p.type === "شهرية" ? "الشهرية" : "الفصلية"} لقسم ${SUBJECTS[p.dept]} – ${p.type === "شهرية" ? "شهر " + plnMonth(p.month) : p.term}`;
+async function loadPln(force) {
+  $("pln-form").hidden = true; $("pln-detail").hidden = true; $("pln-listwrap").hidden = false; $("pln-new").hidden = !ME.isHead || ME.isDemo;
+  const box = $("pln-list");
+  if (!PLN || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { PLN = await run("listPlans", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(/غير معروف/.test(cleanErr(e)) ? "سجل خطة القسم يعمل بعد تحديث الخادم." : cleanErr(e))}</div>`; return; } }
+  if (!PLN.length) { box.innerHTML = `<div class="empty">${ME.isHead ? "لا توجد خطط بعد. اضغط «+ خطة جديدة»." : "لم تُرفع خطة للقسم بعد."}</div>`; return; }
+  box.innerHTML = ["hd", "qr"].map(d => { const l = PLN.filter(p => p.dept === d); return l.length ? `<h3 class="list-title">قسم ${esc(SUBJECTS[d])}</h3>` + l.map(p =>
+    `<button class="li li-btn" data-pln="${esc(p.id)}"><div class="li-main"><b>${esc(plnTitle(p))}</b><span class="sub">${esc(p.type)} · ${esc(p.term)}${p.month ? " · " + plnMonth(p.month) : ""} · ${ar(p.items.length)} ${p.items.length === 1 ? "بند" : "بنود"}${p.updatedAt ? " · آخر تعديل " + fmtStamp(p.updatedAt) : ""}</span></div><span class="pill none">${esc(p.type)}</span></button>`).join("") : ""; }).join("");
+  box.querySelectorAll("[data-pln]").forEach(b => b.onclick = () => openPln(b.dataset.pln));
+}
+$("pln-reload").onclick = () => loadPln(true);
+function plnItemHtml(x, i) {
+  return `<div class="pln-item" data-pi><div class="pln-h"><b>البند ${ar(i + 1)}</b><button class="btn ghost sm" type="button" data-pdel>حذف البند</button></div>
+    ${PLN_COLS.map(([k, l]) => `<div class="${k === "a" || k === "g" ? "wide" : ""}"><label>${l}</label>${k === "a" || k === "g" || k === "i" ? `<textarea rows="2" data-pk="${k}">${esc(x[k] || "")}</textarea>` : `<input type="text" data-pk="${k}" value="${esc(x[k] || "")}">`}</div>`).join("")}</div>`;
+}
+function plnItemsFromDom() { return [...document.querySelectorAll("#pln-items [data-pi]")].map(el => { const o = {}; el.querySelectorAll("[data-pk]").forEach(c => o[c.dataset.pk] = c.value.trim()); return o; }); }
+function plnRenderItems(items) {
+  $("pln-items").innerHTML = items.map(plnItemHtml).join("");
+  $("pln-items").querySelectorAll("[data-pdel]").forEach((b, i) => b.onclick = () => { const l = plnItemsFromDom(); l.splice(i, 1); plnRenderItems(l.length ? l : [{}]); });
+}
+$("pln-add").onclick = () => plnRenderItems(plnItemsFromDom().concat([{}]));
+document.querySelectorAll('input[name="pln-type"]').forEach(r => r.onchange = () => $("pln-monthw").hidden = r.value !== "شهرية" || !r.checked);
+function plnForm(p) {
+  PLN_EDIT = p || null;
+  $("pln-listwrap").hidden = true; $("pln-detail").hidden = true; $("pln-form").hidden = false; $("pln-msg").textContent = "";
+  $("pln-h").textContent = p ? "تعديل الخطة" : "خطة جديدة";
+  const type = p ? p.type : "فصلية"; document.querySelector(`input[name="pln-type"][value="${type}"]`).checked = true; $("pln-monthw").hidden = type !== "شهرية";
+  $("pln-dept").value = p ? p.dept : (dF("pln") || "hd"); $("pln-term").value = p ? p.term : (NOW.getMonth() >= 1 && NOW.getMonth() <= 6 ? "الفصل الدراسي الثاني" : "الفصل الدراسي الأول");
+  $("pln-month").value = p ? p.month : todayISO().slice(0, 7); $("pln-title").value = p ? p.title : ""; $("pln-note").value = p ? p.note : "";
+  plnRenderItems(p && p.items.length ? p.items : [{}]);
+  window.scrollTo({ top: $("pln-form").offsetTop - 10, behavior: "smooth" });
+}
+$("pln-new").onclick = () => plnForm(null);
+$("pln-cancel").onclick = () => PLN_EDIT ? openPln(PLN_EDIT.id) : loadPln();
+$("pln-form").addEventListener("submit", async e => {
+  e.preventDefault(); const m = $("pln-msg"), btn = $("pln-save");
+  const p = { id: PLN_EDIT ? PLN_EDIT.id : "", type: document.querySelector('input[name="pln-type"]:checked').value, dept: $("pln-dept").value, term: $("pln-term").value,
+    month: $("pln-month").value, title: $("pln-title").value.trim(), items: plnItemsFromDom().filter(x => Object.values(x).some(Boolean)), note: $("pln-note").value.trim() };
+  btn.disabled = true; m.textContent = "جارٍ الحفظ…";
+  try { const r = await run("savePlan", CODE, p); PLN = await run("listPlans", CODE); openPln(r.id); $("pln-dmsg") && ($("pln-dmsg").textContent = "تم الحفظ."); }
+  catch (x) { m.textContent = /غير معروف/.test(cleanErr(x)) ? "سجل خطة القسم يعمل بعد تحديث الخادم." : cleanErr(x); } finally { btn.disabled = false; }
+});
+function openPln(id) {
+  const p = (PLN || []).find(x => x.id === id); if (!p) return loadPln();
+  $("pln-listwrap").hidden = true; $("pln-form").hidden = true; const d = $("pln-detail"); d.hidden = false;
+  d.innerHTML = `<button class="btn ghost sm" id="pln-back" type="button">→ رجوع للقائمة</button>
+    <h2 style="margin-top:10px">${esc(plnTitle(p))}</h2><div class="sub">قسم ${esc(SUBJECTS[p.dept])} · ${esc(p.type)} · ${esc(p.term)}${p.month ? " · " + plnMonth(p.month) : ""}${p.updatedAt ? " · آخر تعديل " + fmtStamp(p.updatedAt) : ""}</div>
+    ${p.items.length ? `<div class="tablebox" style="margin-top:10px"><table class="vis-table"><thead><tr><th>م</th>${PLN_COLS.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>${p.items.map((x, i) => `<tr><td>${ar(i + 1)}</td>${PLN_COLS.map(([k]) => `<td style="white-space:pre-line">${esc(x[k] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : '<div class="empty">لا توجد بنود بعد.</div>'}
+    ${p.note ? `<h3>ملاحظة</h3><p class="teacher-desc">${esc(p.note)}</p>` : ""}
+    <div class="row-actions" style="margin-top:12px">${ME.isHead && !ME.isDemo ? '<button class="btn" id="pln-edit" type="button">تعديل</button>' : ""}<button class="btn ghost" id="pln-word" type="button">وورد</button><button class="btn ghost" id="pln-pdf" type="button">PDF</button>${ME.isHead && !ME.isDemo ? '<button class="btn ghost" id="pln-del" type="button">حذف الخطة</button>' : ""}</div>
+    <div class="saved" id="pln-dmsg"></div>`;
+  $("pln-back").onclick = () => loadPln();
+  if ($("pln-edit")) $("pln-edit").onclick = () => plnForm(p);
+  const fname = plnTitle(p);
+  $("pln-pdf").onclick = () => deliverPdf(() => pdfPln(p), fname + ".pdf", $("pln-dmsg"));
+  $("pln-word").onclick = async () => { const m = $("pln-dmsg"); m.textContent = "جارٍ إنشاء الملف…"; try { await deliver(await window.docx.Packer.toBlob(buildPlnDoc(window.docx, p)), fname + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); } };
+  if ($("pln-del")) $("pln-del").onclick = () => confirmInline($("pln-del"), "اضغط مرة ثانية لحذف الخطة", async () => { try { await run("deletePlan", CODE, p.id); PLN = PLN.filter(x => x.id !== p.id); loadPln(); } catch (e) { $("pln-dmsg").textContent = cleanErr(e); } });
+}
+const PLN_PDF_CSS = `<style>.pp table.plng td{vertical-align:top;white-space:pre-line;font-size:12.5px}.pp table.plng th{font-size:12.5px}</style>`;
+function pdfPln(p) {
+  return { box: p.type === "شهرية" ? "الخطة الشهرية للقسم" : "الخطة الفصلية للقسم", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [PLN_PDF_CSS,
+    P.info([["القسم", "قسم " + SUBJECTS[p.dept]], ["الفصل الدراسي", p.term], ["نوع الخطة", p.type + (p.month ? " – " + plnMonth(p.month) : "")], ["العام الدراسي", "١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م"]], 2),
+    P.title(plnTitle(p)),
+    p.items.length ? P.grid(P.th(["م", ...PLN_COLS.map(c => c[1])]), p.items.map((x, i) => P.tr([{ t: ar(i + 1), c: "c" }, ...PLN_COLS.map(([k]) => x[k] || "")])), "plng") : P.p("لا توجد بنود."),
+    p.note ? P.h("ملاحظة") : "", p.note ? P.p(p.note) : ""] };
+}
+function buildPlnDoc(D, p) {
+  const h = H(D), C = h.C, W = [500, 1700, 2600, 3100, 1700, 1500, 2000, 1300], cs = (x, o = {}) => h.cell(String(x || "").split("\n").map(l => h.para(l, { size: 17, after: 0, line: 260 })), Object.assign({}, o));
+  const info = h.table([[h.lab("القسم:", { w: 1800 }), h.cell("قسم " + SUBJECTS[p.dept], { w: 5400, size: 19 }), h.lab("الفصل الدراسي:", { w: 1800 }), h.cell(p.term, { w: 5400, size: 19 })],
+    [h.lab("نوع الخطة:"), h.cell(p.type + (p.month ? " – " + plnMonth(p.month) : ""), { size: 19 }), h.lab("العام الدراسي:"), h.cell("١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م", { size: 19 })]], [1800, 5400, 1800, 5400], h.softBorders("C9D6E3"));
+  const rows = [["م", ...PLN_COLS.map(c => c[1])].map((x, i) => h.th(x, { w: W[i], size: 16 })), ...p.items.map((x, i) => [h.cell(ar(i + 1), { w: W[0], align: C, size: 17 }), ...PLN_COLS.map(([k], j) => cs(x[k], { w: W[j + 1] }))])];
+  return h.doc([...h.formHeader(p.type === "شهرية" ? "الخطة الشهرية للقسم" : "الخطة الفصلية للقسم", 14400), info, h.para(plnTitle(p), { size: 24, bold: true, color: h.NAVY, align: C, before: 120, after: 120 }),
+    p.items.length ? h.table(rows, W, h.softBorders("C9D6E3")) : h.para("لا توجد بنود.", { size: 20 }),
+    ...(p.note ? [h.heading("ملاحظة"), h.para(p.note, { size: 19 })] : []), h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400)], { landscape: true });
+}
 
 // ================= ركن ما قطع من المنهج =================
 function setTab(which) {
@@ -3667,7 +3787,7 @@ async function loadAlr(force) {
   $("alr-form").hidden = true; $("alr-detail").hidden = true; $("alr-listwrap").hidden = false; $("alr-newwrap").hidden = !ME.isHead;
   const box = $("alr-list");
   if (!ALR || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { ALR = await run("listAlerts", CODE); if (ME.isHead && !ME.isDemo) INQ = await run("listInquiries", CODE).catch(() => []); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
-  alrLampTeacher(); prepCard();
+  alrLampTeacher(); prepCard(); trpRender();
   const F = [["open", "لم تكتمل"], ["done", "المكتملة"], ["all", "الكل"]];
   $("alr-filter").innerHTML = F.map(([k, l]) => `<label class="chip"><input type="radio" name="alr-f" value="${k}"${k === alrFilter ? " checked" : ""}><span>${l} (${ar(ALR.filter(a => k === "all" || (k === "done") === alrDone(a)).length)})</span></label>`).join("");
   document.querySelectorAll('input[name="alr-f"]').forEach(r => r.onchange = () => { alrFilter = r.value; loadAlr(); });
@@ -3777,6 +3897,151 @@ function pdfAlrLog() {
       q.map(x => P.tr([fmtStamp(x.at), "أ. " + x.teacher, { t: ar(x.items.length), c: "c" }, x.items.map(i => i.t).join("، ")])), "dense") : P.p("لم يصدر أي استفسار."); })()] };
 }
 $("alr-logpdf").onclick = () => deliverPdf(() => pdfAlrLog(), `سجل تنبيهات الاستكمال${dFile(dF("alr"))}.pdf`, $("alr-lmsg"));
+// ---------- التقرير الدوري للمعلم كل أسبوعين (طلبه ٣/١١/٢٠٢٦) ----------
+// لكل معلم: الحضور والانضباط (الغياب، العذر الطارئ، الاستئذان)، ما قطع من المنهج إن كان متأخرًا، التحضير الكتابي، النواقص غير المستكملة،
+// ثم الإيجابيات والمشاركات والتفاعل (الاحتياط، التنمية المهنية، الأنشطة، المهام المنفّذة، الزيارات الصفية)، وملاحظات رئيس الشعبة. لا يُجمع القسمان.
+const TRP_BOX = "التقرير الدوري للمعلم";
+let TRP = null;
+async function trpLoad() {
+  const opt = (fn, def) => run(fn, CODE).catch(() => def);
+  const [all, prm, ach, tsk, vis, alr, inq] = await Promise.all([opt("headData", null), opt("listPermissions", []), opt("allAchievements", []), opt("listTasks", []), opt("listVisits", []), opt("listAlerts", []), opt("listInquiries", [])]);
+  if (all) ALL = all; await loadRes(true); ALR = alr; INQ = inq;
+  TRP = { prm: prm || [], ach: ach || [], tsk: tsk || [], vis: vis || [] };
+}
+function trpRange(dateISO) {
+  const ws = weekStartISO(dateISO || todayISO()), from = addDaysISO(ws, -7), to = addDaysISO(ws, 4), today = todayISO(), cut = to < today ? to : today;
+  return { from, to, cut, label: `من ${dayName(from)} ${fmtDate(from)} إلى ${dayName(to)} ${fmtDate(to)}` + (cut < to ? ` (حتى ${fmtDate(cut)})` : "") };
+}
+const inRange = (d, r) => d && d.slice(0, 10) >= r.from && d.slice(0, 10) <= r.cut;
+const daysBetween = (a, b) => Math.round((new Date(b + "T12:00") - new Date(a + "T12:00")) / 864e5);
+function trpTeacher(t, dp, r) {
+  const o = { t };
+  // الحضور والانضباط
+  const abs = (RES.absences || []).filter(a => a.teacher === t && inRange(a.date, r));
+  o.absDays = abs.filter(a => a.kind !== ABS_EXCUSE).map(a => a.date).sort();
+  o.excuses = abs.filter(a => a.kind === ABS_EXCUSE).map(a => a.date).sort();
+  o.perms = (TRP.prm || []).filter(p => p.teacher === t && p.status !== "مرفوض" && inRange(p.date, r)).sort((a, b) => a.date.localeCompare(b.date));
+  // ما قطع من المنهج: فصول القسم المتأخرة عن الخطة
+  const wk = r.cut === todayISO() ? WEEK : currentWeek(new Date(r.cut + "T12:00"));
+  o.currLate = ALL_CLASSES.filter(c => c.dept === dp && c.teacher === t).map(c => { const key = planKey(c.dept, c.grade), p = (ALL || {})[docId(c)], done = p ? p.done : null;
+    return { label: c.label, st: status(key, done, wk), done: done == null ? "لم يُحدَّث" : slotLabel(key, done), planned: plannedLabel(key, wk) }; }).filter(x => x.st.kind === "late");
+  o.currCount = ALL_CLASSES.filter(c => c.dept === dp && c.teacher === t).length;
+  // التنبيهات: التحضير الكتابي، وعدم دخول الاحتياط، وباقي النواقص التي لم تُستكمل حتى نهاية الفترة
+  o.prep = []; o.resMiss = []; o.gaps = [];
+  (ALR || []).filter(a => a.createdAt.slice(0, 10) <= r.cut).forEach(a => (a.status || []).filter(s => !s.demo && s.teacher === t).forEach(s => a.items.forEach((x, i) => {
+    const at = (s.done || {})[i], doneIn = at && at.slice(0, 10) <= r.cut, sent = a.createdAt.slice(0, 10);
+    if (x.t.indexOf(PREP_MISS) === 0) { if (inRange(sent, r)) o.prep.push({ t: x.t.replace(/:.*$/, ""), sent, done: doneIn ? at.slice(0, 10) : "" }); return; }
+    if (isResMiss(x)) { if (inRange(sent, r)) o.resMiss.push({ t: x.t.replace(RES_MISS + ": ", ""), sent, done: doneIn ? at.slice(0, 10) : "" }); return; }
+    if (doneIn) return;
+    o.gaps.push({ t: x.t, k: x.k, sent, due: a.due || "", late: a.due && a.due < r.cut ? daysBetween(a.due, r.cut) : 0 }); })));
+  o.gaps.sort((a, b) => b.late - a.late || a.sent.localeCompare(b.sent));
+  o.inq = (INQ || []).filter(q => !q.demo && q.teacher === t && inRange(q.at, r)).length;
+  // الإيجابيات والمشاركات والتفاعل
+  o.resGiven = (RES.covers || []).filter(c => ((c.substitute === t && c.status === COV_DONE) || c.taskSub === t) && inRange(c.date, r)).length + (RES.manual || []).filter(m => m.teacher === t && inRange(m.date, r) && !(RES.covers || []).some(c => c.taskId === m.id)).length;
+  const achOf = k => (TRP.ach || []).filter(x => x.teacher === t && x.kind === k && (x.dept || dp) === dp && inRange(x.date || x.createdAt, r)).map(x => `${x.type ? x.type + ": " : ""}${x.title}`);
+  o.pd = achOf("pd"); o.act = achOf("act");
+  o.tasksDone = (TRP.tsk || []).filter(x => !x.auto && x.type !== TSK_ALERT).flatMap(x => (x.status || []).filter(s => s.teacher === t && s.status === "تم التنفيذ" && inRange(s.doneAt, r)).map(() => `${x.type} «${x.title}»`));
+  o.visits = (TRP.vis || []).filter(v => v.teacher === t && (v.dept || dp) === dp && inRange(v.date, r)).map(v => fmtDate(v.date));
+  o.shortCount = o.absDays.length + o.currLate.length + o.prep.filter(x => !x.done).length + o.resMiss.length + o.gaps.length;
+  o.posCount = o.resGiven + o.pd.length + o.act.length + o.tasksDone.length;
+  return o;
+}
+function trpParts() {
+  const r = trpRange($("alrw-date").value), d = dF("alr"), only = $("alrw-t").value;
+  const parts = (d ? [d] : ["hd", "qr"]).map(dp => ({ d: dp, list: TEACHERS.map(x => x[0]).filter(t => t !== HEAD_NAME && (DEPT_OF[t] || []).indexOf(dp) !== -1 && (!only || only === t)).map(t => trpTeacher(t, dp, r)) })).filter(p => p.list.length);
+  return { r, parts };
+}
+const dl = l => l.map(x => fmtDate(x)).join("، ");
+const trpLateTxt = x => x.late ? `متأخر ${ar(x.late)} ${x.late === 1 ? "يوم" : x.late === 2 ? "يومين" : x.late <= 10 ? "أيام" : "يومًا"}` : x.due ? "لم يحن موعده" : "بلا موعد";
+function trpRender() {
+  const card = $("alrw-card"); if (!ME.isHead || ME.isDemo) { card.hidden = true; return; }
+  card.hidden = false; if (!$("alrw-date").value) $("alrw-date").value = todayISO();
+  if (!$("alrw-t").options.length) $("alrw-t").innerHTML = '<option value="">كل المعلمين</option>' + TEACHERS.map(x => x[0]).filter(t => t !== HEAD_NAME).map(t => `<option value="${esc(t)}">أ. ${esc(shortName(t))}</option>`).join("");
+  const r = trpRange($("alrw-date").value); $("alrw-sum").textContent = "· " + r.label;
+  if (!TRP) { $("alrw-list").innerHTML = '<div class="sub" style="margin-top:6px">افتح البطاقة واضغط «تجهيز التقرير» لجلب بيانات الفترة.</div>'; return; }
+  const { parts } = trpParts();
+  $("alrw-list").innerHTML = parts.map(p => `<h3 class="list-title">${esc(dName(p.d))}</h3><div class="list">${p.list.map(o =>
+    `<div class="li"><div class="li-main"><b>أ. ${esc(shortName(o.t))}</b><span class="sub">غياب ${ar(o.absDays.length)} · استئذان ${ar(o.perms.length)} · فصول متأخرة ${ar(o.currLate.length)} · نواقص ${ar(o.gaps.length)} · احتياط دخله ${ar(o.resGiven)} · إنجازات وأنشطة ${ar(o.pd.length + o.act.length)}</span></div><span class="pill ${o.shortCount ? "late" : "ok"}">${o.shortCount ? ar(o.shortCount) + " ملاحظات" : "لا قصور"}</span></div>`).join("")}</div>`).join("") || '<div class="empty">لا يوجد معلمون.</div>';
+}
+$("alrw-date").onchange = trpRender; $("alrw-t").onchange = trpRender;
+$("alrw-load").onclick = async () => { const m = $("alrw-msg"); m.textContent = "جارٍ جلب البيانات…"; $("alrw-load").disabled = true;
+  try { await trpLoad(); m.textContent = ""; trpRender(); } catch (e) { m.textContent = cleanErr(e); } finally { $("alrw-load").disabled = false; } };
+const trpNone = "لا يوجد.";
+function pdfTrp() {
+  const { r, parts } = trpParts(), blocks = []; let first = true;
+  const brk = () => { if (!first) blocks.push('<div class="pgbrk"></div>'); first = false; };
+  const li = l => l.length ? P.ul(l) : P.p(trpNone, "mut");
+  parts.forEach(p => {
+    brk();
+    blocks.push(P.p(`${dName(p.d)} · الفترة ${r.label}`, "c b"), P.h("ملخص المعلمين"),
+      P.grid(P.th(["المعلم", "أيام الغياب", "الاستئذان", "فصول متأخرة", "التحضير الكتابي", "نواقص لم تُستكمل", "احتياط دخله", "تنمية مهنية وأنشطة", "مهام نفّذها"]),
+        p.list.map(o => P.tr(["أ. " + o.t, { t: ar(o.absDays.length), c: o.absDays.length ? "c late" : "c" }, { t: ar(o.perms.length), c: "c" }, { t: ar(o.currLate.length), c: o.currLate.length ? "c late" : "c" },
+          { t: o.prep.length ? o.prep.filter(x => !x.done).length ? "لم يُحضره" : "أحضره بعد التنبيه" : "—", c: o.prep.some(x => !x.done) ? "c late" : "c" }, { t: ar(o.gaps.length), c: o.gaps.length ? "c late" : "c" },
+          { t: ar(o.resGiven), c: "c ok" }, { t: ar(o.pd.length + o.act.length), c: "c ok" }, { t: ar(o.tasksDone.length), c: "c ok" }])), "dense"),
+      pdfSigns([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]]));
+    p.list.forEach(o => { brk();
+      blocks.push(P.info([["المعلم", "أ. " + o.t], ["القسم", dName(p.d)], ["الفترة", r.label], ["ملخص", `ملاحظات: ${ar(o.shortCount)} · مشاركات: ${ar(o.posCount)}`]], 2),
+        P.h("أولًا: الحضور والانضباط"),
+        P.ul([`أيام الغياب: ${o.absDays.length ? ar(o.absDays.length) + " (" + dl(o.absDays) + ")" : "لا يوجد"}`, `العذر الطارئ: ${o.excuses.length ? ar(o.excuses.length) + " (" + dl(o.excuses) + ")" : "لا يوجد"}`,
+          `الاستئذان: ${o.perms.length ? ar(o.perms.length) + " (" + o.perms.map(x => fmtDate(x.date) + " " + x.type).join("، ") + ")" : "لا يوجد"}`,
+          `حصص احتياط لم يدخلها: ${o.resMiss.length ? o.resMiss.map(x => x.t).join("، ") : "لا يوجد"}`]),
+        P.h("ثانيًا: ما قطع من المنهج"),
+        o.currLate.length ? P.grid(P.th(["الفصل", "ما قطعه", "المقرر حسب الخطة", "الحالة"]), o.currLate.map(x => P.tr([{ t: x.label, c: "c" }, x.done, x.planned, { t: x.st.text, c: "c late" }])), "dense")
+          : P.p(o.currCount ? `مطابق للخطة أو متقدم في فصوله (${ar(o.currCount)}).` : trpNone),
+        P.h("ثالثًا: التحضير الكتابي"),
+        P.p(o.prep.length ? o.prep.map(x => `${x.t} — ${x.done ? "أحضره " + fmtDate(x.done) : "لم يُحضره حتى نهاية الفترة"}`).join(" · ") : "لم يُسجَّل عليه عدم إحضار التحضير الكتابي في هذه الفترة."),
+        P.h("رابعًا: النواقص التي لم تُستكمل"),
+        o.gaps.length ? P.grid(P.th(["النقص", "السجل", "تاريخ التنبيه", "آخر موعد", "الحالة"]), o.gaps.map(x => P.tr([x.t, { t: SEC_NAMES_AR[x.k] || "سجلات ورقية", c: "c" }, { t: fmtDate(x.sent), c: "c" }, { t: x.due ? fmtDate(x.due) : "—", c: "c" }, { t: trpLateTxt(x), c: x.late ? "c late" : "c" }])), "dense")
+          : P.p("لا توجد نواقص غير مستكملة." + (o.inq ? "" : "")),
+        P.h("خامسًا: الإيجابيات والمشاركات والتفاعل"),
+        P.ul([`حصص احتياط دخلها: ${ar(o.resGiven)}`, `التنمية المهنية: ${o.pd.length ? o.pd.join("، ") : "لا يوجد"}`, `الأنشطة والمسابقات: ${o.act.length ? o.act.join("، ") : "لا يوجد"}`,
+          `مهام وتكاليف نفّذها: ${o.tasksDone.length ? o.tasksDone.join("، ") : "لا يوجد"}`, `زيارات صفية في الفترة: ${o.visits.length ? dl(o.visits.map(x => x)) : "لا يوجد"}`].map(x => x.replace(/، $/, ""))),
+        P.h("سادسًا: ملاحظات رئيس الشعبة"), `<div style="border:1px solid #C9D6E3;border-radius:6px;padding:4px 10px">${'<div style="border-bottom:1px dotted #9AA8B5;height:26px"></div>'.repeat(3)}</div>`,
+        pdfSigns([["المعلم", "أ. " + o.t], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]])); });
+  });
+  return { box: TRP_BOX, signs: [], blocks };
+}
+function buildTrpDoc(D) {
+  const h = H(D), C = h.C, { r, parts } = trpParts(), kids = [], cs = (x, o = {}) => h.cell(x, Object.assign({ size: 17 }, o));
+  const page = list => { if (kids.length) kids.push(new D.Paragraph({ children: [new D.PageBreak()] })); kids.push(...h.formHeader(TRP_BOX), ...list); };
+  const bul = l => l.map(x => h.para("■  " + x, { size: 19, after: 40 }));
+  const line = t => h.para(t, { size: 19, after: 60 });
+  parts.forEach(p => {
+    const W = [2300, 800, 900, 900, 1300, 1000, 900, 1000, 900];
+    page([h.para(`${dName(p.d)} · الفترة ${r.label}`, { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }), h.heading("ملخص المعلمين"),
+      h.table([["المعلم", "الغياب", "الاستئذان", "فصول متأخرة", "التحضير", "نواقص", "احتياط", "إنجازات وأنشطة", "مهام"].map((x, i) => h.th(x, { w: W[i], size: 15 })),
+        ...p.list.map(o => [cs("أ. " + o.t, { size: 16 }), cs(ar(o.absDays.length), { align: C }), cs(ar(o.perms.length), { align: C }), cs(ar(o.currLate.length), { align: C }),
+          cs(o.prep.length ? o.prep.some(x => !x.done) ? "لم يُحضره" : "أحضره" : "—", { align: C, size: 15 }), cs(ar(o.gaps.length), { align: C }), cs(ar(o.resGiven), { align: C }), cs(ar(o.pd.length + o.act.length), { align: C }), cs(ar(o.tasksDone.length), { align: C })])],
+        W, h.softBorders("C9D6E3")),
+      h.para("", { after: 400 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000)]);
+    p.list.forEach(o => page([
+      h.table([[h.lab("المعلم:", { w: 1500 }), cs("أ. " + o.t, { w: 3500, bold: true, size: 19 }), h.lab("القسم:", { w: 1500 }), cs(dName(p.d), { w: 3500, size: 19 })],
+        [h.lab("الفترة:"), new D.TableCell({ columnSpan: 3, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [h.para(r.label, { size: 18, after: 0 })] })]], [1500, 3500, 1500, 3500], h.softBorders("C9D6E3")),
+      h.heading("أولًا: الحضور والانضباط"),
+      ...bul([`أيام الغياب: ${o.absDays.length ? ar(o.absDays.length) + " (" + dl(o.absDays) + ")" : "لا يوجد"}`, `العذر الطارئ: ${o.excuses.length ? ar(o.excuses.length) + " (" + dl(o.excuses) + ")" : "لا يوجد"}`,
+        `الاستئذان: ${o.perms.length ? ar(o.perms.length) + " (" + o.perms.map(x => fmtDate(x.date) + " " + x.type).join("، ") + ")" : "لا يوجد"}`, `حصص احتياط لم يدخلها: ${o.resMiss.length ? o.resMiss.map(x => x.t).join("، ") : "لا يوجد"}`]),
+      h.heading("ثانيًا: ما قطع من المنهج"),
+      o.currLate.length ? h.table([["الفصل", "ما قطعه", "المقرر حسب الخطة", "الحالة"].map(x => h.th(x, { size: 16 })), ...o.currLate.map(x => [cs(x.label, { align: C }), cs(x.done), cs(x.planned), cs(x.st.text, { align: C, bold: true, color: "B4382B" })])], [1300, 3600, 3600, 1500], h.softBorders("C9D6E3"))
+        : line(o.currCount ? `مطابق للخطة أو متقدم في فصوله (${ar(o.currCount)}).` : trpNone),
+      h.heading("ثالثًا: التحضير الكتابي"),
+      line(o.prep.length ? o.prep.map(x => `${x.t} — ${x.done ? "أحضره " + fmtDate(x.done) : "لم يُحضره حتى نهاية الفترة"}`).join(" · ") : "لم يُسجَّل عليه عدم إحضار التحضير الكتابي في هذه الفترة."),
+      h.heading("رابعًا: النواقص التي لم تُستكمل"),
+      o.gaps.length ? h.table([["النقص", "السجل", "تاريخ التنبيه", "آخر موعد", "الحالة"].map(x => h.th(x, { size: 16 })), ...o.gaps.map(x => [cs(x.t), cs(SEC_NAMES_AR[x.k] || "سجلات ورقية", { align: C, size: 15 }), cs(fmtDate(x.sent), { align: C }), cs(x.due ? fmtDate(x.due) : "—", { align: C }), cs(trpLateTxt(x), { align: C, bold: !!x.late, color: x.late ? "B4382B" : undefined })])], [3800, 1700, 1500, 1400, 1600], h.softBorders("C9D6E3"))
+        : line("لا توجد نواقص غير مستكملة."),
+      h.heading("خامسًا: الإيجابيات والمشاركات والتفاعل"),
+      ...bul([`حصص احتياط دخلها: ${ar(o.resGiven)}`, `التنمية المهنية: ${o.pd.length ? o.pd.join("، ") : "لا يوجد"}`, `الأنشطة والمسابقات: ${o.act.length ? o.act.join("، ") : "لا يوجد"}`,
+        `مهام وتكاليف نفّذها: ${o.tasksDone.length ? o.tasksDone.join("، ") : "لا يوجد"}`, `زيارات صفية في الفترة: ${o.visits.length ? o.visits.join("، ") : "لا يوجد"}`]),
+      h.heading("سادسًا: ملاحظات رئيس الشعبة"),
+      h.table([[h.cell([1, 2, 3].map(() => h.para(" ", { size: 20, after: 0, line: 420 })), { w: 10000 })]], [10000], h.softBorders("C9D6E3")), h.para("", { after: 300 }),
+      h.signRow([["المعلم", "أ. " + o.t], ["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000)]));
+  });
+  return h.doc(kids);
+}
+const trpFile = () => { const r = trpRange($("alrw-date").value), t = $("alrw-t").value; return `${TRP_BOX}${t ? " - أ. " + shortName(t) : ""} - ${r.from} إلى ${r.to}${dFile(dF("alr"))}`; };
+const trpReady = async () => { if (!TRP) await trpLoad(); };
+$("alrw-pdf").onclick = () => deliverPdf(async () => { await trpReady(); return pdfTrp(); }, trpFile() + ".pdf", $("alrw-msg"));
+$("alrw-word").onclick = async () => { const m = $("alrw-msg"); m.textContent = "جارٍ إنشاء الملف…";
+  try { await trpReady(); await deliver(await window.docx.Packer.toBlob(buildTrpDoc(window.docx)), trpFile() + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); } };
 function alrWaText(a, n) {
   return waMsg(n, `🔔 تنبيه لاستكمال النواقص التالية:\n${a.items.map((x, i) => `${ar(i + 1)}. ${x.t}`).join("\n")}${a.due ? `\n\nآخر موعد للاستكمال: ${dayName(a.due)} ${a.due}` : ""}${a.note ? "\n\n" + a.note : ""}\n\nبعد الاستكمال علّم على كل نقص «تم» في ركن «تنبيهات الاستكمال».`, "alr=" + a.id);
 }
