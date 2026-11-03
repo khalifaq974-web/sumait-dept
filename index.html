@@ -86,6 +86,9 @@ select:focus-visible, input:focus-visible, button:focus-visible { outline: 3px s
 table.tt { min-width: 640px; table-layout: fixed; }
 table.tt.prof { table-layout: auto; min-width: 760px; } table.tt.prof td.nm { text-align: right; font-weight: 700; white-space: nowrap; }
 table.tt th, table.tt td { text-align: center; vertical-align: middle; border: 1px solid var(--line); padding: 7px 4px; }
+table.tt th small.tm { display: block; font-size: 11px; font-weight: 500; opacity: .85; margin-top: 2px; }
+.tt-bell { margin-top: 8px; font-size: 12.5px; color: var(--muted); text-align: center; }
+table.bell { min-width: 0; max-width: 560px; margin: 12px auto 0; } table.bell th, table.bell td { text-align: center; } table.bell tr.brk td { background: var(--bg); color: var(--muted); font-weight: 700; }
 table.tt th.day, table.tt td.day { width: 92px; font-weight: 700; background: var(--bg); color: var(--ink); position: static; }
 table.tt td.l b { display: block; font-family: var(--f-display); font-size: 16px; }
 table.tt td.l small { display: block; font-size: 11.5px; color: var(--muted); }
@@ -618,6 +621,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <nav class="tabs" role="tablist">
         <button id="tttab-t" role="tab" aria-selected="true">جدول المعلم</button>
         <button id="tttab-d" role="tab" aria-selected="false">الجدول العام</button>
+        <button id="tttab-b" role="tab" aria-selected="false">توقيت الحصص</button>
         <button id="tttab-p" role="tab" aria-selected="false" class="head-only" hidden>بيانات المعلمين</button>
       </nav>
       <div class="toolbar">
@@ -5031,6 +5035,13 @@ function buildMinuteDoc(D, m, sigs) {
 // ================= ركن جدول الحصص الدراسية (طلبه ١/١١/٢٠٢٦) =================
 // يطّلع عليه كل المعلمين. المصدر: TIMETABLE (الجدول العام للقسم). «R» احتياط و«RF» احتياط فنية.
 let ttSub = "t", ttT = "";
+// توقيت الحصص ٢٠٢٦/٢٠٢٧ (طلبه ٣/١١/٢٠٢٦، من «جدول توقيت الحصص الدراسية» المعتمد من مدير المعهد): [الاسم، من، إلى، المدة بالدقائق، رقم الحصة أو 0 للفرصة]
+const BELL = [["لقاء الصباح", "7:45", "7:55", 10, 0], ["الحصة الأولى", "7:55", "8:40", 45, 1], ["الحصة الثانية", "8:45", "9:30", 45, 2], ["الحصة الثالثة", "9:35", "10:20", 45, 3],
+  ["الفرصة الأولى", "10:20", "10:35", 15, 0], ["الحصة الرابعة", "10:35", "11:20", 45, 4], ["الحصة الخامسة", "11:25", "12:10", 45, 5], ["فرصة الصلاة", "12:10", "12:20", 10, 0],
+  ["الحصة السادسة", "12:20", "1:05", 45, 6], ["الحصة السابعة", "1:10", "1:55", 45, 7]];
+const bellOf = p => BELL.find(x => x[4] === p);
+const PERIOD_TIME = p => { const b = bellOf(p); return b ? ar(b[1]) + " – " + ar(b[2]) : ""; };
+const BELL_NOTE = BELL.filter(x => !x[4]).map(x => `${x[0]} ${ar(x[1])} – ${ar(x[2])}`).join(" · ");
 const TT_DAYS = [0, 1, 2, 3, 4];
 function ttNames(d) { return TEACHERS.map(x => x[0]).filter(n => TIMETABLE[n] && (!d || (DEPT_OF[n] || []).indexOf(d) !== -1)); }
 function ttCell(c) {
@@ -5042,42 +5053,51 @@ function ttLoad(n) { const L = (TIMETABLE[n] || []).filter(x => isLesson(x)); re
 function ttTab(which) {
   if (which === "p" && !ME.isHead) which = "t";
   ttSub = which;
-  $("tttab-t").setAttribute("aria-selected", which === "t"); $("tttab-d").setAttribute("aria-selected", which === "d"); $("tttab-p").setAttribute("aria-selected", which === "p");
-  $("tt-teacher").hidden = which !== "t"; $("tt-dept").hidden = which === "t";
+  $("tttab-t").setAttribute("aria-selected", which === "t"); $("tttab-d").setAttribute("aria-selected", which === "d"); $("tttab-p").setAttribute("aria-selected", which === "p"); $("tttab-b").setAttribute("aria-selected", which === "b");
+  $("tt-teacher").hidden = which !== "t"; $("tt-dept").hidden = which === "t" || which === "b";
   if (which === "t") {
     const names = ttNames();
     if (!ttT) ttT = names.indexOf(ME.name) !== -1 ? ME.name : names[0];
     $("tt-teacher").innerHTML = names.map(n => `<option value="${esc(n)}"${n === ttT ? " selected" : ""}>أ. ${esc(n)}${n === ME.name ? " (جدولي)" : ""}</option>`).join("");
   }
   $("tt-msg").textContent = "";
-  which === "t" ? renderTtTeacher() : which === "p" ? renderTtProf() : renderTtAll();
+  which === "t" ? renderTtTeacher() : which === "p" ? renderTtProf() : which === "b" ? renderTtBell() : renderTtAll();
 }
 $("tttab-t").onclick = () => ttTab("t");
 $("tttab-d").onclick = () => ttTab("d");
 $("tttab-p").onclick = () => ttTab("p");
+$("tttab-b").onclick = () => ttTab("b");
 $("tt-teacher").onchange = e => { ttT = e.target.value; renderTtTeacher(); };
 $("tt-dept").onchange = () => ttSub === "p" ? renderTtProf() : renderTtAll();
 function ttTd(c) { const x = ttCell(c); return `<td class="${x.kind}">${x.kind ? (x.kind === "r" ? esc(x.a) : `<b>${esc(x.a)}</b><small>${esc(x.b)}</small>`) : ""}</td>`; }
-const ttHead = first => `<thead><tr><th class="day">${first}</th>${PERIOD_NAMES.slice(1).map(p => `<th>${p}</th>`).join("")}</tr></thead>`;
+const ttHead = first => `<thead><tr><th class="day">${first}</th>${PERIOD_NAMES.slice(1).map((p, i) => `<th>${p}<small class="tm">${PERIOD_TIME(i + 1)}</small></th>`).join("")}</tr></thead>`;
 function renderTtTeacher() {
   const n = ttT, today = isoDay(todayISO()), ld = ttLoad(n);
   const rows = TT_DAYS.map(d => `<tr${d === today ? ' class="today"' : ""}><td class="day">${DAYS[d]}</td>${[1, 2, 3, 4, 5, 6, 7].map(p => ttTd((slotOf(n, d, p) || [])[2])).join("")}</tr>`).join("");
   $("tt-box").innerHTML = `<div class="tt-sum"><span>أ. <b>${esc(n)}</b></span><span>${(DEPT_OF[n] || []).map(dName).join(" · ")}</span><span>النصاب الأسبوعي: <b>${ar(ld.lessons)}</b> حصة</span>${ld.res ? `<span>الاحتياط: <b>${ar(ld.res)}</b></span>` : ""}</div>
-    <div class="tablebox"><table class="tt">${ttHead("اليوم / الحصة")}<tbody>${rows}</tbody></table></div>`;
+    <div class="tablebox"><table class="tt">${ttHead("اليوم / الحصة")}<tbody>${rows}</tbody></table></div><div class="tt-bell">${BELL_NOTE}</div>`;
 }
 function renderTtAll() {
   const d = $("tt-dept").value, names = ttNames(d), today = isoDay(todayISO());
   $("tt-box").innerHTML = TT_DAYS.map(day => `<h3 class="tt-dayh">${DAYS[day]}${day === today ? " · اليوم" : ""}</h3>
-    <div class="tablebox" style="margin-top:6px"><table class="tt">${ttHead("المعلم / الحصة")}<tbody>${names.map(n => `<tr${n === ME.name ? ' class="today"' : ""}><td class="day">أ. ${esc(shortName(n))}</td>${[1, 2, 3, 4, 5, 6, 7].map(p => ttTd((slotOf(n, day, p) || [])[2])).join("")}</tr>`).join("")}</tbody></table></div>`).join("");
+    <div class="tablebox" style="margin-top:6px"><table class="tt">${ttHead("المعلم / الحصة")}<tbody>${names.map(n => `<tr${n === ME.name ? ' class="today"' : ""}><td class="day">أ. ${esc(shortName(n))}</td>${[1, 2, 3, 4, 5, 6, 7].map(p => ttTd((slotOf(n, day, p) || [])[2])).join("")}</tr>`).join("")}</tbody></table></div>`).join("") + `<div class="tt-bell">${BELL_NOTE}</div>`;
+}
+function renderTtBell() {
+  $("tt-box").innerHTML = `<div class="tablebox"><table class="tt bell"><thead><tr><th>الحصة</th><th>من</th><th>إلى</th><th>المدة (دقيقة)</th></tr></thead><tbody>${BELL.map(x => `<tr${x[4] ? "" : ' class="brk"'}><td>${x[0]}</td><td>${ar(x[1])}</td><td>${ar(x[2])}</td><td>${ar(x[3])}</td></tr>`).join("")}</tbody></table></div>`;
 }
 // ---------- PDF ----------
-const TT_PDF_CSS = `<style>.pp table.ttp{table-layout:fixed}.pp table.ttp th,.pp table.ttp td{text-align:center;vertical-align:middle}.pp .tt-gap{height:22px}.pp table.ttp td{height:52px;font-size:15px}.pp table.ttp td b{display:block;font-size:19px;color:#0F2740}.pp table.ttp td small{display:block;font-size:11px;color:#5A6B7B}.pp table.ttp td.day{background:#EEF3F8!important;color:#1E3A5F;font-weight:800;font-size:15px;width:110px}.pp table.ttp td.r{color:#6B7782;font-size:12px;font-weight:700;background:#F2F4F6!important}.pp table.ttd td{height:44px;font-size:12px}.pp table.ttd td b{font-size:14px}.pp table.ttd td small{font-size:9.5px}.pp table.ttd td.day{font-size:12px;width:150px;text-align:right}</style>`;
+const TT_PDF_CSS = `<style>.pp table.ttp th small.tm{display:block;font-size:11.5px;font-weight:600;opacity:.9;margin-top:2px}.pp .tt-bell{text-align:center;font-size:13px;color:#33475B;margin-top:8px}.pp table.bellp td{text-align:center;font-size:16px;height:40px}.pp table.bellp tr.brk td{background:#EEF3F8!important;color:#1E3A5F;font-weight:800}.pp table.ttp{table-layout:fixed}.pp table.ttp th,.pp table.ttp td{text-align:center;vertical-align:middle}.pp .tt-gap{height:22px}.pp table.ttp td{height:52px;font-size:15px}.pp table.ttp td b{display:block;font-size:19px;color:#0F2740}.pp table.ttp td small{display:block;font-size:11px;color:#5A6B7B}.pp table.ttp td.day{background:#EEF3F8!important;color:#1E3A5F;font-weight:800;font-size:15px;width:110px}.pp table.ttp td.r{color:#6B7782;font-size:12px;font-weight:700;background:#F2F4F6!important}.pp table.ttd td{height:44px;font-size:12px}.pp table.ttd td b{font-size:14px}.pp table.ttd td small{font-size:9.5px}.pp table.ttd td.day{font-size:12px;width:150px;text-align:right}</style>`;
 function ttPdfCell(c) { const x = ttCell(c); return x.kind ? (x.kind === "r" ? { t: x.a, c: "r" } : { html: `<b>${PE(x.a)}</b><small>${PE(x.b)}</small>` }) : ""; }
 function pdfTtTeacher(n) {
   const ld = ttLoad(n);
   return { box: "جدول الحصص الدراسية", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [TT_PDF_CSS,
     P.info([[n === HEAD_NAME ? "رئيس الشعبة" : "المعلم", "أ. " + n], ["القسم", (DEPT_OF[n] || []).map(dName).join(" · ")], ["النصاب الأسبوعي", ar(ld.lessons) + " حصة" + (ld.res ? ` · الاحتياط: ${ar(ld.res)}` : "")], ["العام الدراسي", "١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م"]], 2),
-    P.grid(P.th(["اليوم / الحصة", ...PERIOD_NAMES.slice(1)]), TT_DAYS.map(d => P.tr([{ t: DAYS[d], c: "day" }, ...[1, 2, 3, 4, 5, 6, 7].map(p => ttPdfCell((slotOf(n, d, p) || [])[2]))])), "ttp"), '<div class="tt-gap"></div>'] };
+    P.grid(`<tr><th>اليوم / الحصة</th>${PERIOD_NAMES.slice(1).map((p, i) => `<th>${p}<small class="tm">${PERIOD_TIME(i + 1)}</small></th>`).join("")}</tr>`, TT_DAYS.map(d => P.tr([{ t: DAYS[d], c: "day" }, ...[1, 2, 3, 4, 5, 6, 7].map(p => ttPdfCell((slotOf(n, d, p) || [])[2]))])), "ttp"), `<div class="tt-bell">${BELL_NOTE}</div>`, '<div class="tt-gap"></div>'] };
+}
+function pdfTtBell() {
+  return { box: "جدول توقيت الحصص الدراسية", landscape: false, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [TT_PDF_CSS,
+    P.title("جدول توقيت الحصص الدراسية – العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م"),
+    P.grid(P.th(["الحصة", "من", "إلى", "المدة (دقيقة)"]), BELL.map(x => `<tr${x[4] ? "" : ' class="brk"'}><td>${PE(x[0])}</td><td>${ar(x[1])}</td><td>${ar(x[2])}</td><td>${ar(x[3])}</td></tr>`), "bellp"), '<div class="tt-gap"></div>'] };
 }
 // الجدول الأسبوعي الكامل لكل قسم في صفحة واحدة (طلبه ١/١١/٢٠٢٦): المعلمون صفوفًا، والأيام الخمسة × الحصص السبع أعمدة
 // الجدول الأسبوعي لكل قسم في صفحة أفقية (طلبه ٣/١١/٢٠٢٦): المعلمون صفوفًا، والأيام × الحصص السبع أعمدة
@@ -5085,7 +5105,7 @@ const TT_WK_CSS = `<style>.pp table.ttw{table-layout:fixed;width:100%;border-col
 .pp table.ttw th,.pp table.ttw td{border:1px solid #C9D6E3;text-align:center;vertical-align:middle;padding:0;line-height:1.1}
 .pp table.ttw thead th{background:#1E3A5F;color:#fff;font-weight:800;border-color:#2E4D73}
 .pp table.ttw thead tr.ttdh th{font-size:16px;height:32px}
-.pp table.ttw thead tr.ttph th{font-size:13px;height:24px;background:#2E4D73}
+.pp table.ttw thead tr.ttph th{font-size:13px;height:24px;background:#2E4D73}.pp table.ttw thead tr.ttph th small{display:block;font-size:7.5px;font-weight:600;line-height:1.15;opacity:.9;padding:1px 0}
 .pp table.ttw td{font-size:12.5px;font-weight:800;color:#0F2740;padding:0 1px}
 .pp table.ttw td.nm{text-align:right;padding:0 6px;font-size:15.5px;background:#EEF3F8;color:#1E3A5F}
 .pp table.ttw td.ld{background:#EEF3F8;color:#1E3A5F;font-size:17px}
@@ -5106,12 +5126,12 @@ function ttWeekPage(d) {
   };
   const cols = `<colgroup><col style="width:132px">${TT_DAYS.map(() => P7.map(() => "<col>").join("")).join("")}<col style="width:54px"></colgroup>`;
   const head = `<thead><tr class="ttdh"><th rowspan="2">المعلم</th>${TT_DAYS.map(day => `<th class="p1" colspan="7">${DAYS[day]}</th>`).join("")}<th rowspan="2">النصاب</th></tr>
-    <tr class="ttph">${TT_DAYS.map(() => P7.map(p => `<th${p === 1 ? ' class="p1"' : ""}>${ar(p)}</th>`).join("")).join("")}</tr></thead>`;
-  const rowH = Math.min(110, Math.floor(390 / Math.max(1, names.length))); // الصفوف تملأ الصفحة
+    <tr class="ttph">${TT_DAYS.map(() => P7.map(p => `<th${p === 1 ? ' class="p1"' : ""}>${ar(p)}<small>${ar(bellOf(p)[1])}<br>${ar(bellOf(p)[2])}</small></th>`).join("")).join("")}</tr></thead>`;
+  const rowH = Math.min(110, Math.floor(370 / Math.max(1, names.length))); // الصفوف تملأ الصفحة
   const body = names.map(n => `<tr style="height:${rowH}px"><td class="nm">أ. ${PE(shortName(n))}</td>${TT_DAYS.map(day => P7.map(p => cell(n, day, p)).join("")).join("")}<td class="ld">${ar((TIMETABLE[n] || []).filter(x => isLesson(x) && x[2].split(":")[0] === d).length)}</td></tr>`).join("");
   const hasX = names.some(n => (TIMETABLE[n] || []).some(x => isLesson(x) && x[2].split(":")[0] !== d));
   return [`<h1 class="ttw-t">${PE(dName(d))} – العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م</h1>`, `<table class="ttw">${cols}${head}<tbody>${body}</tbody></table>`,
-    `<div class="ttw-lg"><span><i style="background:#E9F1FA"></i>حصة في ${PE(dName(d))}</span>${hasX ? `<span><i style="background:#F6E7C8"></i>حصة في قسم ${PE(SUBJECTS[other])}</span>` : ""}<span><i style="background:repeating-linear-gradient(135deg,#E6EAEE 0 3px,#fff 3px 6px)"></i>احتياط</span><span>النصاب = حصص القسم الأسبوعية</span></div>`,
+    `<div class="ttw-lg"><span><i style="background:#E9F1FA"></i>حصة في ${PE(dName(d))}</span>${hasX ? `<span><i style="background:#F6E7C8"></i>حصة في قسم ${PE(SUBJECTS[other])}</span>` : ""}<span><i style="background:repeating-linear-gradient(135deg,#E6EAEE 0 3px,#fff 3px 6px)"></i>احتياط</span><span>النصاب = حصص القسم الأسبوعية</span></div><div class="ttw-lg">${BELL_NOTE}</div>`,
     pdfSigns([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]])];
 }
 function pdfTtAll(d) {
@@ -5119,7 +5139,7 @@ function pdfTtAll(d) {
   (d ? [d] : ["hd", "qr"]).forEach((x, i) => { if (i) blocks.push('<div class="pgbrk"></div>'); blocks.push(...ttWeekPage(x)); });
   return { box: "الجدول الأسبوعي للحصص الدراسية", landscape: true, signs: [], blocks };
 }
-$("tt-pdf").onclick = () => ttSub === "p" ? ttProfLoad().then(() => deliverPdf(() => pdfTtProf($("tt-dept").value), `بيانات المعلمين${$("tt-dept").value ? " - " + SUBJECTS[$("tt-dept").value] : ""}.pdf`, $("tt-msg"))).catch(e => $("tt-msg").textContent = cleanErr(e)) : ttSub === "t" ? deliverPdf(() => pdfTtTeacher(ttT), `جدول الحصص - أ. ${shortName(ttT)}.pdf`, $("tt-msg"))
+$("tt-pdf").onclick = () => ttSub === "b" ? deliverPdf(() => pdfTtBell(), "جدول توقيت الحصص الدراسية.pdf", $("tt-msg")) : ttSub === "p" ? ttProfLoad().then(() => deliverPdf(() => pdfTtProf($("tt-dept").value), `بيانات المعلمين${$("tt-dept").value ? " - " + SUBJECTS[$("tt-dept").value] : ""}.pdf`, $("tt-msg"))).catch(e => $("tt-msg").textContent = cleanErr(e)) : ttSub === "t" ? deliverPdf(() => pdfTtTeacher(ttT), `جدول الحصص - أ. ${shortName(ttT)}.pdf`, $("tt-msg"))
   : deliverPdf(() => pdfTtAll($("tt-dept").value), `الجدول الأسبوعي للحصص${$("tt-dept").value ? " - " + SUBJECTS[$("tt-dept").value] : ""}.pdf`, $("tt-msg"));
 // ---------- وورد ----------
 function buildTtDoc(D, mode, key) {
@@ -5127,14 +5147,15 @@ function buildTtDoc(D, mode, key) {
   const cellOf = c => { const x = ttCell(c); if (!x.kind) return h.cell("", {});
     if (x.kind === "r") return h.cell(x.a, { align: C, size: 17, bold: true, color: h.MUTED || "6B7782", fill: "F2F4F6" });
     return h.cell([h.para(x.a, { align: C, size: 24, bold: true, after: 0, line: 260 }), h.para(x.b, { align: C, size: 15, color: "5A6B7B", after: 0, line: 220 })], { fill: x.kind.indexOf("qr") !== -1 ? "EEF6EF" : "EEF3F8" }); };
-  const head = first => [h.th(first, { w: W0 }), ...PERIOD_NAMES.slice(1).map(p => h.th(p, { w: WP }))];
+  const head = first => [h.th(first, { w: W0 }), ...PERIOD_NAMES.slice(1).map((p, i) => h.cell([h.para(p, { align: C, size: 18, bold: true, color: "FFFFFF", after: 0, line: 250 }), h.para(PERIOD_TIME(i + 1), { align: C, size: 15, color: "DCE6F0", after: 0, line: 220 })], { w: WP, fill: h.NAVY, m: { top: 40, bottom: 40, left: 70, right: 70 } }))];
+  const bellNote = () => h.para(BELL_NOTE, { align: C, size: 18, color: "33475B", before: 100, after: 0 });
   const signs = h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400);
   if (mode === "t") {
     const n = key, ld = ttLoad(n);
     const info = h.table([[h.lab(n === HEAD_NAME ? "رئيس الشعبة:" : "المعلم:", { w: 2000 }), h.cell("أ. " + n, { w: 5200, size: 21, bold: true }), h.lab("القسم:", { w: 2000 }), h.cell((DEPT_OF[n] || []).map(dName).join(" · "), { w: 5200, size: 20 })],
       [h.lab("النصاب الأسبوعي:"), h.cell(ar(ld.lessons) + " حصة" + (ld.res ? ` · الاحتياط: ${ar(ld.res)}` : ""), { size: 20 }), h.lab("العام الدراسي:"), h.cell("١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م", { size: 20 })]], [2000, 5200, 2000, 5200], h.softBorders("C9D6E3"));
     const rows = [head("اليوم / الحصة"), ...TT_DAYS.map(d => [h.cell(DAYS[d], { align: C, bold: true, color: h.NAVY || "1E3A5F", fill: "EEF3F8", size: 22 }), ...P7.map(p => cellOf((slotOf(n, d, p) || [])[2]))])];
-    return h.doc([...h.formHeader("جدول الحصص الدراسية", 14400), info, h.para("", { after: 120 }), h.table(rows, widths, h.softBorders("C9D6E3")), h.para("", { after: 300 }), signs], { landscape: true });
+    return h.doc([...h.formHeader("جدول الحصص الدراسية", 14400), info, h.para("", { after: 120 }), h.table(rows, widths, h.softBorders("C9D6E3")), bellNote(), h.para("", { after: 300 }), signs], { landscape: true });
   }
   // الجدول الأسبوعي لكل قسم في صفحة أفقية: المعلمون صفوفًا، والأيام × الحصص أعمدة
   const kids = [];
@@ -5152,7 +5173,7 @@ function buildTtDoc(D, mode, key) {
     const white = (t, size) => pr(t, { size, color: "FFFFFF" });
     const rows = [
       [tc([white("المعلم", 18)], { w: WN, rows: 2, fill: "1E3A5F" }), ...TT_DAYS.map(day => tc([white(DAYS[day], 19)], { span: 7, fill: "1E3A5F" })), tc([white("النصاب", 16)], { w: WL, rows: 2, fill: "1E3A5F" })],
-      TT_DAYS.flatMap(() => [1, 2, 3, 4, 5, 6, 7].map(p => tc([white(ar(p), 15)], { w: WC, fill: "2E4D73" })))];
+      TT_DAYS.flatMap(() => [1, 2, 3, 4, 5, 6, 7].map(p => tc([white(ar(p), 15), pr(ar(bellOf(p)[1]), { size: 10, color: "DCE6F0" }), pr(ar(bellOf(p)[2]), { size: 10, color: "DCE6F0" })], { w: WC, fill: "2E4D73" })))];
     names.forEach(n => rows.push([tc([pr("أ. " + shortName(n), { size: 18, color: "1E3A5F", align: D.AlignmentType.RIGHT })], { w: WN, fill: "EEF3F8" }),
       ...TT_DAYS.flatMap(day => [1, 2, 3, 4, 5, 6, 7].map(p => slot(n, day, p))),
       tc([pr(ar((TIMETABLE[n] || []).filter(x => isLesson(x) && x[2].split(":")[0] === d).length), { size: 20, color: "1E3A5F" })], { w: WL, fill: "EEF3F8" })]));
@@ -5160,7 +5181,7 @@ function buildTtDoc(D, mode, key) {
       width: { size: WN + WL + 35 * WC, type: D.WidthType.DXA }, rows: rows.map((r, k) => new D.TableRow({ children: r, height: { value: k < 2 ? 400 : Math.min(1500, Math.floor(5600 / Math.max(1, names.length))), rule: D.HeightRule.ATLEAST }, tableHeader: k < 2 })), borders: h.softBorders("C9D6E3") });
     if (i) kids.push(new D.Paragraph({ children: [new D.PageBreak()] }));
     kids.push(...h.formHeader("الجدول الأسبوعي للحصص الدراسية", 14400), h.para(`${dName(d)} – العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م`, { size: 24, bold: true, color: "1E3A5F", align: C, after: 80 }),
-      tbl, h.para("", { after: 160 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400));
+      tbl, bellNote(), h.para("", { after: 120 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400));
   });
   return h.doc(kids, { landscape: true });
 }
@@ -5201,10 +5222,18 @@ function buildTtProfDoc(D, d) {
   kids.push(h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400));
   return h.doc(kids, { landscape: true });
 }
+function buildTtBellDoc(D) {
+  const h = H(D), C = h.C, W = [3400, 2000, 2000, 2000];
+  const rows = [["الحصة", "من", "إلى", "المدة (دقيقة)"].map((t, i) => h.th(t, { w: W[i], size: 22 })),
+    ...BELL.map(x => [x[0], ar(x[1]), ar(x[2]), ar(x[3])].map((t, i) => h.cell(t, { w: W[i], align: C, size: 24, bold: !x[4] || i === 0, color: x[4] ? undefined : h.NAVY, fill: x[4] ? undefined : "EEF3F8" })))];
+  return h.doc([...h.formHeader("جدول توقيت الحصص الدراسية", 10000), h.para("العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م", { align: C, size: 24, bold: true, color: h.NAVY, after: 160 }),
+    h.table(rows, W, h.softBorders("C9D6E3")), h.para("", { after: 500 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000)]);
+}
 $("tt-word").onclick = async () => {
   const m = $("tt-msg"); m.textContent = "جارٍ إنشاء الملف…";
   try {
     const d = $("tt-dept").value;
+    if (ttSub === "b") { await deliver(await window.docx.Packer.toBlob(buildTtBellDoc(window.docx)), "جدول توقيت الحصص الدراسية.docx", m); return; }
     if (ttSub === "p") { await ttProfLoad(); await deliver(await window.docx.Packer.toBlob(buildTtProfDoc(window.docx, d)), `بيانات المعلمين${d ? " - " + SUBJECTS[d] : ""}.docx`, m); return; }
     const doc = ttSub === "t" ? buildTtDoc(window.docx, "t", ttT) : buildTtDoc(window.docx, "d", d);
     await deliver(await window.docx.Packer.toBlob(doc), ttSub === "t" ? `جدول الحصص - أ. ${shortName(ttT)}.docx` : `الجدول الأسبوعي للحصص${d ? " - " + SUBJECTS[d] : ""}.docx`, m);
