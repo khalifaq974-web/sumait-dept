@@ -5080,16 +5080,16 @@ function pdfTtTeacher(n) {
 const TT_WK_CSS = `<style>.pp table.ttw{table-layout:fixed;width:100%;border-collapse:collapse;margin:0}
 .pp table.ttw th,.pp table.ttw td{border:1px solid #C9D6E3;text-align:center;vertical-align:middle;padding:0;line-height:1.1}
 .pp table.ttw thead th{background:#1E3A5F;color:#fff;font-weight:800;border-color:#2E4D73}
-.pp table.ttw thead tr.ttdh th{font-size:13.5px;height:26px}
-.pp table.ttw thead tr.ttph th{font-size:11px;height:20px;background:#2E4D73}
-.pp table.ttw td{font-size:12px;font-weight:800;color:#0F2740;height:62px;padding:0 1px}
-.pp table.ttw td.nm{text-align:right;padding:0 6px;font-size:13px;background:#EEF3F8;color:#1E3A5F}
-.pp table.ttw td.ld{background:#EEF3F8;color:#1E3A5F;font-size:14px}
-.pp table.ttw td.o{background:#E9F1FA}.pp table.ttw td.x{background:#F6E7C8;color:#6B5A2E}.pp table.ttw td.x small{display:block;font-size:8px;font-weight:700}
+.pp table.ttw thead tr.ttdh th{font-size:16px;height:32px}
+.pp table.ttw thead tr.ttph th{font-size:13px;height:24px;background:#2E4D73}
+.pp table.ttw td{font-size:12.5px;font-weight:800;color:#0F2740;padding:0 1px}
+.pp table.ttw td.nm{text-align:right;padding:0 6px;font-size:15.5px;background:#EEF3F8;color:#1E3A5F}
+.pp table.ttw td.ld{background:#EEF3F8;color:#1E3A5F;font-size:17px}
+.pp table.ttw td.o{background:#E9F1FA}.pp table.ttw td.x{background:#F6E7C8;color:#6B5A2E}.pp table.ttw td.x small{display:block;font-size:9px;font-weight:700}
 .pp table.ttw td.rr{background:repeating-linear-gradient(135deg,#E6EAEE 0 4px,#fff 4px 8px);color:#4A5B6B;font-size:8.5px;line-height:1.25}
 .pp table.ttw .p1{border-right:2.5px solid #1E3A5F}
 .pp .ttw-lg{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;font-size:11.5px;color:#33475B;margin:6px 0 0}.pp .ttw-lg i{display:inline-block;width:16px;height:11px;border:1px solid #C9D6E3;vertical-align:middle;margin-left:5px}
-.pp h1.ttw-t{font-size:17px;margin:0 0 6px}</style>`;
+.pp h1.ttw-t{font-size:18px;margin:0 0 8px}.pp .ttw-lg{font-size:12.5px}</style>`;
 function ttWeekPage(d) {
   const names = ttNames(d), other = d === "hd" ? "qr" : "hd", P7 = [1, 2, 3, 4, 5, 6, 7];
   const cell = (n, day, p) => {
@@ -5100,10 +5100,11 @@ function ttWeekPage(d) {
     if (c.split(":")[0] !== d) return `<td class="x${b}">${classLabel(c)}<small>${other === "qr" ? "قرآن" : "حديث"}</small></td>`;
     return `<td class="o${b}">${classLabel(c)}</td>`;
   };
-  const cols = `<colgroup><col style="width:132px">${TT_DAYS.map(() => P7.map(() => "<col>").join("")).join("")}<col style="width:44px"></colgroup>`;
+  const cols = `<colgroup><col style="width:132px">${TT_DAYS.map(() => P7.map(() => "<col>").join("")).join("")}<col style="width:54px"></colgroup>`;
   const head = `<thead><tr class="ttdh"><th rowspan="2">المعلم</th>${TT_DAYS.map(day => `<th class="p1" colspan="7">${DAYS[day]}</th>`).join("")}<th rowspan="2">النصاب</th></tr>
     <tr class="ttph">${TT_DAYS.map(() => P7.map(p => `<th${p === 1 ? ' class="p1"' : ""}>${ar(p)}</th>`).join("")).join("")}</tr></thead>`;
-  const body = names.map(n => `<tr><td class="nm">أ. ${PE(shortName(n))}</td>${TT_DAYS.map(day => P7.map(p => cell(n, day, p)).join("")).join("")}<td class="ld">${ar((TIMETABLE[n] || []).filter(x => isLesson(x) && x[2].split(":")[0] === d).length)}</td></tr>`).join("");
+  const rowH = Math.min(110, Math.floor(390 / Math.max(1, names.length))); // الصفوف تملأ الصفحة
+  const body = names.map(n => `<tr style="height:${rowH}px"><td class="nm">أ. ${PE(shortName(n))}</td>${TT_DAYS.map(day => P7.map(p => cell(n, day, p)).join("")).join("")}<td class="ld">${ar((TIMETABLE[n] || []).filter(x => isLesson(x) && x[2].split(":")[0] === d).length)}</td></tr>`).join("");
   const hasX = names.some(n => (TIMETABLE[n] || []).some(x => isLesson(x) && x[2].split(":")[0] !== d));
   return [`<h1 class="ttw-t">${PE(dName(d))} – العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م</h1>`, `<table class="ttw">${cols}${head}<tbody>${body}</tbody></table>`,
     `<div class="ttw-lg"><span><i style="background:#E9F1FA"></i>حصة في ${PE(dName(d))}</span>${hasX ? `<span><i style="background:#F6E7C8"></i>حصة في قسم ${PE(SUBJECTS[other])}</span>` : ""}<span><i style="background:repeating-linear-gradient(135deg,#E6EAEE 0 3px,#fff 3px 6px)"></i>احتياط</span><span>النصاب = حصص القسم الأسبوعية</span></div>`,
@@ -5152,7 +5153,7 @@ function buildTtDoc(D, mode, key) {
       ...TT_DAYS.flatMap(day => [1, 2, 3, 4, 5, 6, 7].map(p => slot(n, day, p))),
       tc([pr(ar((TIMETABLE[n] || []).filter(x => isLesson(x) && x[2].split(":")[0] === d).length), { size: 20, color: "1E3A5F" })], { w: WL, fill: "EEF3F8" })]));
     const tbl = new D.Table({ visuallyRightToLeft: true, layout: D.TableLayoutType.FIXED, columnWidths: [WN, ...Array(35).fill(WC), WL],
-      width: { size: WN + WL + 35 * WC, type: D.WidthType.DXA }, rows: rows.map((r, k) => new D.TableRow({ children: r, height: { value: k < 2 ? 340 : 820, rule: D.HeightRule.ATLEAST }, tableHeader: k < 2 })), borders: h.softBorders("C9D6E3") });
+      width: { size: WN + WL + 35 * WC, type: D.WidthType.DXA }, rows: rows.map((r, k) => new D.TableRow({ children: r, height: { value: k < 2 ? 400 : Math.min(1500, Math.floor(5600 / Math.max(1, names.length))), rule: D.HeightRule.ATLEAST }, tableHeader: k < 2 })), borders: h.softBorders("C9D6E3") });
     if (i) kids.push(new D.Paragraph({ children: [new D.PageBreak()] }));
     kids.push(...h.formHeader("الجدول الأسبوعي للحصص الدراسية", 14400), h.para(`${dName(d)} – العام الدراسي ١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م`, { size: 24, bold: true, color: "1E3A5F", align: C, after: 80 }),
       tbl, h.para("", { after: 160 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400));
