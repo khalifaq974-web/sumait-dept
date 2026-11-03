@@ -441,7 +441,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
     </nav>
     <div class="card duty-card" id="duty-card" hidden role="status">
       <b>⏰ تذكير</b>
-      <span id="duty-text"></span>
+      <div id="duty-text" style="flex:1"></div>
       <button class="btn ghost sm" type="button" id="duty-hide">حسنًا</button>
     </div>
     <div class="card wa-card" id="wa-card" hidden>
@@ -1354,11 +1354,13 @@ async function doLogin(code, silent) {
     if (r.isHead) $("demo-admin").ontoggle = () => { if ($("demo-admin").open) loadDemos(); };
     let last = "curr"; try { last = localStorage.getItem("section") || "curr"; } catch (e) {}
     go(last);
+    // تفاصيل مراقبة الثلاثاء (قراره ٣/١١/٢٠٢٦)
+    const DUTY_TUE = '<ul style="margin:6px 0 0;padding-right:20px"><li>المراقبة الصباحية ووقت الفرصة: في الساحة.</li><li>وقت الصلاة: في الساحة والمسجد.</li><li>المناوبة بعد الدوام: عند الباصات.</li></ul>';
     // تذكير المناوبة والمراقبة الصباحية كل ثلاثاء (تذكير فقط، لا تكليف — قراره ١/١١/٢٠٢٦)
     // وتذكير كل أحد بإحضار التحضير الكتابي لرئيس الشعبة لاعتماده والاطلاع عليه (قراره ٢/١١/٢٠٢٦)، ويظهر لرئيس الشعبة أن المعلمين ذُكِّروا
     { let hid = false; try { hid = sessionStorage.getItem("dutyHide") === todayISO(); } catch (e) {}
       const wd = isoDay(todayISO()), txt = wd === 0 ? (r.isHead ? "اليوم الأحد: وصل للمعلمين تذكير بإحضار <b>التحضير الكتابي</b> إليك لاعتماده والاطلاع عليه." : "اليوم الأحد: إحضار <b>التحضير الكتابي</b> لرئيس الشعبة لاعتماده والاطلاع عليه.")
-        : wd === 2 ? (r.isHead ? "اليوم الثلاثاء: وصل للمعلمين تذكير بموعد <b>المناوبة والمراقبة الصباحية</b> لقسمي الحديث الشريف والقرآن الكريم." : "اليوم الثلاثاء: موعد <b>المناوبة والمراقبة الصباحية</b> لقسمي الحديث الشريف والقرآن الكريم.") : "";
+        : wd === 2 ? (r.isHead ? "اليوم الثلاثاء: وصل للمعلمين تذكير بموعد <b>المراقبة والمناوبة</b> لقسمي الحديث الشريف والقرآن الكريم." : "اليوم الثلاثاء: موعد <b>المراقبة والمناوبة</b> لقسمي الحديث الشريف والقرآن الكريم.") + DUTY_TUE : "";
       $("duty-text").innerHTML = txt; $("duty-card").hidden = !txt || hid; }
     if (!r.isHead) { $("wa-phone").value = r.phone || ""; let later = false; try { later = sessionStorage.getItem("waLater") === "1"; } catch (e) {} $("wa-card").hidden = !!r.phone || later; }
     if (DEEP) { const [k, v] = DEEP.split("="); DEEP = ""; try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} if (SECTIONS.indexOf(k) !== -1) openRef(k, decodeURIComponent(v || "")); }
