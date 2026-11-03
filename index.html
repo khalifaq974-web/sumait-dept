@@ -2608,8 +2608,8 @@ function pdfMinute(m) {
   if (ag.length) blocks.push(P.h("أولًا: جدول الأعمال"), ag.map((x, i) => P.p(`${ar(i + 1)}. ${x}`)).join(""));
   if (m.discussion) blocks.push(P.h("ثانيًا: ما دار في الاجتماع"), String(m.discussion).split(/\n+/).filter(s => s.trim()).map(s => P.p(s.trim())).join(""));
   if (dec.length) blocks.push(P.h("ثالثًا: التوصيات والقرارات"), dec.map((x, i) => P.p(`${ar(i + 1)}. ${x}`)).join(""));
-  blocks.push(P.h("رابعًا: الحضور والتوقيعات"), P.grid(P.th(["م", "الاسم", "التوقيع", "وقت التوقيع"]),
-    m.attendees.map((n, i) => { const s = sig[n]; return P.tr([{ t: ar(i + 1), c: "c" }, n, { html: s && s.image ? P.img(s.image) : "", c: "c" }, { t: s ? fmtStamp(s.signedAt) : "—", c: "c" }]); })));
+  blocks.push(P.h("رابعًا: الحضور والتوقيعات"), P.grid(P.th(["م", "الاسم", "التوقيع"]),
+    m.attendees.map((n, i) => { const s = sig[n]; return P.tr([{ t: ar(i + 1), c: "c" }, n, { html: s && s.image ? P.img(s.image) : "", c: "c" }]); })));
   return { box: "محضر اجتماع", blocks, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]] };
 }
 function visInfo(v) {
@@ -5009,13 +5009,13 @@ function buildMinuteDoc(D, m, sigs) {
   if (m.discussion) { children.push(h.heading("ثانيًا: ما دار في الاجتماع")); String(m.discussion).split(/\n+/).filter(s => s.trim()).forEach(p => children.push(h.para(p.trim(), { justify: true, after: 100 }))); }
   if (dec.length) { children.push(h.heading("ثالثًا: التوصيات والقرارات")); dec.forEach((x, i) => children.push(h.para(`${ar(i + 1)}. ${x}`, { indent: 200, after: 60 }))); }
   children.push(h.heading("رابعًا: الحضور والتوقيعات"));
-  const rows = [[h.th("م"), h.th("الاسم"), h.th("التوقيع"), h.th("وقت التوقيع")]];
+  const rows = [[h.th("م"), h.th("الاسم"), h.th("التوقيع")]];
   m.attendees.forEach((n, i) => {
     const s = sigs[n];
     const sigCell = s ? h.cell([new D.Paragraph({ alignment: h.C, children: [h.img(s.data, Math.min(110, 36 * s.w / s.h), Math.min(36, 110 * s.h / s.w), "png")] })]) : h.cell("", {});
-    rows.push([h.cell(ar(i + 1), { align: h.C }), h.cell(n), sigCell, h.cell(s ? fmtStamp(s.signedAt) : "—", { align: h.C, size: 18, color: h.MUTED })]);
+    rows.push([h.cell(ar(i + 1), { align: h.C }), h.cell(n), sigCell]);
   });
-  children.push(h.table(rows, [600, 4500, 2900, 2000], h.softBorders("C9D6E3")));
+  children.push(h.table(rows, [700, 5300, 4000], h.softBorders("C9D6E3")));
   children.push(h.para("", { after: 200 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
   return h.doc(children);
 }
