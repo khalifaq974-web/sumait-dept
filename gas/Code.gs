@@ -54,8 +54,34 @@ function demoPrefix_(me) { return me.isDemo ? "DEMO|" + me.name + "|" : ""; }
 function classesOf_(name) { const t = TEACHERS.find(x => x[0] === name); return t ? t[1] : (isDemo_(name) ? DEMOS[name] : null); }
 
 function doGet() {
-  return ContentService.createTextOutput("خادم " + SITE_NAME + " يعمل. افتح الموقع من: " + SITE_URL);
+  // في حساب الوزارة: الصفحة نفسها تُقدَّم من هنا (ملف Index في المشروع). إن لم يوجد الملف يبقى السلوك القديم.
+  try {
+    return HtmlService.createHtmlOutputFromFile("Index")
+      .setTitle("قسم المواد الشرعية · معهد السميط")
+      .addMetaTag("viewport", "width=device-width, initial-scale=1")
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
+  } catch (e) {
+    return ContentService.createTextOutput("خادم " + SITE_NAME + " يعمل. افتح الموقع من: " + SITE_URL);
+  }
 }
+
+/** طريق الواجهة المقدَّمة من Apps Script (google.script.run): نفس جدول API ونفس تسجيل الإشعارات في doPost، والنتيجة نص JSON */
+function rpc(fn, argsJson) {
+  let out;
+  try {
+    const f = Object.prototype.hasOwnProperty.call(API, fn) ? API[fn] : null;
+    if (!f) throw new Error("طلب غير معروف.");
+    let args = [];
+    try { args = JSON.parse(argsJson || "[]"); } catch (x) { throw new Error("طلب غير صالح."); }
+    if (!Array.isArray(args)) args = [];
+    out = { ok: true, result: f.apply(null, args) };
+    if (ACT_LOG[fn]) { try { logAct_(fn, args, out.result); } catch (x) {} }
+  } catch (err) {
+    out = { ok: false, error: String(err && err.message || err) };
+  }
+  return JSON.stringify(out);
+}
+
 
 // ======================= واجهة الموقع الخارجي (GitHub Pages) =======================
 // الصفحة المستضافة خارج جوجل ترسل الطلبات هنا، فلا يتأثر المعلم بتعدد حسابات جوجل في متصفحه.

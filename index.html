@@ -1300,7 +1300,11 @@ let CODE = "", ME = null, MINE = {}, ALL = {};
 // داخل Apps Script نستخدم google.script.run، وعلى GitHub Pages نرسل الطلب إلى رابط التطبيق مباشرة
 function run(fn, ...args) {
   if (window.google && google.script && google.script.run) {
-    return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(e => rej(e && e.message ? e : new Error(String(e))))[fn](...args));
+    // داخل حساب الوزارة: الصفحة تُقدَّم من Apps Script، والطلب يمر عبر rpc ويرجع نصًا (JSON) ليسلم من مشاكل التواريخ والكائنات
+    return new Promise((res, rej) => google.script.run
+      .withSuccessHandler(txt => { let j; try { j = JSON.parse(txt); } catch (e) { return rej(new Error("الخادم لم يرد بشكل صحيح. حاول بعد قليل.")); } if (!j.ok) return rej(new Error(j.error)); res(j.result); })
+      .withFailureHandler(e => rej(e && e.message ? e : new Error(String(e))))
+      .rpc(fn, JSON.stringify(args)));
   }
   if (!window.API_URL) return Promise.reject(new Error("الموقع لم يُربط بالخادم بعد. راجع رئيس الشعبة."));
   return fetch(window.API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ fn, args }) })
