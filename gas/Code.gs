@@ -25,8 +25,8 @@ const ST_READY = "جاهز";
 const ST_REVIEW = "بانتظار اعتماد رئيس الشعبة"; // صيغ التقرير ولم يعتمده رئيس الشعبة بعد
 
 // التنبيهات بالإيميل (تصل لرئيس الشعبة فقط)
-const HEAD_EMAIL = "khalifaq974@gmail.com";
-const SITE_URL = "https://khalifaq974-web.github.io/sumait-dept/";
+const HEAD_EMAIL = "T290111200548@moe.edu.kw";
+const SITE_URL = "https://script.google.com/a/macros/moe.edu.kw/s/AKfycbx36T9qahEPemxQzSmZ8-nav6LGuTavEgUFahlbHzX5IATKbF-ayeUGwE6fUkEAZbvK/exec";
 const SITE_NAME = "موقع قسم المواد الشرعية";
 
 // القسمان: hd = الحديث الشريف، qr = القرآن الكريم
