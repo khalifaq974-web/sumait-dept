@@ -3312,7 +3312,7 @@ async function openWaPanel() {
 $("nav-wa").onclick = () => { if ($("wa-panel").hidden) openWaPanel(); else $("wa-panel").hidden = true; };
 $("wa-close").onclick = () => $("wa-panel").hidden = true;
 $("wa-reload").onclick = () => openWaPanel();
-const SITE_LINK = location.origin + location.pathname;
+const SITE_LINK = window.SITE_URL || (location.origin + location.pathname); // داخل Apps Script يأتي الرابط من أداة البناء (الصفحة تعمل في إطار بعنوان آخر)
 let PHONES = null;
 async function loadPhones(force) { if (!PHONES || force) { try { PHONES = await run("teacherPhones", CODE); } catch (e) { PHONES = PHONES || {}; } } return PHONES; }
 function waUrl(phone, text) { return "https://wa.me/" + (phone || "") + "?text=" + encodeURIComponent(text); }

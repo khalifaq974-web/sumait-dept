@@ -12,7 +12,9 @@ import base64, re, sys, pathlib
 root = pathlib.Path(__file__).resolve().parent.parent
 src = (root / "index.html").read_text(encoding="utf-8")
 
-src = src.replace('<script src="config.js"></script>', '<script>window.API_URL = "";</script>')
+# رابط الموقع في حساب الوزارة (يظهر في رسائل الواتساب)؛ الصفحة داخل Apps Script تعمل في إطار عنوانه مختلف
+SITE_URL = "https://script.google.com/a/macros/moe.edu.kw/s/AKfycbx36T9qahEPemxQzSmZ8-nav6LGuTavEgUFahlbHzX5IATKbF-ayeUGwE6fUkEAZbvK/exec"
+src = src.replace('<script src="config.js"></script>', '<script>window.API_URL = ""; window.SITE_URL = "%s";</script>' % SITE_URL)
 src = re.sub(r'<meta name="viewport"[^>]*>\s*', "", src, count=1)
 
 LOADER = ('<script>(function(){var b="%s";var s=document.createElement("script");'
