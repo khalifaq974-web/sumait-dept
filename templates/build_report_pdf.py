@@ -11,7 +11,8 @@ report.json:
     "photos": ["photo1.jpg"],                  # اختياري
     "html": "<table class=\"grid\">...</table>",  # اختياري بدل text (جداول: class=grid، صف القسم: tr.dept، الحالات: late/ok/ahead/none)
     "signs": [["رئيس الشعبة", "أ. خليفة القصار"], ["مدير المعهد", "د. حامد غازي العتيبي"]],
-    "landscape": false
+    "landscape": false,
+    "guid": true                               # false = بلا شعار التوجيه (النماذج غير المتعلقة بالتوجيه)
   }
 يحتاج: الخطوط في fonts/ (NotoNaskhArabic[wght].ttf و NotoKufiArabic[wght].ttf) والشعارات من index.html، و playwright.
 """
@@ -41,6 +42,9 @@ def body_html(text):
 def build(spec, out_pdf, fonts_dir):
     moe, guid, inst = logos()
     land = spec.get("landscape")
+    # شعار التوجيه الفني فقط لما يتعلق بالتوجيه أو الدرجات (guid: true)؛ وغيره: «قسم الحديث الشريف والقرآن الكريم»
+    mid = (f'<img class="g" src="data:image/png;base64,{guid}"><div class="t">التوجيه الفني للعلوم الشرعية</div>' if spec.get("guid", True)
+           else '<div class="t" style="margin-top:3mm">قسم الحديث الشريف والقرآن الكريم</div>')
     photos = "".join(f'<img src="data:image/jpeg;base64,{base64.b64encode(open(p, "rb").read()).decode()}">' for p in spec.get("photos", []))
     info = spec.get("info", [])
     rows = "".join("<tr>" + "".join(f'<td class="k">{html.escape(k)}:</td><td>{html.escape(v)}</td>' for k, v in info[i:i + 2]) + "</tr>" for i in range(0, len(info), 2))
@@ -73,7 +77,7 @@ p{{margin:0 0 1mm}} ul{{margin:0;padding-right:5mm}} li::marker{{color:#1E3A5F}}
 .sign b{{display:block;color:#1E3A5F;font-family:Kufi}} .sign .n{{font-weight:700;margin-bottom:9mm}}
 .foot{{text-align:center;font-size:7.5pt;color:#6B7782}}
 </style></head><body><div class="page"><div class="frame">
-<div class="head"><img class="moe" src="data:image/png;base64,{moe}"><div class="mid"><img class="g" src="data:image/png;base64,{guid}"><div class="t">التوجيه الفني للعلوم الشرعية</div><span class="box">{html.escape(spec.get("box", ""))}</span></div><img class="inst" src="data:image/png;base64,{inst}"></div>
+<div class="head"><img class="moe" src="data:image/png;base64,{moe}"><div class="mid">{mid}<span class="box">{html.escape(spec.get("box", ""))}</span></div><img class="inst" src="data:image/png;base64,{inst}"></div>
 <div class="rule"></div>
 <h1>{html.escape(spec.get("title", ""))}</h1>
 {f'<table class="info">{rows}</table>' if rows else ""}
