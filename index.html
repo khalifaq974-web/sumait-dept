@@ -2529,38 +2529,38 @@ function loadScript(src) { return new Promise((res, rej) => { const s = document
 function pdfLibs() { if (!PDF_READY) PDF_READY = Promise.all(PDF_LIB_URLS.map(loadScript)).catch(e => { PDF_READY = null; throw e; }); return PDF_READY; }
 
 const PDF_CSS = `
-.pp{width:794px;height:1123px;padding:30px;background:#fff;box-sizing:border-box;font-family:Arial,Tahoma,"Segoe UI",sans-serif;color:#1f2a33;direction:rtl}
+.pp{width:794px;height:1123px;padding:30px;background:#fff;box-sizing:border-box;font-family:Arial,Tahoma,"Segoe UI",sans-serif;color:#0F1A24;direction:rtl}
 .pp.land{width:1123px;height:794px}
 .pp *{box-sizing:border-box}
 .pp .fr{border:4px double #1E3A5F;height:100%;padding:16px 26px 12px;display:flex;flex-direction:column}
 .pp .hd{display:grid;grid-template-columns:130px 1fr 130px;align-items:center}
 .pp .hd .moe{width:100px;justify-self:center}.pp .hd .ins{width:104px;justify-self:center}
-.pp .mid{text-align:center}.pp .mid .g{width:36px}.pp .mid .t{color:#1E3A5F;font-weight:700;font-size:16px;margin:4px 0 6px}
-.pp .box{display:inline-block;background:#1E3A5F;color:#fff;font-weight:700;font-size:18px;padding:5px 44px;border-radius:9px}
+.pp .mid{text-align:center}.pp .mid .g{width:36px}.pp .mid .t{color:#1E3A5F;font-weight:800;font-size:17.5px;margin:4px 0 6px}
+.pp .box{display:inline-block;background:#1E3A5F;color:#fff;font-weight:800;font-size:20px;padding:5px 44px;border-radius:9px}
 .pp .rule{border-bottom:4px double #1E3A5F;margin:10px 0 10px}
-.pp .bd{flex:1;min-width:0;width:100%;overflow:hidden;font-size:13.5px;line-height:1.65}
-.pp h1{color:#1E3A5F;text-align:center;font-size:19px;margin:0 0 8px;font-weight:800}
-.pp h3{color:#1E3A5F;font-size:14px;margin:8px 0 4px;font-weight:700;background:#EEF3F8;padding:2px 8px;border-radius:4px}
-.pp p{margin:0 0 4px;text-align:justify}.pp .c{text-align:center}.pp .mut{color:#6B7782;font-size:11.5px}
+.pp .bd{flex:1;min-width:0;width:100%;overflow:hidden;font-size:15.5px;line-height:1.6}
+.pp h1{color:#1E3A5F;text-align:center;font-size:21px;margin:0 0 8px;font-weight:800}
+.pp h3{color:#1E3A5F;font-size:16px;margin:8px 0 4px;font-weight:800;background:#EEF3F8;padding:2px 8px;border-radius:4px}
+.pp p{margin:0 0 4px;text-align:justify}.pp .c{text-align:center}.pp .mut{color:#56636F;font-size:13px}
 .pp ul{margin:0 0 4px;padding-right:20px}.pp li::marker{color:#1E3A5F}
 .pp table{width:100%;min-width:0;border-collapse:collapse;margin:2px 0 8px}
-.pp table.info td{border:1px solid #C9D6E3;padding:4px 9px;font-size:13px}.pp table.info td.k{background:#EEF3F8;color:#1E3A5F;font-weight:700;white-space:nowrap;width:1%}
-.pp table.grid th{background:#1E3A5F;color:#fff;font-weight:700;padding:4px 5px;border:1px solid #1E3A5F;font-size:12px;text-align:center}
-.pp table.grid th.sub{background:#EEF3F8;color:#1E3A5F;border-color:#C9D6E3;font-size:11px}
-.pp table.grid td{border:1px solid #C9D6E3;padding:3px 6px;vertical-align:middle;font-size:12px}
+.pp table.info td{border:1px solid #C9D6E3;padding:4px 9px;font-size:15px}.pp table.info td.k{background:#EEF3F8;color:#1E3A5F;font-weight:700;white-space:nowrap;width:1%}
+.pp table.grid th{background:#1E3A5F;color:#fff;font-weight:700;padding:4px 5px;border:1px solid #1E3A5F;font-size:14px;text-align:center}
+.pp table.grid th.sub{background:#EEF3F8;color:#1E3A5F;border-color:#C9D6E3;font-size:12.5px}
+.pp table.grid td{border:1px solid #C9D6E3;padding:3px 6px;vertical-align:middle;font-size:14px}
 .pp table.grid td.c{text-align:center}.pp table.grid td.b{font-weight:700}.pp table.grid td.f{background:#EEF3F8;font-weight:700;text-align:center}
 .pp table.grid tr:nth-child(even) td{background-color:#FAFCFD}
 .pp table.grid td.f{background:#EEF3F8}
-.pp table.dense td{padding:1px 5px;font-size:11.5px}.pp table.vis td{padding:5px 6px;font-size:12.5px}.pp table.vis th{white-space:nowrap;padding:5px 3px}
+.pp table.dense td{padding:1px 5px;font-size:13px}.pp table.vis td{padding:5px 6px;font-size:14px}.pp table.vis th{white-space:nowrap;padding:5px 3px}
 .pp table.plain td{border:none;padding:2px 4px}
 .pp .late{color:#B4382B;font-weight:700}.pp .ok{color:#2F7D4F;font-weight:700}.pp .ahead{color:#6B4FB5;font-weight:700}.pp .none{color:#7D8892}
-.pp .sg{display:grid;text-align:center;font-size:13.5px;margin-top:8px}
+.pp .sg{display:grid;text-align:center;font-size:15px;margin-top:8px}
 .pp .sg b{display:block;color:#1E3A5F}.pp .sg .n{font-weight:700}.pp .sg .sp{height:38px}.pp .sg img{height:42px;max-width:150px;object-fit:contain;display:block;margin:2px auto}
 .pp.tight .bd{zoom:.88}.pp .ph{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pp .ph img{width:100%;height:190px;object-fit:contain;background:#F4F7FA;border:1px solid #C9D6E3;border-radius:6px}.pp .ph img:only-child{grid-column:1/-1;height:165px}.pp .ph:has(img:nth-child(3)){grid-template-columns:repeat(3,1fr)}.pp .ph:has(img:nth-child(3)) img{height:300px}
-.pp .tbx{display:inline-block;min-width:64px;border:1px solid #C9D6E3;text-align:center;font-weight:700;margin-left:4px;vertical-align:middle}.pp .tbx i{display:block;font-style:normal;background:#1E3A5F;color:#fff;font-size:11px;padding:1px 0}
+.pp .tbx{display:inline-block;min-width:64px;border:1px solid #C9D6E3;text-align:center;font-weight:700;margin-left:4px;vertical-align:middle}.pp .tbx i{display:block;font-style:normal;background:#1E3A5F;color:#fff;font-size:12.5px;padding:1px 0}
 .pp table.plain{table-layout:auto}.pp table.plain td{vertical-align:middle}
-.pp.land .hd{grid-template-columns:120px 1fr 120px}.pp.land .hd .moe{width:80px}.pp.land .hd .ins{width:84px}.pp.land .mid .g{width:26px}.pp.land .mid .t{font-size:14px;margin:2px 0 4px}.pp.land .box{font-size:16px;padding:3px 36px}.pp.land .sg{margin-top:4px;font-size:12.5px}.pp.land .sg .sp{height:26px}.pp.land .bd p{margin:0 0 2px}.pp.land .fr{padding:12px 22px 10px}.pp.land .rule{margin:6px 0 8px}
-.pp table.xs td{padding:0 4px;font-size:10.5px;line-height:1.22}.pp.land table.info td{padding:2px 8px;font-size:12px}.pp.land table{margin:1px 0 4px}.pp table.xs th{padding:2px 3px;font-size:10.5px}
+.pp.land .hd{grid-template-columns:120px 1fr 120px}.pp.land .hd .moe{width:80px}.pp.land .hd .ins{width:84px}.pp.land .mid .g{width:26px}.pp.land .mid .t{font-size:15px;margin:2px 0 4px}.pp.land .box{font-size:17.5px;padding:3px 36px}.pp.land .sg{margin-top:4px;font-size:13.5px}.pp.land .sg .sp{height:26px}.pp.land .bd{font-size:14.5px}.pp.land .bd p{margin:0 0 2px}.pp.land table.grid td{font-size:13px}.pp.land table.grid th{font-size:13px}.pp.land .fr{padding:12px 22px 10px}.pp.land .rule{margin:6px 0 8px}
+.pp table.xs td{padding:0 4px;font-size:11.5px;line-height:1.22}.pp.land table.info td{padding:2px 8px;font-size:13px}.pp.land table{margin:1px 0 4px}.pp table.xs th{padding:2px 3px;font-size:11.5px}
 .pp img.sig{height:38px;max-width:130px;object-fit:contain}
 `;
 const PE = s => esc(s == null ? "" : s);
@@ -2754,7 +2754,7 @@ function visInfo(v) {
 }
 function pdfVisit(v) {
   const pos = lines(v.positives), rec = lines(v.recommendations);
-  const report = `<div style="font-size:12.5px;line-height:1.7"><div class="ok" style="background:#E4F2E9;padding:1px 6px">إيجابيات</div>${P.ul(pos)}<div style="background:#FBEEE0;color:#A0601A;font-weight:700;padding:1px 6px;margin-top:6px">ملاحظات وتوصيات</div>${P.ul(rec)}</div>`;
+  const report = `<div style="font-size:14px;line-height:1.7"><div class="ok" style="background:#E4F2E9;padding:1px 6px">إيجابيات</div>${P.ul(pos)}<div style="background:#FBEEE0;color:#A0601A;font-weight:700;padding:1px 6px;margin-top:6px">ملاحظات وتوصيات</div>${P.ul(rec)}</div>`;
   const rows = VIS_ITEMS.map((t, i) => { const r = v.ratings[i] || ["", ""], mk = lv => ({ t: r[0] === lv ? "✓" : "", c: "c b" });
     const cells = [{ t: ar(i + 1), c: "f" }, { t, c: "b" }, mk("ممتاز"), mk("جيد جدًا"), mk("جيد"), mk("ضعيف"), r[1] || ""];
     if (i === 0) cells.push({ html: report, span: VIS_ITEMS.length }); return P.tr(cells); });
