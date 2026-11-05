@@ -1367,12 +1367,13 @@ function submitPermission(code, p) {
       <p>${esc_(type)} · ${esc_(date)} · من ${esc_(p.from)} ${p.to === "نهاية الدوام" ? "حتى نهاية الدوام" : "إلى " + esc_(p.to)} · ${esc_(reason)}</p>`);
     return { id: String(p.id), serial: ed, edited: true };
   }
-  const id = newId_(), now = nowText_(), year = date.slice(0, 4);
+  // المسلسل لكل معلم في كل شهر: «رقم الإذن في الشهر/الشهر» مثل ١/١١ = أول إذن للمعلم في شهر ١١ (قرار ٥/١١/٢٠٢٦)
+  const id = newId_(), now = nowText_(), ym = date.slice(0, 7), mon = String(Number(date.slice(5, 7)));
   const serial = withLock_(() => {
     saveProfile_(me.name, prof);
-    const rows = permRows_().filter(r => r[8].slice(0, 4) === year && (me.isDemo ? r[2] === me.name : !isDemo_(r[2])));
+    const rows = permRows_().filter(r => r[2] === me.name && r[8].slice(0, 7) === ym);
     const n = rows.reduce((mx, r) => Math.max(mx, Number(String(r[1]).split("/")[0]) || 0), 0) + 1;
-    const s = n + "/" + year;
+    const s = n + "/" + mon;
     appendText_(permSheet_(), [id, s, me.name, type, prof.dept, prof.job, prof.civil, reason, date, p.from, p.to, mode, sub, p.sig, now, PERM_PENDING, "", "", ""]);
     if (p.sig) saveMySig_(me.name, p.sig, now);
     return s;
