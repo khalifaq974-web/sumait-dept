@@ -24,7 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def logos():
     s = open(os.path.join(ROOT, "index.html"), encoding="utf-8").read()
     get = lambda n: re.search(r'const %s = "([^"]+)"' % n, s).group(1)
-    return get("MOE_B64"), get("GUID_B64"), get("LOGO_B64")
+    return get("MOE_B64"), get("GUID_B64"), get("LOGO_B64"), get("DEPT_MARK_B64")
 
 def body_html(text):
     out, items = [], []
@@ -40,11 +40,11 @@ def body_html(text):
     return "".join(out)
 
 def build(spec, out_pdf, fonts_dir):
-    moe, guid, inst = logos()
+    moe, guid, inst, dept = logos()
     land = spec.get("landscape")
     # شعار التوجيه الفني فقط لما يتعلق بالتوجيه أو الدرجات (guid: true)؛ وغيره: «قسم الحديث الشريف والقرآن الكريم»
     mid = (f'<img class="g" src="data:image/png;base64,{guid}"><div class="t">التوجيه الفني للعلوم الشرعية</div>' if spec.get("guid", True)
-           else '<div class="t" style="margin-top:3mm">قسم الحديث الشريف والقرآن الكريم</div>')
+           else f'<img class="dm" src="data:image/png;base64,{dept}"><div class="t">قسم الحديث الشريف والقرآن الكريم</div>')
     photos = "".join(f'<img src="data:image/jpeg;base64,{base64.b64encode(open(p, "rb").read()).decode()}">' for p in spec.get("photos", []))
     info = spec.get("info", [])
     rows = "".join("<tr>" + "".join(f'<td class="k">{html.escape(k)}:</td><td>{html.escape(v)}</td>' for k, v in info[i:i + 2]) + "</tr>" for i in range(0, len(info), 2))
@@ -59,7 +59,7 @@ def build(spec, out_pdf, fonts_dir):
 .frame{{border:3px double #1E3A5F;height:100%;padding:5mm 8mm 4mm;display:flex;flex-direction:column}}
 .head{{display:grid;grid-template-columns:34mm 1fr 34mm;align-items:center}}
 .head .moe{{width:27mm;justify-self:center}} .head .inst{{width:28mm;justify-self:center}}
-.mid{{text-align:center}} .mid .g{{width:10mm}} .mid .t{{font-family:Kufi;color:#1E3A5F;font-weight:700;font-size:13pt;margin:1mm 0 1.5mm}}
+.mid{{text-align:center}} .mid .g{{width:10mm}} .mid .dm{{width:12mm;display:block;margin:0 auto 0.5mm}} .mid .t{{font-family:Kufi;color:#1E3A5F;font-weight:700;font-size:13pt;margin:1mm 0 1.5mm}}
 .box{{display:inline-block;background:#1E3A5F;color:#fff;font-family:Kufi;font-weight:700;font-size:14.5pt;padding:1.2mm 12mm;border-radius:2.5mm}}
 .rule{{border-bottom:3px double #1E3A5F;margin:3mm 0 3mm}}
 h1{{font-family:Kufi;color:#1E3A5F;text-align:center;font-size:15.5pt;margin:0 0 2.5mm;font-weight:800}}
