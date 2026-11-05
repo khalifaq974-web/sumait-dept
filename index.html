@@ -613,14 +613,14 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
     <!-- سجل خطة القسم: خطة فصلية أو شهرية لكل قسم (رئيس الشعبة يكتب، والمعلمون يطّلعون) -->
     <section id="sec-pln" hidden>
       <div id="pln-listwrap">
-        <div class="card"><h2>سجل خطة القسم</h2><div class="sub">الخطة الفصلية والشهرية لكل قسم على حدة. كل خطة جدول بنود (المجال، الأهداف، الإجراءات والأنشطة، المسؤول، الزمن، مؤشرات التحقق، ملاحظات)، وتُنزَّل وورد و PDF بالديباجة.</div>
+        <div class="card"><h2>سجل خطة القسم</h2><div class="sub">الخطة الفصلية والشهرية والتشغيلية لكل قسم على حدة. الفصلية والشهرية جدول بنود (المجال، الأهداف، الإجراءات والأنشطة، المسؤول، الزمن، مؤشرات التحقق، ملاحظات)، والتشغيلية جدول الأشهر والأسابيع وأنشطتها، وتُنزَّل وورد و PDF بالديباجة.</div>
           <div class="row-actions" style="margin-top:10px"><button class="btn head-only" id="pln-new" type="button" hidden>+ خطة جديدة</button><button class="btn ghost sm" id="pln-reload" type="button">تحديث</button></div></div>
         <div class="list" id="pln-list"></div>
       </div>
       <form class="card" id="pln-form" hidden>
         <h2 id="pln-h">خطة جديدة</h2>
         <div class="grid3">
-          <div><label class="f">نوع الخطة</label><div class="chips"><label class="chip"><input type="radio" name="pln-type" value="فصلية" checked><span>فصلية</span></label><label class="chip"><input type="radio" name="pln-type" value="شهرية"><span>شهرية</span></label></div></div>
+          <div><label class="f">نوع الخطة</label><div class="chips"><label class="chip"><input type="radio" name="pln-type" value="فصلية" checked><span>فصلية</span></label><label class="chip"><input type="radio" name="pln-type" value="شهرية"><span>شهرية</span></label><label class="chip"><input type="radio" name="pln-type" value="تشغيلية"><span>تشغيلية (أسابيع)</span></label></div></div>
           <div><label class="f" for="pln-dept">القسم</label><select id="pln-dept"><option value="hd">قسم الحديث الشريف</option><option value="qr">قسم القرآن الكريم</option></select></div>
           <div><label class="f" for="pln-term">الفصل الدراسي</label><select id="pln-term"><option>الفصل الدراسي الأول</option><option>الفصل الدراسي الثاني</option></select></div>
         </div>
@@ -1462,35 +1462,59 @@ SECTIONS.forEach(s => $("nav-" + s).onclick = () => go(s, true));
 
 // ================= سجل خطة القسم (طلبه ٣/١١/٢٠٢٦) =================
 const PLN_COLS = [["f", "المجال"], ["g", "الأهداف"], ["a", "الإجراءات والأنشطة"], ["r", "المسؤول عن التنفيذ"], ["w", "زمن التنفيذ"], ["i", "مؤشرات التحقق"], ["n", "ملاحظات"]];
+// الخطة التشغيلية (طلبه ٦/١١/٢٠٢٦): تُحفظ «فصلية» وعنوانها فيه «التشغيلية»؛ كل بند أسبوع: f الشهر · g الأسبوع · w الفترة · a الأنشطة · n ملاحظات الشهر
+const PLN_OCOLS = [["f", "الشهر"], ["g", "الأسبوع"], ["w", "الفترة"], ["a", "الأنشطة والفعاليات"], ["n", "ملاحظات الشهر"]];
 let PLN = null, PLN_EDIT = null;
+const plnIsOp = p => /التشغيلية/.test(p.title || "");
+const plnType = p => plnIsOp(p) ? "تشغيلية" : p.type;
+const plnBox = p => plnIsOp(p) ? "الخطة التشغيلية للقسم" : p.type === "شهرية" ? "الخطة الشهرية للقسم" : "الخطة الفصلية للقسم";
 const plnMonth = m => m ? `${MONTHS_AR[+m.slice(5, 7) - 1]} ${ar(m.slice(0, 4))}` : "";
 const plnTitle = p => p.title || `الخطة ${p.type === "شهرية" ? "الشهرية" : "الفصلية"} لقسم ${SUBJECTS[p.dept]} – ${p.type === "شهرية" ? "شهر " + plnMonth(p.month) : p.term}`;
+/** يجمع أسابيع الخطة التشغيلية حسب الشهر بترتيبها */
+function plnMonths(p) {
+  const out = [];
+  p.items.forEach(x => { const m = x.f || "—"; let g = out.find(o => o.m === m); if (!g) out.push(g = { m, weeks: [], notes: [] }); g.weeks.push(x); if (x.n) g.notes.push(x.n); });
+  return out;
+}
+const PLN_OPW = 5;
+/** جدول شهر من الخطة التشغيلية (الشاشة وPDF): الشهر | الأسابيع | الملاحظات — مثل ملف رئيس الشعبة */
+function plnOpTable(g, cls) {
+  const pad = Math.max(PLN_OPW, g.weeks.length), wk = g.weeks.concat(Array(pad - g.weeks.length).fill(null)), mw = 10, nw = 12, ww = ((100 - mw - nw) / pad).toFixed(2);
+  const td = (t, c = "") => `<td class="${c}" style="white-space:pre-line;vertical-align:top">${esc(t || "")}</td>`;
+  return `<table class="${cls}" style="table-layout:fixed;width:100%"><colgroup><col style="width:${mw}%">${wk.map(() => `<col style="width:${ww}%">`).join("")}<col style="width:${nw}%"></colgroup><tbody>
+    <tr><th rowspan="3" style="vertical-align:middle">${esc(g.m)}</th>${wk.map(x => `<th>${esc(x ? x.g : "")}</th>`).join("")}<th>الملاحظات</th></tr>
+    <tr>${wk.map(x => `<td class="c" style="font-size:.86em;color:#33475B;background:#EEF3F8;white-space:pre-line">${esc(x ? x.w : "")}</td>`).join("")}<td rowspan="2" style="white-space:pre-line;vertical-align:top">${esc(g.notes.join("\n"))}</td></tr>
+    <tr>${wk.map(x => td(x ? x.a : "")).join("")}</tr></tbody></table>`;
+}
 async function loadPln(force) {
   $("pln-form").hidden = true; $("pln-detail").hidden = true; $("pln-listwrap").hidden = false; $("pln-new").hidden = !ME.isHead || ME.isDemo;
   const box = $("pln-list");
   if (!PLN || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { PLN = await run("listPlans", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(/غير معروف/.test(cleanErr(e)) ? "سجل خطة القسم يعمل بعد تحديث الخادم." : cleanErr(e))}</div>`; return; } }
   if (!PLN.length) { box.innerHTML = `<div class="empty">${ME.isHead ? "لا توجد خطط بعد. اضغط «+ خطة جديدة»." : "لم تُرفع خطة للقسم بعد."}</div>`; return; }
   box.innerHTML = ["hd", "qr"].map(d => { const l = PLN.filter(p => p.dept === d); return l.length ? `<h3 class="list-title">قسم ${esc(SUBJECTS[d])}</h3>` + l.map(p =>
-    `<button class="li li-btn" data-pln="${esc(p.id)}"><div class="li-main"><b>${esc(plnTitle(p))}</b><span class="sub">${esc(p.type)} · ${esc(p.term)}${p.month ? " · " + plnMonth(p.month) : ""} · ${ar(p.items.length)} ${p.items.length === 1 ? "بند" : "بنود"}${p.updatedAt ? " · آخر تعديل " + fmtStamp(p.updatedAt) : ""}</span></div><span class="pill none">${esc(p.type)}</span></button>`).join("") : ""; }).join("");
+    `<button class="li li-btn" data-pln="${esc(p.id)}"><div class="li-main"><b>${esc(plnTitle(p))}</b><span class="sub">${esc(plnType(p))} · ${esc(p.term)}${p.month ? " · " + plnMonth(p.month) : ""} · ${plnIsOp(p) ? ar(plnMonths(p).length) + " أشهر · " + ar(p.items.length) + " أسبوعًا" : ar(p.items.length) + " " + (p.items.length === 1 ? "بند" : "بنود")}${p.updatedAt ? " · آخر تعديل " + fmtStamp(p.updatedAt) : ""}</span></div><span class="pill none">${esc(plnType(p))}</span></button>`).join("") : ""; }).join("");
   box.querySelectorAll("[data-pln]").forEach(b => b.onclick = () => openPln(b.dataset.pln));
 }
 $("pln-reload").onclick = () => loadPln(true);
+const plnFormOp = () => { const r = document.querySelector('input[name="pln-type"]:checked'); return !!r && r.value === "تشغيلية"; };
 function plnItemHtml(x, i) {
-  return `<div class="pln-item" data-pi><div class="pln-h"><b>البند ${ar(i + 1)}</b><button class="btn ghost sm" type="button" data-pdel>حذف البند</button></div>
-    ${PLN_COLS.map(([k, l]) => `<div class="${k === "a" || k === "g" ? "wide" : ""}"><label>${l}</label>${k === "a" || k === "g" || k === "i" ? `<textarea rows="2" data-pk="${k}">${esc(x[k] || "")}</textarea>` : `<input type="text" data-pk="${k}" value="${esc(x[k] || "")}">`}</div>`).join("")}</div>`;
+  const op = plnFormOp(), cols = op ? PLN_OCOLS : PLN_COLS, big = op ? ["a", "n"] : ["a", "g", "i"], wide = op ? ["a"] : ["a", "g"];
+  return `<div class="pln-item" data-pi><div class="pln-h"><b>${op ? "الأسبوع" : "البند"} ${ar(i + 1)}</b><button class="btn ghost sm" type="button" data-pdel>حذف ${op ? "الأسبوع" : "البند"}</button></div>
+    ${cols.map(([k, l]) => `<div class="${wide.includes(k) ? "wide" : ""}"><label>${l}</label>${big.includes(k) ? `<textarea rows="2" data-pk="${k}">${esc(x[k] || "")}</textarea>` : `<input type="text" data-pk="${k}" value="${esc(x[k] || "")}">`}</div>`).join("")}</div>`;
 }
-function plnItemsFromDom() { return [...document.querySelectorAll("#pln-items [data-pi]")].map(el => { const o = {}; el.querySelectorAll("[data-pk]").forEach(c => o[c.dataset.pk] = c.value.trim()); return o; }); }
+function plnItemsFromDom() { return [...document.querySelectorAll("#pln-items [data-pi]")].map(el => { const o = Object.assign({}, el._pln || {}); el.querySelectorAll("[data-pk]").forEach(c => o[c.dataset.pk] = c.value.trim()); return o; }); }
 function plnRenderItems(items) {
   $("pln-items").innerHTML = items.map(plnItemHtml).join("");
+  $("pln-items").querySelectorAll("[data-pi]").forEach((el, i) => el._pln = items[i] || {});
   $("pln-items").querySelectorAll("[data-pdel]").forEach((b, i) => b.onclick = () => { const l = plnItemsFromDom(); l.splice(i, 1); plnRenderItems(l.length ? l : [{}]); });
 }
 $("pln-add").onclick = () => plnRenderItems(plnItemsFromDom().concat([{}]));
-document.querySelectorAll('input[name="pln-type"]').forEach(r => r.onchange = () => $("pln-monthw").hidden = r.value !== "شهرية" || !r.checked);
+document.querySelectorAll('input[name="pln-type"]').forEach(r => r.onchange = () => { if (!r.checked) return; $("pln-monthw").hidden = r.value !== "شهرية"; $("pln-add").textContent = r.value === "تشغيلية" ? "+ أسبوع" : "+ بند"; plnRenderItems(plnItemsFromDom()); });
 function plnForm(p) {
   PLN_EDIT = p || null;
   $("pln-listwrap").hidden = true; $("pln-detail").hidden = true; $("pln-form").hidden = false; $("pln-msg").textContent = "";
   $("pln-h").textContent = p ? "تعديل الخطة" : "خطة جديدة";
-  const type = p ? p.type : "فصلية"; document.querySelector(`input[name="pln-type"][value="${type}"]`).checked = true; $("pln-monthw").hidden = type !== "شهرية";
+  const type = p ? plnType(p) : "فصلية"; document.querySelector(`input[name="pln-type"][value="${type}"]`).checked = true; $("pln-monthw").hidden = type !== "شهرية"; $("pln-add").textContent = type === "تشغيلية" ? "+ أسبوع" : "+ بند";
   $("pln-dept").value = p ? p.dept : (dF("pln") || "hd"); $("pln-term").value = p ? p.term : (NOW.getMonth() >= 1 && NOW.getMonth() <= 6 ? "الفصل الدراسي الثاني" : "الفصل الدراسي الأول");
   $("pln-month").value = p ? p.month : todayISO().slice(0, 7); $("pln-title").value = p ? p.title : ""; $("pln-note").value = p ? p.note : "";
   plnRenderItems(p && p.items.length ? p.items : [{}]);
@@ -1500,8 +1524,12 @@ $("pln-new").onclick = () => plnForm(null);
 $("pln-cancel").onclick = () => PLN_EDIT ? openPln(PLN_EDIT.id) : loadPln();
 $("pln-form").addEventListener("submit", async e => {
   e.preventDefault(); const m = $("pln-msg"), btn = $("pln-save");
-  const p = { id: PLN_EDIT ? PLN_EDIT.id : "", type: document.querySelector('input[name="pln-type"]:checked').value, dept: $("pln-dept").value, term: $("pln-term").value,
+  const op = plnFormOp();
+  const p = { id: PLN_EDIT ? PLN_EDIT.id : "", type: op ? "فصلية" : document.querySelector('input[name="pln-type"]:checked').value, dept: $("pln-dept").value, term: $("pln-term").value,
     month: $("pln-month").value, title: $("pln-title").value.trim(), items: plnItemsFromDom().filter(x => Object.values(x).some(Boolean)), note: $("pln-note").value.trim() };
+  if (op && !p.title) p.title = `الخطة التشغيلية لقسم ${SUBJECTS[p.dept]} – ${p.term}`;
+  else if (op && !/التشغيلية/.test(p.title)) p.title = "الخطة التشغيلية – " + p.title;
+  else if (!op && /التشغيلية/.test(p.title)) p.title = p.title.replace(/التشغيلية/g, "").replace(/\s+/g, " ").trim();
   btn.disabled = true; m.textContent = "جارٍ الحفظ…";
   try { const r = await run("savePlan", CODE, p); PLN = await run("listPlans", CODE); openPln(r.id); $("pln-dmsg") && ($("pln-dmsg").textContent = "تم الحفظ."); }
   catch (x) { m.textContent = /غير معروف/.test(cleanErr(x)) ? "سجل خطة القسم يعمل بعد تحديث الخادم." : cleanErr(x); } finally { btn.disabled = false; }
@@ -1510,8 +1538,8 @@ function openPln(id) {
   const p = (PLN || []).find(x => x.id === id); if (!p) return loadPln();
   $("pln-listwrap").hidden = true; $("pln-form").hidden = true; const d = $("pln-detail"); d.hidden = false;
   d.innerHTML = `<button class="btn ghost sm" id="pln-back" type="button">→ رجوع للقائمة</button>
-    <h2 style="margin-top:10px">${esc(plnTitle(p))}</h2><div class="sub">قسم ${esc(SUBJECTS[p.dept])} · ${esc(p.type)} · ${esc(p.term)}${p.month ? " · " + plnMonth(p.month) : ""}${p.updatedAt ? " · آخر تعديل " + fmtStamp(p.updatedAt) : ""}</div>
-    ${p.items.length ? `<div class="tablebox" style="margin-top:10px"><table class="vis-table"><thead><tr><th>م</th>${PLN_COLS.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>${p.items.map((x, i) => `<tr><td>${ar(i + 1)}</td>${PLN_COLS.map(([k]) => `<td style="white-space:pre-line">${esc(x[k] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : '<div class="empty">لا توجد بنود بعد.</div>'}
+    <h2 style="margin-top:10px">${esc(plnTitle(p))}</h2><div class="sub">قسم ${esc(SUBJECTS[p.dept])} · ${esc(plnType(p))} · ${esc(p.term)}${p.month ? " · " + plnMonth(p.month) : ""}${p.updatedAt ? " · آخر تعديل " + fmtStamp(p.updatedAt) : ""}</div>
+    ${plnIsOp(p) ? (p.items.length ? plnMonths(p).map(g => `<div class="tablebox" style="margin-top:10px">${plnOpTable(g, "vis-table plo")}</div>`).join("") : '<div class="empty">لا توجد أسابيع بعد.</div>') : p.items.length ? `<div class="tablebox" style="margin-top:10px"><table class="vis-table"><thead><tr><th>م</th>${PLN_COLS.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>${p.items.map((x, i) => `<tr><td>${ar(i + 1)}</td>${PLN_COLS.map(([k]) => `<td style="white-space:pre-line">${esc(x[k] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : '<div class="empty">لا توجد بنود بعد.</div>'}
     ${p.note ? `<h3>ملاحظة</h3><p class="teacher-desc">${esc(p.note)}</p>` : ""}
     <div class="row-actions" style="margin-top:12px">${ME.isHead && !ME.isDemo ? '<button class="btn" id="pln-edit" type="button">تعديل</button>' : ""}<button class="btn ghost" id="pln-word" type="button">وورد</button><button class="btn ghost" id="pln-pdf" type="button">PDF</button>${ME.isHead && !ME.isDemo ? '<button class="btn ghost" id="pln-del" type="button">حذف الخطة</button>' : ""}</div>
     <div class="saved" id="pln-dmsg"></div>`;
@@ -1522,21 +1550,30 @@ function openPln(id) {
   $("pln-word").onclick = async () => { const m = $("pln-dmsg"); m.textContent = "جارٍ إنشاء الملف…"; try { await deliver(await window.docx.Packer.toBlob(buildPlnDoc(window.docx, p)), fname + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); } };
   if ($("pln-del")) $("pln-del").onclick = () => confirmInline($("pln-del"), "اضغط مرة ثانية لحذف الخطة", async () => { try { await run("deletePlan", CODE, p.id); PLN = PLN.filter(x => x.id !== p.id); loadPln(); } catch (e) { $("pln-dmsg").textContent = cleanErr(e); } });
 }
-const PLN_PDF_CSS = `<style>.pp table.plng td{vertical-align:top;white-space:pre-line;font-size:14px}.pp table.plng th{font-size:14px}</style>`;
+const PLN_PDF_CSS = `<style>.pp table.plng td{vertical-align:top;white-space:pre-line;font-size:14px}.pp table.plng th{font-size:14px}.pp table.plo td,.pp table.plo th{font-size:13px;line-height:1.55}.pp table.plo tr:nth-child(even) td{background-color:#EEF3F8}</style>`;
 function pdfPln(p) {
-  return { box: p.type === "شهرية" ? "الخطة الشهرية للقسم" : "الخطة الفصلية للقسم", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [PLN_PDF_CSS,
-    P.info([["القسم", "قسم " + SUBJECTS[p.dept]], ["الفصل الدراسي", p.term], ["نوع الخطة", p.type + (p.month ? " – " + plnMonth(p.month) : "")], ["العام الدراسي", "١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م"]], 2),
+  return { box: plnBox(p), landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [PLN_PDF_CSS,
+    P.info([["القسم", "قسم " + SUBJECTS[p.dept]], ["الفصل الدراسي", p.term], ["نوع الخطة", plnType(p) + (p.month ? " – " + plnMonth(p.month) : "")], ["العام الدراسي", "١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م"]], 2),
     P.title(plnTitle(p)),
-    p.items.length ? P.grid(P.th(["م", ...PLN_COLS.map(c => c[1])]), p.items.map((x, i) => P.tr([{ t: ar(i + 1), c: "c" }, ...PLN_COLS.map(([k]) => x[k] || "")])), "plng") : P.p("لا توجد بنود."),
+    ...(plnIsOp(p) ? plnMonths(p).map(g => `<div style="margin-bottom:8px">${plnOpTable(g, "grid plng plo")}</div>`) : [p.items.length ? P.grid(P.th(["م", ...PLN_COLS.map(c => c[1])]), p.items.map((x, i) => P.tr([{ t: ar(i + 1), c: "c" }, ...PLN_COLS.map(([k]) => x[k] || "")])), "plng") : P.p("لا توجد بنود.")]),
     p.note ? P.h("ملاحظة") : "", p.note ? P.p(p.note) : ""] };
 }
 function buildPlnDoc(D, p) {
   const h = H(D), C = h.C, W = [500, 1700, 2600, 3100, 1700, 1500, 2000, 1300], cs = (x, o = {}) => h.cell(String(x || "").split("\n").map(l => h.para(l, { size: 17, after: 0, line: 260 })), Object.assign({}, o));
   const info = h.table([[h.lab("القسم:", { w: 1800 }), h.cell("قسم " + SUBJECTS[p.dept], { w: 5400, size: 19 }), h.lab("الفصل الدراسي:", { w: 1800 }), h.cell(p.term, { w: 5400, size: 19 })],
-    [h.lab("نوع الخطة:"), h.cell(p.type + (p.month ? " – " + plnMonth(p.month) : ""), { size: 19 }), h.lab("العام الدراسي:"), h.cell("١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م", { size: 19 })]], [1800, 5400, 1800, 5400], h.softBorders("C9D6E3"));
+    [h.lab("نوع الخطة:"), h.cell(plnType(p) + (p.month ? " – " + plnMonth(p.month) : ""), { size: 19 }), h.lab("العام الدراسي:"), h.cell("١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م", { size: 19 })]], [1800, 5400, 1800, 5400], h.softBorders("C9D6E3"));
   const rows = [["م", ...PLN_COLS.map(c => c[1])].map((x, i) => h.th(x, { w: W[i], size: 16 })), ...p.items.map((x, i) => [h.cell(ar(i + 1), { w: W[0], align: C, size: 17 }), ...PLN_COLS.map(([k], j) => cs(x[k], { w: W[j + 1] }))])];
-  return h.doc([...h.formHeader(p.type === "شهرية" ? "الخطة الشهرية للقسم" : "الخطة الفصلية للقسم", 14400), info, h.para(plnTitle(p), { size: 24, bold: true, color: h.NAVY, align: C, before: 120, after: 120 }),
-    p.items.length ? h.table(rows, W, h.softBorders("C9D6E3")) : h.para("لا توجد بنود.", { size: 20 }),
+  const mg = { top: 60, bottom: 60, left: 80, right: 80 };
+  const oc = (t, o = {}) => new D.TableCell({ rowSpan: o.rows, verticalAlign: o.top ? D.VerticalAlign.TOP : D.VerticalAlign.CENTER, margins: mg, width: { size: o.w, type: D.WidthType.DXA },
+    shading: o.fill ? { type: D.ShadingType.CLEAR, fill: o.fill, color: "auto" } : undefined,
+    children: String(t || "").split("\n").map(l => h.para(l, { size: o.size || 17, bold: !!o.bold, color: o.color, align: o.align, after: 0, line: 260 })) });
+  const opTable = g => { const pad = Math.max(PLN_OPW, g.weeks.length), MW = 1500, NW = 1700, WW = Math.floor((14400 - MW - NW) / pad), wk = g.weeks.concat(Array(pad - g.weeks.length).fill(null));
+    return [h.table([
+      [oc(g.m, { rows: 3, w: MW, fill: h.NAVY, color: "FFFFFF", bold: true, align: C, size: 19 }), ...wk.map(x => oc(x ? x.g : "", { w: WW, fill: h.NAVY, color: "FFFFFF", bold: true, align: C })), oc("الملاحظات", { w: NW, fill: h.NAVY, color: "FFFFFF", bold: true, align: C })],
+      [...wk.map(x => oc(x ? x.w : "", { w: WW, fill: "EEF3F8", align: C, size: 15 })), oc(g.notes.join("\n"), { rows: 2, w: NW, top: true })],
+      wk.map(x => oc(x ? x.a : "", { w: WW, top: true }))], [MW, ...wk.map(() => WW), NW], h.softBorders("C9D6E3")), h.para("", { after: 80, line: 160 })]; };
+  return h.doc([...h.formHeader(plnBox(p), 14400), info, h.para(plnTitle(p), { size: 24, bold: true, color: h.NAVY, align: C, before: 120, after: 120 }),
+    ...(plnIsOp(p) ? plnMonths(p).flatMap(opTable) : [p.items.length ? h.table(rows, W, h.softBorders("C9D6E3")) : h.para("لا توجد بنود.", { size: 20 })]),
     ...(p.note ? [h.heading("ملاحظة"), h.para(p.note, { size: 19 })] : []), h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 14400)], { landscape: true });
 }
 
