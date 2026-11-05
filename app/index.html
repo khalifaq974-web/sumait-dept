@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>القسم الشرعي · معهد السميط</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="القسم الشرعي">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1e6fb5">
+<style>
+  :root { --navy: #1f3864; --blue: #1e6fb5; --bg: #f4f7fb; --card: #ffffff; --text: #1d2733; --muted: #5b6876; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: -apple-system, "Segoe UI", Tahoma, Arial, sans-serif; display: flex; justify-content: center; padding: 28px 16px; }
+  main { width: 100%; max-width: 440px; text-align: center; }
+  .logo { width: 116px; height: 116px; border-radius: 28px; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+  h1 { color: var(--navy); font-size: 26px; margin: 16px 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 22px; }
+  .step { text-align: right; background: var(--card); border-radius: 16px; padding: 14px 16px; margin: 12px 0; line-height: 1.75; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .step b.k { color: var(--blue); }
+  .step[hidden] { display: none; }
+  .btn { display: block; background: var(--blue); color: #fff; text-decoration: none; border-radius: 14px; padding: 15px; font-size: 18px; font-weight: bold; margin-top: 18px; border: 0; width: 100%; cursor: pointer; }
+  .btn.ghost { background: #fff; color: var(--blue); border: 2px solid var(--blue); }
+  .note { color: var(--muted); font-size: 14px; margin-top: 16px; line-height: 1.6; }
+  .opening { font-size: 18px; color: var(--navy); margin-top: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <img class="logo" src="icon-512.png" alt="شعار معهد عبدالرحمن السميط الديني">
+  <h1>قسم المواد الشرعية</h1>
+  <p class="sub">معهد عبدالرحمن السميط الديني · الحديث الشريف والقرآن الكريم</p>
+
+  <div id="launch" hidden><p class="opening">جارٍ فتح موقع القسم…</p></div>
+
+  <div id="install">
+    <div class="step" id="st-ios"><b class="k">الآيفون:</b> افتح هذه الصفحة في <b>Safari</b>، ثم اضغط زر المشاركة <b>⬆︎</b> أسفل الشاشة، واختر <b class="k">«إضافة إلى الشاشة الرئيسية»</b> ثم <b>«إضافة»</b>.</div>
+    <div class="step" id="st-and"><b class="k">الأندرويد:</b> اضغط زر <b>«تثبيت التطبيق»</b> بالأسفل، أو اضغط <b>⋮</b> أعلى Chrome واختر <b class="k">«تثبيت التطبيق»</b> أو «إضافة إلى الشاشة الرئيسية».</div>
+    <button class="btn" id="btn-install" type="button" hidden>تثبيت التطبيق</button>
+    <a class="btn ghost" id="btn-open" href="#">فتح موقع القسم الآن</a>
+    <p class="note">بعد الإضافة تظهر أيقونة <b>«القسم الشرعي»</b> على شاشة جوالك، وتفتح موقع القسم مباشرة. أول مرة قد يُطلب منك الدخول بحساب الوزارة.</p>
+  </div>
+</main>
+<script>
+  // رابط الموقع في حساب الوزارة
+  const SITE = "https://script.google.com/a/macros/moe.edu.kw/s/AKfycbx36T9qahEPemxQzSmZ8-nav6LGuTavEgUFahlbHzX5IATKbF-ayeUGwE6fUkEAZbvK/exec";
+  document.getElementById("btn-open").href = SITE;
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  // فُتحت من الأيقونة: ندخل الموقع مباشرة
+  if (standalone) {
+    document.getElementById("install").hidden = true; document.getElementById("launch").hidden = false;
+    location.replace(SITE);
+  }
+  const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/i.test(ua), android = /Android/i.test(ua);
+  if (ios) document.getElementById("st-and").hidden = true;
+  if (android) document.getElementById("st-ios").hidden = true;
+  if ("serviceWorker" in navigator) { try { navigator.serviceWorker.register("sw.js"); } catch (e) {} }
+  let deferred = null;
+  window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; document.getElementById("btn-install").hidden = false; });
+  document.getElementById("btn-install").onclick = async () => { if (!deferred) return; deferred.prompt(); try { await deferred.userChoice; } catch (e) {} deferred = null; document.getElementById("btn-install").hidden = true; };
+</script>
+</body>
+</html>
