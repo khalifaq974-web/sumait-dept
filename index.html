@@ -1522,7 +1522,7 @@ function openPln(id) {
   $("pln-word").onclick = async () => { const m = $("pln-dmsg"); m.textContent = "جارٍ إنشاء الملف…"; try { await deliver(await window.docx.Packer.toBlob(buildPlnDoc(window.docx, p)), fname + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); } };
   if ($("pln-del")) $("pln-del").onclick = () => confirmInline($("pln-del"), "اضغط مرة ثانية لحذف الخطة", async () => { try { await run("deletePlan", CODE, p.id); PLN = PLN.filter(x => x.id !== p.id); loadPln(); } catch (e) { $("pln-dmsg").textContent = cleanErr(e); } });
 }
-const PLN_PDF_CSS = `<style>.pp table.plng td{vertical-align:top;white-space:pre-line;font-size:12.5px}.pp table.plng th{font-size:12.5px}</style>`;
+const PLN_PDF_CSS = `<style>.pp table.plng td{vertical-align:top;white-space:pre-line;font-size:14px}.pp table.plng th{font-size:14px}</style>`;
 function pdfPln(p) {
   return { box: p.type === "شهرية" ? "الخطة الشهرية للقسم" : "الخطة الفصلية للقسم", landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [PLN_PDF_CSS,
     P.info([["القسم", "قسم " + SUBJECTS[p.dept]], ["الفصل الدراسي", p.term], ["نوع الخطة", p.type + (p.month ? " – " + plnMonth(p.month) : "")], ["العام الدراسي", "١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م"]], 2),
@@ -1831,7 +1831,7 @@ $("cls-word").onclick = async () => {
 
 // كشف متابعة المتعلمين (وورد، أفقي) بالديباجة المعتمدة
 function buildClassSheetDoc(D, r) {
-  const h = H(D), C = h.C, ci = classInfo(r.cls), NAVY = h.NAVY;
+  const h = H(D, { compact: true }), C = h.C, ci = classInfo(r.cls), NAVY = h.NAVY;
   const mg = { top: 4, bottom: 4, left: 50, right: 50 }, few = r.students.length <= 27;
   const hc = (t, o = {}) => new D.TableCell({ columnSpan: o.span, rowSpan: o.rows, verticalAlign: D.VerticalAlign.CENTER, margins: mg,
     shading: { type: D.ShadingType.CLEAR, fill: o.fill || NAVY, color: "auto" }, children: [h.para(t, { size: o.size || 16, bold: true, color: o.color || "FFFFFF", align: C, after: 0, line: 240 })] });
@@ -2556,7 +2556,7 @@ const PDF_CSS = `
 .pp .late{color:#B4382B;font-weight:700}.pp .ok{color:#2F7D4F;font-weight:700}.pp .ahead{color:#6B4FB5;font-weight:700}.pp .none{color:#7D8892}
 .pp .sg{display:grid;text-align:center;font-size:15px;margin-top:8px}
 .pp .sg b{display:block;color:#1E3A5F}.pp .sg .n{font-weight:700}.pp .sg .sp{height:38px}.pp .sg img{height:42px;max-width:150px;object-fit:contain;display:block;margin:2px auto}
-.pp.tight .bd{zoom:.88}.pp .ph{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pp .ph img{width:100%;height:190px;object-fit:contain;background:#F4F7FA;border:1px solid #C9D6E3;border-radius:6px}.pp .ph img:only-child{grid-column:1/-1;height:165px}.pp .ph:has(img:nth-child(3)){grid-template-columns:repeat(3,1fr)}.pp .ph:has(img:nth-child(3)) img{height:300px}
+.pp .ph{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pp .ph img{width:100%;height:190px;object-fit:contain;background:#F4F7FA;border:1px solid #C9D6E3;border-radius:6px}.pp .ph img:only-child{grid-column:1/-1;height:165px}.pp .ph:has(img:nth-child(3)){grid-template-columns:repeat(3,1fr)}.pp .ph:has(img:nth-child(3)) img{height:300px}
 .pp .tbx{display:inline-block;min-width:64px;border:1px solid #C9D6E3;text-align:center;font-weight:700;margin-left:4px;vertical-align:middle}.pp .tbx i{display:block;font-style:normal;background:#1E3A5F;color:#fff;font-size:12.5px;padding:1px 0}
 .pp table.plain{table-layout:auto}.pp table.plain td{vertical-align:middle}
 .pp.land .hd{grid-template-columns:120px 1fr 120px}.pp.land .hd .moe{width:80px}.pp.land .hd .ins{width:84px}.pp.land .mid .g{width:26px}.pp.land .mid .t{font-size:15px;margin:2px 0 4px}.pp.land .box{font-size:17.5px;padding:3px 36px}.pp.land .sg{margin-top:4px;font-size:13.5px}.pp.land .sg .sp{height:26px}.pp.land .bd{font-size:14.5px}.pp.land .bd p{margin:0 0 2px}.pp.land table.grid td{font-size:13px}.pp.land table.grid th{font-size:13px}.pp.land .fr{padding:12px 22px 10px}.pp.land .rule{margin:6px 0 8px}
@@ -2627,23 +2627,25 @@ async function buildPdf(spec) {
   host.style.cssText = "position:fixed;left:-30000px;top:0;z-index:-1;";
   host.innerHTML = `<style>${PDF_CSS}</style>`;
   document.body.appendChild(host);
-  let pages = [], tight = false;
+  let pages = [], zoom = 1;
   const newPage = first => {
-    const pg = document.createElement("div"); pg.className = "pp" + (spec.landscape ? " land" : "") + (tight ? " tight" : "");
+    const pg = document.createElement("div"); pg.className = "pp" + (spec.landscape ? " land" : "");
     pg.innerHTML = `<div class="fr">${first && !spec.noHead ? pdfHeader(spec.box, spec.guid, spec.noDept) : ""}<div class="bd"></div></div>`;
     host.appendChild(pg); pages.push(pg); return pg.querySelector(".bd");
   };
   const over = b => b.scrollHeight > b.clientHeight + 1;
   const blocks = [...spec.blocks, pdfSigns(spec.signs)];
   let body;
-  // إذا فاض القليل (مثل التواقيع) إلى صفحة ثانية، يُعاد الترتيب بخط أصغر قليلًا ليبقى في صفحة واحدة
-  for (let pass = 0; pass < 2; pass++) {
+  // إذا فاض القليل (مثل التواقيع أو الصور) إلى صفحة ثانية، يُعاد الترتيب بتصغير تدريجي بسيط ليبقى في صفحة واحدة
+  const ZOOMS = [0.94, 0.88, 0.82, 0.78];
+  for (let pass = 0; pass <= ZOOMS.length; pass++) {
   pages.forEach(pg => pg.remove()); pages = []; body = newPage(true);
   for (const html of blocks) {
     if (!html) continue;
     const tmp = document.createElement("div"); tmp.innerHTML = html;
     for (const el of [...tmp.children]) {
       if (el.classList && el.classList.contains("pgbrk")) { if (body.children.length) body = newPage(true); continue; }
+      if (zoom < 1 && el.tagName !== "STYLE") el.style.zoom = zoom;
       body.appendChild(el);
       if (!over(body)) continue;
       body.removeChild(el);
@@ -2664,7 +2666,7 @@ async function buildPdf(spec) {
   }
   const bb = body.getBoundingClientRect(), lc = body.lastElementChild;
   const lastFill = lc ? (lc.getBoundingClientRect().bottom - bb.top) / bb.height : 0;
-  if (pass === 0 && pages.length === 2 && lastFill < 0.3) tight = true; else break;
+  if (pass < ZOOMS.length && pages.length === 2 && lastFill < 0.45) zoom = ZOOMS[pass]; else break;
   }
   try {
     const { PDFDocument } = window.PDFLib, pdf = await PDFDocument.create();
@@ -5124,10 +5126,12 @@ function buildReserveReport(D, r) {
 
 // ================= ملفات الوورد =================
 // ترويسة موحّدة لكل السجلات: شعار الوزارة · بيانات المعهد والقسم · شعار المعهد، وتذييل باسم المعهد
-function H(D) {
-  const font = "Arial", NAVY = "1E3A5F", ACCENT = "1F6FA8", INK = "1F2A33", MUTED = "6B7782", LINE = "C9D6E3", FILL = "E6F1F9";
+function H(D, opt = {}) {
+  // خط أكبر وأوضح في كل التقارير (طلب رئيس الشعبة ٥/١١/٢٠٢٦): كل حجم بين ٧ و١١٫٥ نقطة يزيد نقطة؛ والجداول الكثيفة (كشف المتابعة والجداول الأسبوعية) compact
+  const sz = n => opt.compact || n < 14 || n >= 24 ? n : n + 2;
+  const font = "Arial", NAVY = "1E3A5F", ACCENT = "1F6FA8", INK = "0F1A24", MUTED = "6B7782", LINE = "C9D6E3", FILL = "E6F1F9";
   const R = D.AlignmentType.RIGHT, C = D.AlignmentType.CENTER;
-  const run = (t, o = {}) => new D.TextRun({ text: String(t ?? ""), font, rightToLeft: true, size: o.size || 24, bold: !!o.bold, color: o.color || INK });
+  const run = (t, o = {}) => new D.TextRun({ text: String(t ?? ""), font, rightToLeft: true, size: sz(o.size || 24), bold: !!o.bold, color: o.color || INK });
   const para = (t, o = {}) => new D.Paragraph({ bidirectional: true, alignment: o.align || (o.justify ? D.AlignmentType.JUSTIFIED : R),
     spacing: { before: o.before || 0, after: o.after ?? 100, line: o.line || 320 }, keepNext: !!o.keepNext, indent: o.indent ? { right: o.indent } : undefined,
     border: o.rule ? { bottom: { style: D.BorderStyle.DOUBLE, size: 6, color: NAVY, space: 2 } } : undefined,
@@ -5428,7 +5432,7 @@ $("tt-pdf").onclick = () => ttSub === "b" ? deliverPdf(() => pdfTtBell(), "جد�
   : deliverPdf(() => pdfTtAll($("tt-dept").value), `الجدول الأسبوعي للحصص${$("tt-dept").value ? " - " + SUBJECTS[$("tt-dept").value] : ""}.pdf`, $("tt-msg"));
 // ---------- وورد ----------
 function buildTtDoc(D, mode, key) {
-  const h = H(D), C = h.C, P7 = [1, 2, 3, 4, 5, 6, 7], W0 = 1900, WP = Math.floor((14400 - W0) / 7), widths = [W0, ...P7.map(() => WP)];
+  const h = H(D, { compact: true }), C = h.C, P7 = [1, 2, 3, 4, 5, 6, 7], W0 = 1900, WP = Math.floor((14400 - W0) / 7), widths = [W0, ...P7.map(() => WP)];
   const cellOf = c => { const x = ttCell(c); if (!x.kind) return h.cell("", {});
     if (x.kind === "r") return h.cell(x.a, { align: C, size: 17, bold: true, color: h.MUTED || "6B7782", fill: "F2F4F6" });
     return h.cell([h.para(x.a, { align: C, size: 24, bold: true, after: 0, line: 260 }), h.para(x.b, { align: C, size: 15, color: "5A6B7B", after: 0, line: 220 })], { fill: x.kind.indexOf("qr") !== -1 ? "EEF6EF" : "EEF3F8" }); };
