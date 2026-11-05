@@ -89,7 +89,7 @@ const API = { login, saveEntry, headData, submitAchievement, myAchievements, edi
   getPhoto, listMinutes, getMinute, saveMinute, deleteMinute, signMinute, mySignature, saveFileToDrive, demoAccounts, demoAction,
   saveVisit, listVisits, getVisit, signVisit, deleteVisit, reserveData, saveAbsence, deleteAbsence, setSwapReturn, requestSwap, listSwaps, cancelSwap, classesOverview, classSheet, saveGrades,
   listStudentReports, saveStudentReport, seenStudentReport, deleteStudentReport, saveRemedialPlan,
-  myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission,
+  myProfile, saveProfile, listPermissions, getPermission, submitPermission, mailPermissionPdf, decidePermission, deletePermission, myPermNotices, seenPermNotices,
   listCirculars, addCircular, getCircularFile, ackCircular, circularAcks, deleteCircular,
   listMonthlyReports, saveMonthlyReport, deleteMonthlyReport, listActivity, markActivitySeen, markSectionSeen,
   listTasks, saveTask, deleteTask, getTaskFile, respondTask, saveMyPhone, teacherPhones, phonesList, teacherProfiles,
@@ -1427,6 +1427,17 @@ function decidePermission(code, id, approve, sig, note) {
     }
     return { status: approve ? PERM_OK : PERM_NO, decidedAt: now };
   });
+}
+// إذن سجّله رئيس الشعبة باسم المعلم (ملاحظته «سجّله رئيس الشعبة»): يظهر للمعلم تنبيه في ركن الاستئذان مرة واحدة (قرار ٥/١١/٢٠٢٦)
+const PRM_BY_HEAD = "سجّله رئيس الشعبة";
+function myPermNotices(code) {
+  const me = who_(code), props = PropertiesService.getScriptProperties().getProperties();
+  return permRows_().filter(r => r[2] === me.name && r[18] === PRM_BY_HEAD && !props["prmSeen_" + r[0]]).map(r => permObj_(r, false));
+}
+function seenPermNotices(code, ids) {
+  const me = who_(code), own = permRows_().filter(r => r[2] === me.name).map(r => r[0]), p = PropertiesService.getScriptProperties(), at = nowText_();
+  (Array.isArray(ids) ? ids : []).map(String).filter(i => own.indexOf(i) !== -1).forEach(i => p.setProperty("prmSeen_" + i, at));
+  return true;
 }
 function deletePermission(code, id) {
   const me = who_(code);

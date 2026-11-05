@@ -1449,7 +1449,7 @@ function go(sec, byUser) {
   if (sec === "mrp") loadMrp();
   if (sec === "pln") { PLN = null; loadPln(); }
   if (sec === "cls") { if (!CUR_CLS && $("cls-rep").hidden) clsHome(); }
-  if (sec === "prm") { if ($("prm-detail").hidden || !CUR_PRM) prmTab(prmSub); }
+  if (sec === "prm") { if ($("prm-detail").hidden || !CUR_PRM) prmTab(prmSub); prmNotice(); }
   if (sec === "min") loadMinutes();
   if (sec === "vis") visTab(ME.isHead ? (visSub === "mine" ? "new" : visSub) : "mine");
   if (sec === "res") resTab(resSub);
@@ -2210,6 +2210,18 @@ function prmTab(which) {
   if (which === "new") prmForm(); else loadPerms(true).then(renderPerms);
 }
 ["new", "mine", "req", "log"].forEach(t => $("prmtab-" + t).onclick = () => prmTab(t));
+// تنبيه المعلم بإذن سجّله له رئيس الشعبة: يظهر في أعلى ركن الاستئذان مرة واحدة ثم يختفي (قرار ٥/١١/٢٠٢٦)
+async function prmNotice() {
+  const old = $("prm-notice"); if (old) old.remove();
+  if (!ME || ME.isHead || ME.isDemo) return;
+  let L; try { L = await run("myPermNotices", CODE); } catch (e) { return; }
+  if (!L || !L.length || $("sec-prm").hidden) return;
+  const box = document.createElement("div"); box.id = "prm-notice"; box.className = "card"; box.setAttribute("role", "status");
+  box.style.cssText = "border:2px solid #1e88e5;background:#e8f1fb;margin-bottom:12px";
+  box.innerHTML = L.map(p => `<p style="margin:4px 0">🔔 <b>تم إدخال إذن استئذان لك في السجل:</b> ${esc(p.type)} · ${fmtDate(p.date, true)} · من ${fmtClock(p.from)} حتى ${fmtClock(p.to)} · ${esc(p.reason)} · المسلسل ${ar(p.serial)}</p>`).join("");
+  $("sec-prm").prepend(box);
+  try { await run("seenPermNotices", CODE, L.map(p => p.id)); } catch (e) {}
+}
 
 // ---------- تبديل حصة (المعلم) ----------
 // رئيس الشعبة يختار أي معلم ويعتمد له التبديل مباشرة، والمعلم لنفسه فقط
