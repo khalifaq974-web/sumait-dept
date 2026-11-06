@@ -614,8 +614,11 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
     <section id="sec-pln" hidden>
       <div id="pln-listwrap">
         <div class="card"><h2>سجل خطة القسم</h2><div class="sub">الخطة الفصلية والشهرية والتشغيلية لكل قسم على حدة. الفصلية والشهرية جدول بنود (المجال، الأهداف، الإجراءات والأنشطة، المسؤول، الزمن، مؤشرات التحقق، ملاحظات)، والتشغيلية جدول الأشهر والأسابيع وأنشطتها، وتُنزَّل وورد و PDF بالديباجة.</div>
-          <div class="row-actions" style="margin-top:10px"><button class="btn head-only" id="pln-new" type="button" hidden>+ خطة جديدة</button><button class="btn ghost sm" id="pln-reload" type="button">تحديث</button></div></div>
+          <div class="row-actions" style="margin-top:10px"><button class="btn head-only" id="pln-new" type="button" hidden>+ خطة جديدة</button><button class="btn ghost sm" id="pln-reload" type="button">تحديث</button></div>
+          <nav class="tabs" role="tablist" aria-label="عرض الخطة" id="pln-tabs"><button role="tab" data-pv="term" aria-selected="true">الخطة الفصلية</button><button role="tab" data-pv="month" aria-selected="false">خطة الشهر</button><button role="tab" data-pv="week" aria-selected="false">خطة الأسبوع</button><button role="tab" data-pv="day" aria-selected="false">خطة اليوم</button></nav>
+          <nav class="tabs" role="tablist" aria-label="القسم" id="pln-dtabs" hidden><button role="tab" data-pd="hd" aria-selected="true">قسم الحديث الشريف</button><button role="tab" data-pd="qr" aria-selected="false">قسم القرآن الكريم</button></nav></div>
         <div class="list" id="pln-list"></div>
+        <div class="card" id="pln-view" hidden></div>
       </div>
       <form class="card" id="pln-form" hidden>
         <h2 id="pln-h">خطة جديدة</h2>
@@ -1508,6 +1511,86 @@ async function loadPln(force) {
     first.insertAdjacentHTML("beforebegin", `<button class="li li-btn" data-plnw="${esc(p.id)}"><div class="li-main"><b>${PLN_WBOX} – جدول الأسبوع</b><span class="sub">قسم ${esc(SUBJECTS[p.dept])} · ${esc(hd.label)} · ${esc(hd.dates)}</span></div><span class="pill ok">ورقة الأسبوع</span></button>`); });
   box.querySelectorAll("[data-pln]").forEach(b => b.onclick = () => openPln(b.dataset.pln));
   box.querySelectorAll("[data-plnw]").forEach(b => b.onclick = () => openPlnWeek(b.dataset.plnw));
+  plnShowView();
+}
+// ===== عرض الخطة: الفصلية / الشهر / الأسبوع / اليوم (طلبه ٦/١١/٢٠٢٦) =====
+let PLN_V = "term", PLN_VD = "", PLN_VM = "", PLN_VW = null, PLN_VDAY = "";
+const plnDmy = s => { const m = String(s || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null; };
+const plnMKey = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+const plnMName = k => MONTHS_AR[+k.slice(5) - 1] + " " + k.slice(0, 4);
+const plnWkOf = d => (PLN || []).find(p => plnIsWk(p) && p.dept === d && p.items.length);
+const plnOpOf = d => (PLN || []).find(p => plnIsOp(p) && p.dept === d);
+function plnDays(p) { const out = []; p.items.forEach((x, wi) => plnWeekRows(x).forEach((r, di) => { const dt = plnDmy(r.dt); if (dt) out.push({ wi, di, d: r.d, dts: r.dt, date: dt, t: r.t, x }); })); return out; }
+function plnShowView() {
+  document.querySelectorAll("#pln-tabs [data-pv]").forEach(b => b.setAttribute("aria-selected", b.dataset.pv === PLN_V));
+  if (!PLN_VD) PLN_VD = ME && !ME.isHead && (DEPT_OF[ME.name] || []).length === 1 ? DEPT_OF[ME.name][0] : "hd";
+  document.querySelectorAll("#pln-dtabs [data-pd]").forEach(b => b.setAttribute("aria-selected", b.dataset.pd === PLN_VD));
+  const term = PLN_V === "term";
+  $("pln-list").hidden = !term; $("pln-dtabs").hidden = term; $("pln-view").hidden = term;
+  if (!term) plnRenderView();
+}
+document.querySelectorAll("#pln-tabs [data-pv]").forEach(b => b.onclick = () => { PLN_V = b.dataset.pv; plnShowView(); });
+document.querySelectorAll("#pln-dtabs [data-pd]").forEach(b => b.onclick = () => { PLN_VD = b.dataset.pd; PLN_VM = ""; PLN_VW = null; PLN_VDAY = ""; plnShowView(); });
+function plnWeekGrid(items, cls) {
+  const cols = PLN_WCOLS.filter(([k]) => k !== "g" || items.some(x => x.g));
+  return `<table class="${cls}"><thead><tr>${cols.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>${items.map(x => `<tr>${cols.map(([k]) => `<td style="white-space:pre-line;vertical-align:top">${esc(x[k] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+function pdfPlnDay(p, day) {
+  const hd = plnWeekHead(day.x), tasks = String(day.t || "").split("\n").filter(Boolean);
+  return { box: PLN_WBOX, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [PLN_PDF_CSS,
+    P.info([["القسم", "قسم " + SUBJECTS[p.dept]], ["الأسبوع", hd.label], ["اليوم", day.d], ["التاريخ", day.dts]], 2), P.title("خطة اليوم"),
+    P.grid(P.th(["م", "الأعمال والمهام", "ملاحظات التنفيذ"]), (tasks.length ? tasks : ["—"]).map((t, i) => P.tr([{ t: ar(i + 1), c: "c" }, t, ""])), "plng pwk")] };
+}
+function plnRenderView() {
+  const v = $("pln-view"), d = PLN_VD, wk = plnWkOf(d), op = plnOpOf(d);
+  if (!wk) { v.innerHTML = `<div class="empty">لا توجد خطة أسبوعية لمهام رئيس الشعبة لقسم ${esc(SUBJECTS[d])} بعد.</div>`; return; }
+  const days = plnDays(wk), today = new Date(); today.setHours(0, 0, 0, 0);
+  if (PLN_V === "month") {
+    const months = [...new Set(days.map(x => plnMKey(x.date)))];
+    if (!PLN_VM || months.indexOf(PLN_VM) < 0) PLN_VM = months.find(k => k === plnMKey(today)) || months[0];
+    const wIdx = [...new Set(days.filter(x => plnMKey(x.date) === PLN_VM).map(x => x.wi))], items = wIdx.map(i => wk.items[i]);
+    const mName = plnMName(PLN_VM), og = op ? plnMonths(op).find(g => g.m === mName) : null;
+    v.innerHTML = `<h2>خطة شهر ${esc(mName)}</h2><div class="sub">قسم ${esc(SUBJECTS[d])} · ${ar(items.length)} أسابيع</div>
+      <div class="row-actions" style="margin-top:10px"><select id="plv-m" style="max-width:220px">${months.map(k => `<option value="${k}"${k === PLN_VM ? " selected" : ""}>${esc(plnMName(k))}</option>`).join("")}</select>
+      <button class="btn" id="plv-pdf" type="button">PDF</button></div>
+      ${og ? `<h3 style="margin-top:14px">أنشطة القسم في الشهر (الخطة التشغيلية)</h3><div class="tablebox">${plnOpTable(og, "vis-table plo")}</div>` : ""}
+      <h3 style="margin-top:14px">أعمال ومهام رئيس الشعبة</h3><div class="tablebox">${plnWeekGrid(items, "vis-table")}</div><div class="saved" id="plv-msg"></div>`;
+    $("plv-m").onchange = e => { PLN_VM = e.target.value; plnRenderView(); };
+    $("plv-pdf").onclick = () => deliverPdf(() => { const sp = pdfPln(Object.assign({}, wk, { items }));
+      sp.box = "الخطة الشهرية للقسم";
+      sp.blocks[1] = P.info([["القسم", "قسم " + SUBJECTS[d]], ["الفصل الدراسي", wk.term], ["الشهر", mName], ["العام الدراسي", "١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م"]], 2);
+      sp.blocks[2] = P.title(`خطة شهر ${mName} – قسم ${SUBJECTS[d]}`); if (og) sp.blocks.splice(3, 0, P.h("أنشطة القسم في الشهر (الخطة التشغيلية)"), `<div style="margin-bottom:8px">${plnOpTable(og, "grid plng plo")}</div>`, P.h("أعمال ومهام رئيس الشعبة")); return sp; },
+      `خطة شهر ${mName} – قسم ${SUBJECTS[d]}.pdf`, $("plv-msg"));
+    return;
+  }
+  if (PLN_V === "week") {
+    if (PLN_VW == null || PLN_VW >= wk.items.length) PLN_VW = plnCurWeek(wk);
+    const i = PLN_VW, x = wk.items[i], hd = plnWeekHead(x);
+    v.innerHTML = `<h2>خطة الأسبوع – ${PLN_WBOX}</h2><div class="sub">قسم ${esc(SUBJECTS[d])} · ${esc(hd.label)} · ${esc(hd.dates)}</div>
+      <div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="plv-prev" type="button"${i ? "" : " disabled"}>→ السابق</button>
+      <select id="plv-w" style="max-width:240px">${wk.items.map((y, j) => `<option value="${j}"${j === i ? " selected" : ""}>${esc(plnWeekHead(y).label)}</option>`).join("")}</select>
+      <button class="btn ghost sm" id="plv-next" type="button"${i < wk.items.length - 1 ? "" : " disabled"}>التالي ←</button>
+      <button class="btn" id="plv-pdf" type="button">PDF</button><button class="btn ghost" id="plv-word" type="button">وورد</button></div>
+      <div class="tablebox" style="margin-top:10px"><table class="vis-table"><thead><tr><th>اليوم</th><th>التاريخ</th><th>الأعمال والمهام</th></tr></thead><tbody>${plnWeekRows(x).map(r => `<tr><td><b>${r.d}</b></td><td>${esc(r.dt)}</td><td style="white-space:pre-line">${esc(r.t) || "—"}</td></tr>`).join("")}</tbody></table></div>
+      ${x.g ? `<h3>الزيارات الصفية</h3><p class="teacher-desc" style="white-space:pre-line">${esc(x.g)}</p>` : ""}<div class="saved" id="plv-msg"></div>`;
+    $("plv-prev").onclick = () => { PLN_VW = i - 1; plnRenderView(); }; $("plv-next").onclick = () => { PLN_VW = i + 1; plnRenderView(); };
+    $("plv-w").onchange = e => { PLN_VW = +e.target.value; plnRenderView(); };
+    const nm = `${PLN_WBOX} – قسم ${SUBJECTS[d]} – ${hd.label}`;
+    $("plv-pdf").onclick = () => deliverPdf(() => pdfPlnWeeks(wk, [i]), nm + ".pdf", $("plv-msg"));
+    $("plv-word").onclick = async () => { const m = $("plv-msg"); m.textContent = "جارٍ إنشاء الملف…"; try { await deliver(await window.docx.Packer.toBlob(buildPlnWeekDoc(window.docx, wk, [i])), nm + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); } };
+    return;
+  }
+  // خطة اليوم
+  if (!PLN_VDAY || !days.some(x => x.dts === PLN_VDAY)) PLN_VDAY = (days.find(x => x.date >= today) || days[days.length - 1]).dts;
+  const di = days.findIndex(x => x.dts === PLN_VDAY), day = days[di], tasks = String(day.t || "").split("\n").filter(Boolean);
+  v.innerHTML = `<h2>خطة اليوم</h2><div class="sub">قسم ${esc(SUBJECTS[d])} · ${esc(day.d)} ${esc(day.dts)} · ${esc(plnWeekHead(day.x).label)}</div>
+    <div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="plv-prev" type="button"${di ? "" : " disabled"}>→ اليوم السابق</button>
+    <select id="plv-d" style="max-width:240px">${days.map(x => `<option value="${x.dts}"${x.dts === PLN_VDAY ? " selected" : ""}>${esc(x.d + " " + x.dts)}</option>`).join("")}</select>
+    <button class="btn ghost sm" id="plv-next" type="button"${di < days.length - 1 ? "" : " disabled"}>اليوم التالي ←</button><button class="btn" id="plv-pdf" type="button">PDF</button></div>
+    ${tasks.length ? `<ol style="margin-top:12px;line-height:2">${tasks.map(t => `<li>${esc(t)}</li>`).join("")}</ol>` : '<div class="empty">لا توجد مهام مسجلة لهذا اليوم.</div>'}<div class="saved" id="plv-msg"></div>`;
+  $("plv-prev").onclick = () => { PLN_VDAY = days[di - 1].dts; plnRenderView(); }; $("plv-next").onclick = () => { PLN_VDAY = days[di + 1].dts; plnRenderView(); };
+  $("plv-d").onchange = e => { PLN_VDAY = e.target.value; plnRenderView(); };
+  $("plv-pdf").onclick = () => deliverPdf(() => pdfPlnDay(wk, day), `خطة اليوم – ${day.d} ${day.dts.replace(/\//g, "-")} – قسم ${SUBJECTS[d]}.pdf`, $("plv-msg"));
 }
 /** عرض ورقة الأسبوع على الشاشة مع التنقل بين الأسابيع وتنزيلها */
 function openPlnWeek(id, idx) {
