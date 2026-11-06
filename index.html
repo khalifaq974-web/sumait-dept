@@ -1502,7 +1502,35 @@ async function loadPln(force) {
   if (!PLN.length) { box.innerHTML = `<div class="empty">${ME.isHead ? "لا توجد خطط بعد. اضغط «+ خطة جديدة»." : "لم تُرفع خطة للقسم بعد."}</div>`; return; }
   box.innerHTML = ["hd", "qr"].map(d => { const l = PLN.filter(p => p.dept === d); return l.length ? `<h3 class="list-title">قسم ${esc(SUBJECTS[d])}</h3>` + l.map(p =>
     `<button class="li li-btn" data-pln="${esc(p.id)}"><div class="li-main"><b>${esc(plnTitle(p))}</b><span class="sub">${esc(plnType(p))} · ${esc(p.term)}${p.month ? " · " + plnMonth(p.month) : ""} · ${plnIsOp(p) ? ar(plnMonths(p).length) + " أشهر · " + ar(p.items.length) + " أسبوعًا" : ar(p.items.length) + " " + (p.items.length === 1 ? "بند" : "بنود")}${p.updatedAt ? " · آخر تعديل " + fmtStamp(p.updatedAt) : ""}</span></div><span class="pill none">${esc(plnType(p))}</span></button>`).join("") : ""; }).join("");
+  // ورقة الأسبوع «أعمال ومهام رئيس الشعبة» تظهر في القائمة مثل باقي الخطط (طلبه ٦/١١/٢٠٢٦)
+  PLN.filter(p => plnIsWk(p) && p.items.length).forEach(p => { const first = box.querySelector(`[data-pln="${p.id}"]`); if (!first) return;
+    const i = plnCurWeek(p), hd = plnWeekHead(p.items[i]);
+    first.insertAdjacentHTML("beforebegin", `<button class="li li-btn" data-plnw="${esc(p.id)}"><div class="li-main"><b>${PLN_WBOX} – جدول الأسبوع</b><span class="sub">قسم ${esc(SUBJECTS[p.dept])} · ${esc(hd.label)} · ${esc(hd.dates)}</span></div><span class="pill ok">ورقة الأسبوع</span></button>`); });
   box.querySelectorAll("[data-pln]").forEach(b => b.onclick = () => openPln(b.dataset.pln));
+  box.querySelectorAll("[data-plnw]").forEach(b => b.onclick = () => openPlnWeek(b.dataset.plnw));
+}
+/** عرض ورقة الأسبوع على الشاشة مع التنقل بين الأسابيع وتنزيلها */
+function openPlnWeek(id, idx) {
+  const p = (PLN || []).find(x => x.id === id); if (!p) return loadPln();
+  const i = idx == null ? plnCurWeek(p) : Math.max(0, Math.min(p.items.length - 1, idx)), x = p.items[i], hd = plnWeekHead(x);
+  $("pln-listwrap").hidden = true; $("pln-form").hidden = true; const d = $("pln-detail"); d.hidden = false;
+  d.innerHTML = `<button class="btn ghost sm" id="pln-back" type="button">→ رجوع للقائمة</button>
+    <h2 style="margin-top:10px">${PLN_WBOX} – جدول الأسبوع</h2><div class="sub">قسم ${esc(SUBJECTS[p.dept])} · ${esc(hd.label)} · ${esc(hd.dates)}</div>
+    <div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="plw-prev" type="button"${i ? "" : " disabled"}>→ الأسبوع السابق</button>
+      <select id="plw-sel" style="max-width:260px">${p.items.map((y, j) => `<option value="${j}"${j === i ? " selected" : ""}>${esc(plnWeekHead(y).label)}</option>`).join("")}</select>
+      <button class="btn ghost sm" id="plw-next" type="button"${i < p.items.length - 1 ? "" : " disabled"}>الأسبوع التالي ←</button></div>
+    <div class="tablebox" style="margin-top:10px"><table class="vis-table"><thead><tr><th>اليوم</th><th>التاريخ</th><th>الأعمال والمهام</th></tr></thead><tbody>${plnWeekRows(x).map(r => `<tr><td><b>${r.d}</b></td><td>${esc(r.dt)}</td><td style="white-space:pre-line">${esc(r.t) || "—"}</td></tr>`).join("")}</tbody></table></div>
+    ${x.g ? `<h3>الزيارات الصفية</h3><p class="teacher-desc" style="white-space:pre-line">${esc(x.g)}</p>` : ""}
+    <div class="row-actions" style="margin-top:12px"><button class="btn" id="plw-pdf" type="button">PDF</button><button class="btn ghost" id="plw-word" type="button">وورد</button><button class="btn ghost" id="plw-all" type="button">كل الأسابيع PDF</button><button class="btn ghost" id="plw-plan" type="button">الخطة الأسبوعية كاملة</button></div>
+    <div class="saved" id="pln-dmsg"></div>`;
+  $("pln-back").onclick = () => loadPln();
+  $("plw-prev").onclick = () => openPlnWeek(id, i - 1); $("plw-next").onclick = () => openPlnWeek(id, i + 1);
+  $("plw-sel").onchange = e => openPlnWeek(id, +e.target.value);
+  $("plw-plan").onclick = () => openPln(id);
+  const nm = `${PLN_WBOX} – قسم ${SUBJECTS[p.dept]} – ${hd.label}`;
+  $("plw-pdf").onclick = () => deliverPdf(() => pdfPlnWeeks(p, [i]), nm + ".pdf", $("pln-dmsg"));
+  $("plw-all").onclick = () => deliverPdf(() => pdfPlnWeeks(p, p.items.map((_, j) => j)), `${PLN_WBOX} – قسم ${SUBJECTS[p.dept]} – كل الأسابيع.pdf`, $("pln-dmsg"));
+  $("plw-word").onclick = async () => { const m = $("pln-dmsg"); m.textContent = "جارٍ إنشاء الملف…"; try { await deliver(await window.docx.Packer.toBlob(buildPlnWeekDoc(window.docx, p, [i])), nm + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); } };
 }
 $("pln-reload").onclick = () => loadPln(true);
 const plnFormKind = () => { const r = document.querySelector('input[name="pln-type"]:checked'); return r ? r.value : "فصلية"; };
