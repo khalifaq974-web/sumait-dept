@@ -1476,7 +1476,8 @@ function plnMonths(p) {
   p.items.forEach(x => { const m = x.f || "—"; let g = out.find(o => o.m === m); if (!g) out.push(g = { m, weeks: [], notes: [] }); g.weeks.push(x); if (x.n) g.notes.push(x.n); });
   return out;
 }
-const PLN_OPW = 5;
+// أقل عدد أعمدة أسابيع في الشهر؛ الأعمدة بعدد أسابيع الشهر فقط حتى يملأ الجدول عرض الصفحة بلا أعمدة فارغة (طلبه ٦/١١/٢٠٢٦)
+const PLN_OPW = 1;
 /** جدول شهر من الخطة التشغيلية (الشاشة وPDF): الشهر | الأسابيع | الملاحظات — مثل ملف رئيس الشعبة */
 function plnOpTable(g, cls) {
   const pad = Math.max(PLN_OPW, g.weeks.length), wk = g.weeks.concat(Array(pad - g.weeks.length).fill(null)), mw = 10, nw = 12, ww = ((100 - mw - nw) / pad).toFixed(2);
@@ -1567,7 +1568,7 @@ function buildPlnDoc(D, p) {
   const oc = (t, o = {}) => new D.TableCell({ rowSpan: o.rows, verticalAlign: o.top ? D.VerticalAlign.TOP : D.VerticalAlign.CENTER, margins: mg, width: { size: o.w, type: D.WidthType.DXA },
     shading: o.fill ? { type: D.ShadingType.CLEAR, fill: o.fill, color: "auto" } : undefined,
     children: String(t || "").split("\n").map(l => h.para(l, { size: o.size || 17, bold: !!o.bold, color: o.color, align: o.align, after: 0, line: 260 })) });
-  const opTable = g => { const pad = Math.max(PLN_OPW, g.weeks.length), MW = 1500, NW = 1700, WW = Math.floor((14400 - MW - NW) / pad), wk = g.weeks.concat(Array(pad - g.weeks.length).fill(null));
+  const opTable = g => { const pad = Math.max(PLN_OPW, g.weeks.length), MW = 1500, WW = Math.floor((14400 - MW - 1700) / pad), NW = 14400 - MW - WW * pad, wk = g.weeks.concat(Array(pad - g.weeks.length).fill(null));
     return [h.table([
       [oc(g.m, { rows: 3, w: MW, fill: h.NAVY, color: "FFFFFF", bold: true, align: C, size: 19 }), ...wk.map(x => oc(x ? x.g : "", { w: WW, fill: h.NAVY, color: "FFFFFF", bold: true, align: C })), oc("الملاحظات", { w: NW, fill: h.NAVY, color: "FFFFFF", bold: true, align: C })],
       [...wk.map(x => oc(x ? x.w : "", { w: WW, fill: "EEF3F8", align: C, size: 15 })), oc(g.notes.join("\n"), { rows: 2, w: NW, top: true })],
