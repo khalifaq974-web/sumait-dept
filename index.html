@@ -1273,6 +1273,9 @@ const ACH_UI = {
     descPh: "ماذا قدّمت؟ من شارك؟ ما الذي تميّز به النشاط؟", photosL: "صور النشاط", noun: "نشاط", nounDef: "النشاط", mine: "أنشطتي السابقة", box: "تقرير نشاط", photosH: "صور من النشاط" }
 };
 let ACH_KIND = "pd";
+// طلبه ٦/١١/٢٠٢٦: كل نشاط أو مسابقة يُرفع في «سجل الأنشطة والمسابقات» يظهر أيضًا في «سجل التنمية المهنية وإنجاز الموظف» (عرضًا فقط؛ يُعدَّل من سجله الأساسي)
+const achInKind = a => a.kind === ACH_KIND || (ACH_KIND === "pd" && a.kind === "act");
+const achActTag = a => ACH_KIND === "pd" && a.kind === "act" ? ' <span class="pill none">نشاط ومسابقة</span>' : "";
 // قسم الإنجاز: يُختار تلقائيًا لمن يدرّس مادة واحدة، ويختاره من يدرّس المادتين
 function setAchDept() {
   const ds = [...new Set((ME.classes || []).map(c => c.split(":")[0]))];
@@ -3061,19 +3064,19 @@ async function loadMyAch() {
   const box = $("ach-list");
   if (!ACH) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { ACH = await run("myAchievements", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
   achLampTeacher();
-  const U = ACH_UI[ACH_KIND], mine = ACH.filter(a => a.kind === ACH_KIND);
+  const U = ACH_UI[ACH_KIND], mine = ACH.filter(achInKind);
   if (!mine.length) { box.innerHTML = `<div class="empty">لم ترفع شيئًا في «${U.log}» بعد. استخدم النموذج أعلاه.</div>`; return; }
   // ١) يُصاغ ← ٢) يعتمده رئيس الشعبة ← ٣) يظهر للمعلم فيطبعه PDF ويوقَّع يدويًا
   const st = a => ME.isHead ? "" : a.report ? "ok" : "wait";
   box.innerHTML = mine.map(a => { const k = st(a); return `<div class="li${k === "ok" && repIsNew(a) ? " rep-new" : ""}" data-li="${a.id}">
-      <div class="li-main"><b>${esc(a.title)}</b><span class="sub">${esc(a.type)} · ${fmtDate(a.date)}${a.photos.length ? " · " + ar(a.photos.length) + " صور" : ""}</span>
+      <div class="li-main"><b>${esc(a.title)}${achActTag(a)}</b><span class="sub">${esc(a.type)} · ${fmtDate(a.date)}${a.photos.length ? " · " + ar(a.photos.length) + " صور" : ""}</span>
       ${k === "wait" ? `<span class="sub">⏳ يُصاغ تقريره الرسمي ويعتمده رئيس الشعبة، ثم يطلع لك هنا جاهزًا للطباعة. وتقدر الحين تنزّل تقريرك بأسلوبك</span>`
         : k === "ok" ? `<span class="sub" style="color:var(--ok)">✓ اعتمده رئيس الشعبة · اطبعه ووقّعه يدويًا</span>` : ""}</div>
       <div class="row-actions">${ME.isHead ? `<span class="pill ok">معتمد</span>` : k === "ok" ? `<span class="pill ok">معتمد ✓</span>` : `<span class="pill none">بانتظار اعتماد رئيس الشعبة</span>`}
       ${ME.isHead ? `<button class="btn sm" data-view="${a.id}">عرض</button>`
         : k === "ok" ? `<button class="btn sm" data-rpdf="${a.id}">📄 طباعة التقرير PDF</button><button class="btn ghost sm" data-rword="${a.id}">وورد</button>`
-        : `<button class="btn sm" data-mpdf="${a.id}">PDF</button><button class="btn ghost sm" data-mword="${a.id}">وورد</button>`}<button class="btn ghost sm" data-edit="${a.id}">تعديل ${ACH_UI[a.kind === "act" ? "act" : "pd"].nounDef}</button>
-      <button class="btn ghost sm" data-del="${a.id}">حذف</button></div></div>`; }).join("") + `<div class="saved" id="ach-mmsg"></div>`;
+        : `<button class="btn sm" data-mpdf="${a.id}">PDF</button><button class="btn ghost sm" data-mword="${a.id}">وورد</button>`}${a.kind === ACH_KIND ? `<button class="btn ghost sm" data-edit="${a.id}">تعديل ${ACH_UI[a.kind === "act" ? "act" : "pd"].nounDef}</button>
+      <button class="btn ghost sm" data-del="${a.id}">حذف</button>` : `<span class="sub">يُعدَّل من سجل الأنشطة والمسابقات</span>`}</div></div>`; }).join("") + `<div class="saved" id="ach-mmsg"></div>`;
   const repPdf = (a, rep, name) => deliverPdf(async () => { const ph = []; for (const x of a.photos) ph.push(await photo(x)); if (ph.length > 1) ph.splice(0, ph.length, await collage(ph)); return pdfAchievement(rep(a), ph); }, name, $("ach-mmsg"));
   const repWord = async (a, rep, name) => { const m = $("ach-mmsg"); if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
     m.textContent = "جارٍ إنشاء الملف…";
@@ -3114,7 +3117,7 @@ let achFilter = "pending", ACH_T = null; // ACH_T: { n: المعلم, d: الق�
 async function loadAllAch(force) {
   const box = $("ach-all-list");
   if (!ACH_ALL || force) { box.innerHTML = '<div class="empty">جارٍ التحميل…</div>'; try { ACH_ALL = await run("allAchievements", CODE); } catch (e) { box.innerHTML = `<div class="empty">${esc(cleanErr(e))}</div>`; return; } }
-  const ALLK = ACH_ALL.filter(a => a.kind === ACH_KIND && (!dF("ach") || a.dept === dF("ach")));
+  const ALLK = ACH_ALL.filter(a => achInKind(a) && (!dF("ach") || a.dept === dF("ach")));
   const pend = ALLK.filter(a => a.status !== ST_READY).length, ready = ALLK.length - pend;
   $("ach-filter").innerHTML = [["pending", "بانتظار الصياغة أو اعتمادك", pend], ["ready", "معتمدة", ready], ["", "الكل", ALLK.length]]
     .map(([k, t, n]) => `<button data-k="${k}" aria-pressed="${achFilter === k}"><b>${ar(n)}</b><span>${t}</span></button>`).join("");
@@ -3134,13 +3137,13 @@ async function loadAllAch(force) {
   const mineAll = ALLK.filter(a => ofT(a, ACH_T.n, ACH_T.d)), list = mineAll.filter(inF);
   const head = tHeadHtml(ACH_T.n, `${ACH_UI[ACH_KIND].log}${ACH_T.d && (DEPT_OF[ACH_T.n] || []).length > 1 ? " · قسم " + SUBJECTS[ACH_T.d] : ""} · المجموع ${ar(mineAll.length)}`);
   box.innerHTML = head + (!list.length ? `<div class="empty">${achFilter === "pending" ? "لا يوجد له شيء بانتظار الصياغة أو الاعتماد." : "لا يوجد له شيء هنا."}</div>` : list.map(a => `<button class="li li-btn" data-open="${a.id}">
-      <div class="li-main"><b>${esc(a.title)}${a.demo ? ' <span class="pill none">تجريبي</span>' : ""}</b><span class="sub">${esc(SUBJECTS[a.dept] || "")} · ${esc(a.type)} · ${fmtDate(a.date)}</span></div>
+      <div class="li-main"><b>${esc(a.title)}${achActTag(a)}${a.demo ? ' <span class="pill none">تجريبي</span>' : ""}</b><span class="sub">${esc(SUBJECTS[a.dept] || "")} · ${esc(a.type)} · ${fmtDate(a.date)}</span></div>
       <span class="pill ${a.status === ST_READY ? "ok" : "late"}">${a.status === ST_READY ? "معتمد" : a.report ? (a.editedAt && a.editedAt > (a.reportedAt || "") ? "معدّل · بانتظار اعتمادك" : "بانتظار اعتمادك") : "بانتظار الصياغة"}</span></button>`).join(""));
   box.querySelector("[data-tback]").onclick = () => { ACH_T = null; loadAllAch(); };
   box.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openAch(b.dataset.open));
 }
 $("ach-reload").onclick = () => loadAllAch(true);
-function achLogRows() { return (ACH_ALL || []).filter(a => a.kind === ACH_KIND && !a.demo && (!dF("ach") || a.dept === dF("ach"))).slice().sort((x, y) => (x.date || "").localeCompare(y.date || "")); }
+function achLogRows() { return (ACH_ALL || []).filter(a => achInKind(a) && !a.demo && (!dF("ach") || a.dept === dF("ach"))).slice().sort((x, y) => (x.date || "").localeCompare(y.date || "")); }
 $("ach-logpdf").onclick = () => deliverPdf(() => pdfAchLog(ACH_KIND, achLogRows()), ACH_UI[ACH_KIND].log + dFile(dF("ach")) + ".pdf", $("ach-lmsg"));
 $("ach-logword").onclick = async () => {
   const m = $("ach-lmsg"); if (!window.docx) { m.textContent = "أداة الوورد لم تُحمَّل. أعد تحميل الصفحة."; return; }
