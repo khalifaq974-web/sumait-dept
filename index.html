@@ -620,7 +620,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
       <form class="card" id="pln-form" hidden>
         <h2 id="pln-h">خطة جديدة</h2>
         <div class="grid3">
-          <div><label class="f">نوع الخطة</label><div class="chips"><label class="chip"><input type="radio" name="pln-type" value="فصلية" checked><span>فصلية</span></label><label class="chip"><input type="radio" name="pln-type" value="شهرية"><span>شهرية</span></label><label class="chip"><input type="radio" name="pln-type" value="تشغيلية"><span>تشغيلية (أسابيع)</span></label><label class="chip"><input type="radio" name="pln-type" value="أسبوعية"><span>أسبوعية (مهام رئيس الشعبة)</span></label></div></div>
+          <div><label class="f">نوع الخطة</label><div class="chips"><label class="chip"><input type="radio" name="pln-type" value="فصلية" checked><span>فصلية</span></label><label class="chip"><input type="radio" name="pln-type" value="شهرية"><span>شهرية</span></label><label class="chip"><input type="radio" name="pln-type" value="تشغيلية"><span>تشغيلية (أسابيع)</span></label><label class="chip"><input type="radio" name="pln-type" value="أسبوعية"><span>أسبوعية (مهامي بالأيام)</span></label></div></div>
           <div><label class="f" for="pln-dept">القسم</label><select id="pln-dept"><option value="hd">قسم الحديث الشريف</option><option value="qr">قسم القرآن الكريم</option></select></div>
           <div><label class="f" for="pln-term">الفصل الدراسي</label><select id="pln-term"><option>الفصل الدراسي الأول</option><option>الفصل الدراسي الثاني</option></select></div>
         </div>
@@ -1467,8 +1467,9 @@ const PLN_OCOLS = [["f", "الشهر"], ["g", "الأسبوع"], ["w", "الفت
 let PLN = null, PLN_EDIT = null;
 const plnIsOp = p => /التشغيلية/.test(p.title || "");
 // الخطة الأسبوعية لمهام رئيس الشعبة (طلبه ٦/١١/٢٠٢٦): تُحفظ «فصلية» وعنوانها فيه «الأسبوعية»؛ كل بند أسبوع
-const PLN_WCOLS = [["f", "الأسبوع"], ["w", "الفترة"], ["a", "مهام رئيس الشعبة"], ["g", "الزيارات الصفية"], ["n", "ملاحظات"]];
-const PLN_WW = { f: 1.15, w: 1.25, a: 4.6, g: 2.1, n: 1.6 };
+// كل بند أسبوع، ومهامه موزعة على أيام الدوام (طلبه ٦/١١): f الأسبوع وفترته · a الأحد · r الاثنين · w الثلاثاء · i الأربعاء · n الخميس · g الزيارات الصفية
+const PLN_WCOLS = [["f", "الأسبوع"], ["a", "الأحد"], ["r", "الاثنين"], ["w", "الثلاثاء"], ["i", "الأربعاء"], ["n", "الخميس"], ["g", "الزيارات الصفية"]];
+const PLN_WW = { f: 1.25, a: 2.2, r: 2.2, w: 2.2, i: 2.2, n: 2.2, g: 1.75 };
 const plnIsWk = p => !plnIsOp(p) && /الأسبوعية/.test(p.title || "");
 const plnCols = p => plnIsWk(p) ? PLN_WCOLS.filter(([k]) => k !== "g" || p.items.some(x => x.g)) : PLN_COLS;
 const plnType = p => plnIsOp(p) ? "تشغيلية" : plnIsWk(p) ? "أسبوعية" : p.type;
@@ -1504,7 +1505,7 @@ $("pln-reload").onclick = () => loadPln(true);
 const plnFormKind = () => { const r = document.querySelector('input[name="pln-type"]:checked'); return r ? r.value : "فصلية"; };
 const plnFormOp = () => plnFormKind() === "تشغيلية";
 function plnItemHtml(x, i) {
-  const kind = plnFormKind(), op = kind === "تشغيلية" || kind === "أسبوعية", cols = kind === "تشغيلية" ? PLN_OCOLS : kind === "أسبوعية" ? PLN_WCOLS : PLN_COLS, big = op ? ["a", "g", "n"] : ["a", "g", "i"], wide = op ? ["a"] : ["a", "g"];
+  const kind = plnFormKind(), op = kind === "تشغيلية" || kind === "أسبوعية", cols = kind === "تشغيلية" ? PLN_OCOLS : kind === "أسبوعية" ? PLN_WCOLS : PLN_COLS, big = kind === "أسبوعية" ? ["f", "a", "r", "w", "i", "n", "g"] : op ? ["a", "g", "n"] : ["a", "g", "i"], wide = kind === "أسبوعية" ? [] : op ? ["a"] : ["a", "g"];
   return `<div class="pln-item" data-pi><div class="pln-h"><b>${op ? "الأسبوع" : "البند"} ${ar(i + 1)}</b><button class="btn ghost sm" type="button" data-pdel>حذف ${op ? "الأسبوع" : "البند"}</button></div>
     ${cols.map(([k, l]) => `<div class="${wide.includes(k) ? "wide" : ""}"><label>${l}</label>${big.includes(k) ? `<textarea rows="2" data-pk="${k}">${esc(x[k] || "")}</textarea>` : `<input type="text" data-pk="${k}" value="${esc(x[k] || "")}">`}</div>`).join("")}</div>`;
 }
@@ -1559,12 +1560,12 @@ function openPln(id) {
   $("pln-word").onclick = async () => { const m = $("pln-dmsg"); m.textContent = "جارٍ إنشاء الملف…"; try { await deliver(await window.docx.Packer.toBlob(buildPlnDoc(window.docx, p)), fname + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); } };
   if ($("pln-del")) $("pln-del").onclick = () => confirmInline($("pln-del"), "اضغط مرة ثانية لحذف الخطة", async () => { try { await run("deletePlan", CODE, p.id); PLN = PLN.filter(x => x.id !== p.id); loadPln(); } catch (e) { $("pln-dmsg").textContent = cleanErr(e); } });
 }
-const PLN_PDF_CSS = `<style>.pp table.plng td{vertical-align:top;white-space:pre-line;font-size:14px}.pp table.plng th{font-size:14px}.pp table.plo td,.pp table.plo th{font-size:13px;line-height:1.55}.pp table.plo tr:nth-child(even) td{background-color:#EEF3F8}</style>`;
+const PLN_PDF_CSS = `<style>.pp table.plng td{vertical-align:top;white-space:pre-line;font-size:14px}.pp table.plng th{font-size:14px}.pp table.plo td,.pp table.plo th{font-size:13px;line-height:1.55}.pp table.plo tr:nth-child(even) td{background-color:#EEF3F8}.pp table.plw td,.pp table.plw th{font-size:12.5px;line-height:1.5}</style>`;
 function pdfPln(p) {
   return { box: plnBox(p), landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [PLN_PDF_CSS,
     P.info([["القسم", "قسم " + SUBJECTS[p.dept]], ["الفصل الدراسي", p.term], ["نوع الخطة", plnType(p) + (p.month ? " – " + plnMonth(p.month) : "")], ["العام الدراسي", "١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م"]], 2),
     P.title(plnTitle(p)),
-    ...(plnIsOp(p) ? plnMonths(p).map(g => `<div style="margin-bottom:8px">${plnOpTable(g, "grid plng plo")}</div>`) : [p.items.length ? P.grid(P.th(["م", ...plnCols(p).map(c => c[1])]), p.items.map((x, i) => P.tr([{ t: ar(i + 1), c: "c" }, ...plnCols(p).map(([k]) => x[k] || "")])), "plng") : P.p("لا توجد بنود.")]),
+    ...(plnIsOp(p) ? plnMonths(p).map(g => `<div style="margin-bottom:8px">${plnOpTable(g, "grid plng plo")}</div>`) : [p.items.length ? P.grid(P.th(["م", ...plnCols(p).map(c => c[1])]), p.items.map((x, i) => P.tr([{ t: ar(i + 1), c: "c" }, ...plnCols(p).map(([k]) => x[k] || "")])), plnIsWk(p) ? "plng plw" : "plng") : P.p("لا توجد بنود.")]),
     p.note ? P.h("ملاحظة") : "", p.note ? P.p(p.note) : ""] };
 }
 function buildPlnDoc(D, p) {
