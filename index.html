@@ -1555,15 +1555,61 @@ function openPln(id) {
     ${plnIsOp(p) ? (p.items.length ? plnMonths(p).map(g => `<div class="tablebox" style="margin-top:10px">${plnOpTable(g, "vis-table plo")}</div>`).join("") : '<div class="empty">لا توجد أسابيع بعد.</div>') : p.items.length ? `<div class="tablebox" style="margin-top:10px"><table class="vis-table"><thead><tr><th>م</th>${plnCols(p).map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>${p.items.map((x, i) => `<tr><td>${ar(i + 1)}</td>${plnCols(p).map(([k]) => `<td style="white-space:pre-line">${esc(x[k] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : '<div class="empty">لا توجد بنود بعد.</div>'}
     ${p.note ? `<h3>ملاحظة</h3><p class="teacher-desc">${esc(p.note)}</p>` : ""}
     <div class="row-actions" style="margin-top:12px">${ME.isHead && !ME.isDemo ? '<button class="btn" id="pln-edit" type="button">تعديل</button>' : ""}<button class="btn ghost" id="pln-word" type="button">وورد</button><button class="btn ghost" id="pln-pdf" type="button">PDF</button>${ME.isHead && !ME.isDemo ? '<button class="btn ghost" id="pln-del" type="button">حذف الخطة</button>' : ""}</div>
+    ${plnIsWk(p) && p.items.length ? `<h3 style="margin-top:16px">ورقة الأسبوع (${PLN_WBOX})</h3><div class="row-actions"><select id="pln-wsel" style="max-width:280px">${p.items.map((x, i) => `<option value="${i}"${i === plnCurWeek(p) ? " selected" : ""}>${esc(plnWeekHead(x).label)} · ${esc(plnWeekHead(x).dates)}</option>`).join("")}<option value="all">كل الأسابيع (كل أسبوع في ورقة)</option></select><button class="btn" id="pln-wpdf" type="button">PDF</button><button class="btn ghost" id="pln-wword" type="button">وورد</button></div>` : ""}
     <div class="saved" id="pln-dmsg"></div>`;
   $("pln-back").onclick = () => loadPln();
   if ($("pln-edit")) $("pln-edit").onclick = () => plnForm(p);
   const fname = plnTitle(p);
   $("pln-pdf").onclick = () => deliverPdf(() => pdfPln(p), fname + ".pdf", $("pln-dmsg"));
   $("pln-word").onclick = async () => { const m = $("pln-dmsg"); m.textContent = "جارٍ إنشاء الملف…"; try { await deliver(await window.docx.Packer.toBlob(buildPlnDoc(window.docx, p)), fname + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); } };
+  if ($("pln-wpdf")) {
+    const sel = () => $("pln-wsel").value === "all" ? p.items.map((_, i) => i) : [+$("pln-wsel").value];
+    const wname = () => $("pln-wsel").value === "all" ? `${PLN_WBOX} – قسم ${SUBJECTS[p.dept]} – كل الأسابيع` : `${PLN_WBOX} – قسم ${SUBJECTS[p.dept]} – ${plnWeekHead(p.items[+$("pln-wsel").value]).label}`;
+    $("pln-wpdf").onclick = () => deliverPdf(() => pdfPlnWeeks(p, sel()), wname() + ".pdf", $("pln-dmsg"));
+    $("pln-wword").onclick = async () => { const m = $("pln-dmsg"); m.textContent = "جارٍ إنشاء الملف…"; try { await deliver(await window.docx.Packer.toBlob(buildPlnWeekDoc(window.docx, p, sel())), wname() + ".docx", m); } catch (e) { m.textContent = "لم يتم إنشاء الملف: " + cleanErr(e); } };
+  }
   if ($("pln-del")) $("pln-del").onclick = () => confirmInline($("pln-del"), "اضغط مرة ثانية لحذف الخطة", async () => { try { await run("deletePlan", CODE, p.id); PLN = PLN.filter(x => x.id !== p.id); loadPln(); } catch (e) { $("pln-dmsg").textContent = cleanErr(e); } });
 }
-const PLN_PDF_CSS = `<style>.pp table.plng td{vertical-align:top;white-space:pre-line;font-size:14px}.pp table.plng th{font-size:14px}.pp table.plo td,.pp table.plo th{font-size:13px;line-height:1.55}.pp table.plo tr:nth-child(even) td{background-color:#EEF3F8}.pp table.plw td,.pp table.plw th{font-size:12.5px;line-height:1.5}</style>`;
+// ورقة أسبوعية منفصلة «أعمال ومهام رئيس الشعبة» (طلبه ٦/١١/٢٠٢٦)
+const PLN_DAYS = [["a", "الأحد"], ["r", "الاثنين"], ["w", "الثلاثاء"], ["i", "الأربعاء"], ["n", "الخميس"]];
+const PLN_WBOX = "أعمال ومهام رئيس الشعبة";
+function plnWeekRows(x) { return PLN_DAYS.map(([k, d]) => { const L = String(x[k] || "").split("\n"); const dt = /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(L[0] || "") ? L.shift() : ""; return { d, dt, t: L.filter(Boolean).join("\n") }; }); }
+const plnWeekHead = x => { const L = String(x.f || "").split("\n"); return { label: L[0] || "", dates: L.slice(1).join(" ") }; };
+/** الأسبوع الحالي أو القادم (لاختياره تلقائيًا) */
+function plnCurWeek(p) {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const idx = p.items.findIndex(x => { const r = plnWeekRows(x), last = [...r].reverse().find(y => y.dt); if (!last) return false; const [d, m, y] = last.dt.split("/").map(Number); return new Date(y, m - 1, d) >= t; });
+  return idx < 0 ? 0 : idx;
+}
+function pdfPlnWeeks(p, idxs) {
+  const blocks = [PLN_PDF_CSS];
+  idxs.forEach((i, n) => { const x = p.items[i], hd = plnWeekHead(x);
+    if (n) blocks.push('<div class="pgbrk"></div>');
+    blocks.push(P.info([["القسم", "قسم " + SUBJECTS[p.dept]], ["الفصل الدراسي", p.term], ["الأسبوع", hd.label], ["الفترة", hd.dates]], 2),
+      P.title("جدول الأسبوع"),
+      P.grid(P.th(["اليوم", "التاريخ", "الأعمال والمهام", "ملاحظات التنفيذ"]), plnWeekRows(x).map(r => P.tr([{ t: r.d, c: "c" }, { t: r.dt, c: "c" }, r.t, ""])), "plng pwk"));
+    if (x.g) blocks.push(P.grid(P.th(["الزيارات الصفية"]), [P.tr([x.g])], "plng pwk1"));
+    blocks.push(pdfSigns([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]]));
+  });
+  return { box: PLN_WBOX, signs: [], blocks };
+}
+function buildPlnWeekDoc(D, p, idxs) {
+  const h = H(D), C = h.C, W = [1500, 1700, 4400, 2400], kids = [];
+  const cs = (x, o = {}) => h.cell(String(x || "").split("\n").map(l => h.para(l, { size: 20, after: 0, line: 300, align: o.align })), Object.assign({}, o));
+  idxs.forEach((i, n) => { const x = p.items[i], hd = plnWeekHead(x);
+    if (n) kids.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+    kids.push(...h.formHeader(PLN_WBOX, 10000),
+      h.table([[h.lab("القسم:", { w: 1500 }), h.cell("قسم " + SUBJECTS[p.dept], { w: 3500, size: 20 }), h.lab("الفصل الدراسي:", { w: 1500 }), h.cell(p.term, { w: 3500, size: 20 })],
+        [h.lab("الأسبوع:"), h.cell(hd.label, { size: 20 }), h.lab("الفترة:"), h.cell(hd.dates, { size: 20 })]], [1500, 3500, 1500, 3500], h.softBorders("C9D6E3")),
+      h.para("جدول الأسبوع", { size: 26, bold: true, color: h.NAVY, align: C, before: 140, after: 120 }),
+      h.table([["اليوم", "التاريخ", "الأعمال والمهام", "ملاحظات التنفيذ"].map((t, j) => h.th(t, { w: W[j], size: 19 })),
+        ...plnWeekRows(x).map(r => [cs(r.d, { w: W[0], align: C }), cs(r.dt, { w: W[1], align: C }), cs(r.t, { w: W[2] }), cs("", { w: W[3] })])], W, h.softBorders("C9D6E3")));
+    if (x.g) kids.push(h.para("", { after: 60 }), h.table([[h.th("الزيارات الصفية", { w: 10000, size: 19 })], [cs(x.g, { w: 10000 })]], [10000], h.softBorders("C9D6E3")));
+    kids.push(h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
+  });
+  return h.doc(kids);
+}
+const PLN_PDF_CSS = `<style>.pp table.pwk td{font-size:15.5px;line-height:1.85;padding-top:10px;padding-bottom:10px}.pp table.pwk td:nth-child(1){width:13%;font-weight:700}.pp table.pwk td:nth-child(2){width:15%}.pp table.pwk td:nth-child(4){width:24%}.pp table.pwk1{margin-top:8px}.pp table.pwk1 td{font-size:15px;line-height:1.8}.pp table.plng td{vertical-align:top;white-space:pre-line;font-size:14px}.pp table.plng th{font-size:14px}.pp table.plo td,.pp table.plo th{font-size:13px;line-height:1.55}.pp table.plo tr:nth-child(even) td{background-color:#EEF3F8}.pp table.plw td,.pp table.plw th{font-size:12.5px;line-height:1.5}</style>`;
 function pdfPln(p) {
   return { box: plnBox(p), landscape: true, signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [PLN_PDF_CSS,
     P.info([["القسم", "قسم " + SUBJECTS[p.dept]], ["الفصل الدراسي", p.term], ["نوع الخطة", plnType(p) + (p.month ? " – " + plnMonth(p.month) : "")], ["العام الدراسي", "١٤٤٨هـ / ٢٠٢٦ – ٢٠٢٧م"]], 2),
