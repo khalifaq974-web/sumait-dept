@@ -252,6 +252,7 @@ function readEntries_(prefix) {
 
 function login(code) {
   const me = who_(code);
+  try { autoCurrAlerts_(); } catch (e) {} // تنبيه «تحديث ما قطع من المنهج» كل أسبوعين (مرة واحدة لكل فترة)
   const all = readEntries_(demoPrefix_(me));
   const mine = {};
   me.classes.forEach(a => { const p = a.split(":"), k = p[1] + "__" + p[0]; if (all[k]) mine[k] = all[k]; });
@@ -274,6 +275,7 @@ function saveEntry(code, classId, subject, done, note, label) {
     const idx = findRow_(sh, 1, key);
     if (idx > 0) writeRow_(sh, idx, row); else appendText_(sh, row);
     if (!me.isDemo) appendText_(sh_(SHEET_LOG), [now, me.name, classId, SUBJ[subject], done, note]);
+    if (!me.isDemo) try { alrAutoTick_(me.name, "curr"); } catch (e) {}
     return { updatedAt: now };
   });
 }
@@ -1913,6 +1915,49 @@ function tickAlert(code, id, idx, done) {
   });
 }
 
+/** يعلّم «تم» تلقائيًا على نواقص ركن معيّن (مثل curr) في تنبيهات المعلم المفتوحة — يُستدعى داخل withLock_ */
+function alrAutoTick_(name, k) {
+  const st = alrStSheet_(), v = st.getDataRange().getDisplayValues(), at = nowText_();
+  alrRows_().filter(r => r[1].split("|").indexOf(name) !== -1).forEach(r => {
+    const items = jsonOr_(r[2], []), idx = items.map((x, i) => x.k === k ? i : -1).filter(i => i >= 0);
+    if (!idx.length) return;
+    const i = v.findIndex((x, n) => n > 0 && x[0] === r[0] && x[1] === name);
+    const cur = i > 0 ? v[i].slice(0, 5) : [r[0], name, "{}", "", at], d = jsonOr_(cur[2] || "{}", {});
+    if (idx.every(j => d[j])) return;
+    idx.forEach(j => { if (!d[j]) d[j] = at; });
+    cur[2] = JSON.stringify(d); cur[3] = Object.keys(d).length >= items.length ? (cur[3] || at) : "";
+    if (i > 0) writeRow_(st, i + 1, cur); else appendText_(st, cur);
+  });
+}
+
+// ======================= تنبيه تلقائي: تحديث ما قطع من المنهج كل أسبوعين (قرار رئيس الشعبة ٨/١١/٢٠٢٦) =======================
+// الفترات أسبوعان تبدأ من الأحد ١٣/٩/٢٠٢٦ (بداية الأسبوع الأول في الخطة). في أول فتح للموقع بعد بداية كل فترة،
+// كل معلم لم يحدّث أي فصل من فصوله في الأسبوعين السابقين يصله تنبيه استكمال «تحديث ما قطع من المنهج»،
+// ويظهر لرئيس الشعبة في «تنبيهات الاستكمال». ويُعلَّم «تم» تلقائيًا عندما يحدّث المعلم.
+const CURR_ALERT_START = "2026-09-13", CURR_ALERT_NOTE = "تنبيه تلقائي كل أسبوعين: لم يُحدَّث «ما قطع من المنهج» خلال الأسبوعين الماضيين. يُعلَّم «تم» تلقائيًا عند التحديث.";
+function autoCurrAlerts_() {
+  const today = todayIso_(), day = 864e5, start = new Date(CURR_ALERT_START + "T00:00:00Z"), now = new Date(today + "T00:00:00Z");
+  const period = Math.floor((now - start) / day / 14);
+  if (period < 1) return;
+  const props = PropertiesService.getScriptProperties();
+  if (Number(props.getProperty("currAlertPeriod") || -1) >= period) return;
+  withLock_(() => {
+    if (Number(props.getProperty("currAlertPeriod") || -1) >= period) return;
+    const from = Utilities.formatDate(new Date(start.getTime() + (period - 1) * 14 * day), "UTC", "yyyy-MM-dd");
+    const entries = readEntries_(), rows = alrRows_(), sts = alrSts_(), sh = alrSheet_(), at = nowText_();
+    TEACHERS.filter(t => !t[2]).forEach(([name, classes]) => {
+      const last = classes.map(c => { const p = c.split(":"), e = entries[p[1] + "__" + p[0]]; return e && e.teacher === name ? String(e.updatedAt).slice(0, 10) : ""; }).sort().pop() || "";
+      if (last >= from) return;
+      // لا يتكرر: إن كان عنده تنبيه سابق بهذا النقص لم يُستكمل بعد
+      const open = rows.some(r => r[1].split("|").indexOf(name) !== -1 && jsonOr_(r[2], []).some((x, i) => x.k === "curr" &&
+        !(jsonOr_((sts.find(y => y[0] === r[0] && y[1] === name) || [])[2] || "{}", {})[i])));
+      if (open) return;
+      const t = "تحديث ما قطع من المنهج" + (last ? ` (آخر تحديث ${arNum_(last.slice(8, 10) + "/" + last.slice(5, 7))})` : " (لم يُحدَّث بعد)");
+      appendText_(sh, [newId_(), name, JSON.stringify([{ k: "curr", t }]), CURR_ALERT_NOTE, "", at, at]);
+    });
+    props.setProperty("currAlertPeriod", String(period));
+  });
+}
 
 // ======================= النواقص المكتشفة تلقائيًا (لتنبيهات الاستكمال) =======================
 // لرئيس الشعبة: لكل معلم ما ينقصه في سجلات الموقع. (ما قطع من المنهج يُحسب في الصفحة من خطة التوزيع؛ ورصد الدرجات لا يُعدّ نقصًا لأن بعض المعلمين يرصدون ورقيًا)
