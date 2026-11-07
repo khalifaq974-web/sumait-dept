@@ -76,3 +76,47 @@ function migReplaceIds_(map) {
   });
   return { cells, ids: Object.keys(used).length };
 }
+
+// ======================= مزامنة البيانات من الشيت القديم (الحساب الشخصي) =======================
+/**
+ * syncDataFromOld — يُشغَّل من مشروع الوزارة فقط، يوم التحويل (أو كلما احتجت تحديث الموقع الجديد).
+ * - ينقل كل أوراق الشيت القديم (الإدخالات، الخطط، الزيارات، الغياب، الاستئذان، المحاضر، الرموز…) إلى شيت الموقع الجديد،
+ *   فتصير بيانات الموقع الجديد مطابقة للقديم. الأوراق الموجودة في الجديد فقط تبقى كما هي.
+ * - قبل أي كتابة يحفظ نسخة كاملة من الشيت الجديد في Drive («نسخة قبل المزامنة - …») ليمكن الرجوع إليها.
+ * - لا يعدّل ولا يحذف أي شيء في الشيت القديم (قراءة فقط).
+ * - بعده شغّل migrateFiles لنقل الصور والملفات الجديدة واستبدال معرّفاتها في الشيت.
+ */
+const SYNC_OLD_SHEET_ID = "16shJB2Mng_dguWJmfWNGt4gsmgfFLOepwYuf_jniyNY";
+
+function syncDataFromOld() {
+  const old = SpreadsheetApp.openById(SYNC_OLD_SHEET_ID);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getId() === SYNC_OLD_SHEET_ID) throw new Error("هذا هو الشيت القديم نفسه — شغّل الدالة من مشروع الوزارة.");
+  const stamp = Utilities.formatDate(new Date(), "Asia/Kuwait", "yyyy-MM-dd HH:mm");
+  DriveApp.getFileById(ss.getId()).makeCopy("نسخة قبل المزامنة - " + ss.getName() + " - " + stamp);
+  const out = [];
+  return withLock_(() => {
+    old.getSheets().forEach(src => {
+      const name = src.getName();
+      let dst = ss.getSheetByName(name);
+      if (!dst) dst = ss.insertSheet(name);
+      const rows = src.getLastRow(), cols = src.getLastColumn();
+      dst.clearContents();
+      if (rows && cols) {
+        if (dst.getMaxRows() < rows) dst.insertRowsAfter(dst.getMaxRows(), rows - dst.getMaxRows());
+        if (dst.getMaxColumns() < cols) dst.insertColumnsAfter(dst.getMaxColumns(), cols - dst.getMaxColumns());
+        const sr = src.getRange(1, 1, rows, cols), dr = dst.getRange(1, 1, rows, cols);
+        dr.setNumberFormats(sr.getNumberFormats());
+        dr.setValues(sr.getValues());
+      }
+      dst.setRightToLeft(src.isRightToLeft());
+      if (src.getFrozenRows()) dst.setFrozenRows(src.getFrozenRows());
+      out.push(name + ": " + Math.max(rows - 1, 0));
+    });
+    SpreadsheetApp.flush();
+    const msg = "✓ نُقلت البيانات (عدد الصفوف في كل ورقة):\n" + out.join("\n") +
+      "\n\nالخطوة التالية: شغّل migrateFiles لنقل الصور والملفات الجديدة.";
+    Logger.log(msg);
+    return msg;
+  });
+}
