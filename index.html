@@ -382,6 +382,15 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
 .foot { margin-top: 22px; font-size: 12.5px; color: var(--muted); }
 @media (max-width: 560px) { .summary { grid-template-columns: repeat(2, 1fr); } .brand h1 { font-size: 18px; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* عارض PDF داخل الموقع (حساب الوزارة) */
+.pdfv{position:fixed;inset:0;z-index:9999;background:rgba(15,26,36,.92);display:flex;flex-direction:column}
+.pdfv-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface);border-bottom:1px solid var(--line)}
+.pdfv-bar b{flex:1;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.pdfv-x{border:0;background:transparent;font-size:22px;line-height:1;padding:6px 10px;cursor:pointer;color:var(--ink);border-radius:8px}
+.pdfv-bar .btn{padding:8px 14px;min-height:0}
+.pdfv-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.pdfv-body img{width:100%;max-width:900px;background:#fff;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.35)}
 </style>
 </head>
 <body>
@@ -1360,8 +1369,56 @@ function classFull(id) { try { const c = classInfo(id); return `${c.label} · ${
   else { b.textContent = `الأسبوع ${WEEK_NAMES[WEEK]}`; const r = document.createElement("span"); r.textContent = weekRange(WEEK); b.after(r); }
 })();
 
+// داخل حساب الوزارة (الصفحة في إطار Apps Script): ملفات PDF تُعرض داخل الموقع بدل التنزيل (الآيفون يعرض شاشة تنزيل بلا معاينة)
+const IN_GAS = !!(window.google && google.script && google.script.run);
+const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js";
+const PDFJS_WORKER = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js";
+let PDFJS_READY = null;
+async function pdfPagesOf(blob) {
+  if (blob._pages) return blob._pages; // ملفات الموقع نفسه: صور الصفحات جاهزة من buildPdf
+  if (!PDFJS_READY) PDFJS_READY = loadScript(PDFJS_URL).then(() => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; }).catch(e => { PDFJS_READY = null; throw e; });
+  await PDFJS_READY;
+  const doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise, out = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const pg = await doc.getPage(i), vp = pg.getViewport({ scale: 2 }), c = document.createElement("canvas");
+    c.width = vp.width; c.height = vp.height;
+    await pg.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    out.push(c.toDataURL("image/jpeg", 0.9));
+  }
+  return out;
+}
+function saveBlob(blob, filename) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+async function showPdf(blob, filename) {
+  const pages = await pdfPagesOf(blob);
+  const ov = document.createElement("div"); ov.className = "pdfv"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", filename);
+  ov.innerHTML = `<div class="pdfv-bar"><button class="pdfv-x" type="button" aria-label="إغلاق">✕</button><b>${esc(filename.replace(/\.pdf$/i, ""))}</b>
+    <button class="btn pdfv-share" type="button">مشاركة</button><button class="btn ghost pdfv-dl" type="button">تنزيل</button></div>
+    <div class="pdfv-body">${pages.map((u, i) => `<img src="${u}" alt="صفحة ${i + 1}">`).join("")}</div>`;
+  const prev = document.body.style.overflow; document.body.style.overflow = "hidden";
+  const close = () => { ov.remove(); document.body.style.overflow = prev; document.removeEventListener("keydown", onKey); };
+  const onKey = e => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", onKey);
+  ov.querySelector(".pdfv-x").onclick = close;
+  ov.querySelector(".pdfv-dl").onclick = () => saveBlob(blob, filename);
+  const sh = ov.querySelector(".pdfv-share");
+  let file = null; try { file = new File([blob], filename, { type: "application/pdf" }); } catch (e) {}
+  if (!(file && navigator.canShare && navigator.canShare({ files: [file] }))) sh.remove();
+  else sh.onclick = async () => { try { await navigator.share({ files: [file], title: filename }); } catch (e) { if (e && e.name !== "AbortError") saveBlob(blob, filename); } };
+  document.body.appendChild(ov);
+  ov.querySelector(".pdfv-x").focus();
+}
+
 // تنزيل ملف وورد، مع خيار حفظه في Drive لرئيس الشعبة
 async function deliver(blob, filename, msgEl) {
+  if (IN_GAS && (blob.type === "application/pdf" || /\.pdf$/i.test(filename))) {
+    msgEl.textContent = "جارٍ عرض الملف…";
+    try { await showPdf(blob, filename); msgEl.textContent = ""; return; } catch (e) { msgEl.textContent = ""; } // إن تعذّر العرض: تنزيل عادي
+  }
   try {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = filename;
@@ -2891,14 +2948,18 @@ async function buildPdf(spec) {
   }
   try {
     const { PDFDocument } = window.PDFLib, pdf = await PDFDocument.create();
+    const shots = [];
     const W = spec.landscape ? 841.89 : 595.28, Hh = spec.landscape ? 595.28 : 841.89;
     for (const pg of pages) {
       const url = await window.htmlToImage.toJpeg(pg, { pixelRatio: 2, quality: 0.9, skipFonts: true, backgroundColor: "#ffffff" });
+      shots.push(url);
       const img = await pdf.embedJpg(url);
       const page = pdf.addPage([W, Hh]); page.drawImage(img, { x: 0, y: 0, width: W, height: Hh });
     }
     pdf.setTitle(spec.box || "تقرير");
-    return new Blob([await pdf.save()], { type: "application/pdf" });
+    const out = new Blob([await pdf.save()], { type: "application/pdf" });
+    out._pages = shots; // صور الصفحات للعرض داخل الموقع
+    return out;
   } finally { host.remove(); }
 }
 async function deliverPdf(specFn, filename, msgEl) {
