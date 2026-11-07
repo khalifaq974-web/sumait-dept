@@ -7,7 +7,7 @@
  *   «نسخ احتياطية - كود موقع القسم» في Drive هذا الحساب، ويكتب السبب في السجل (Executions).
  *
  * التشغيل لأول مرة: من محرر Apps Script اختر installBackupTrigger ثم Run (ووافق على الصلاحيات).
- * بعدها يعمل تلقائيًا كل سبت بين ٨ و٩ الصبح بتوقيت الكويت (بعد المهمة المجدولة اللي تنشئ مجلد النسخة الساعة ٥:٤٧). وللتجربة الآن: شغّل backupCode.
+ * بعدها يعمل تلقائيًا كل سبت بين ٤ و٥ الفجر بتوقيت الكويت (قبل المهمة المجدولة الساعة ٥:٤٧ اللي تكمّل نفس المجلد بالبيانات والملفات المرفوعة). وللتجربة الآن: شغّل backupCode.
  */
 const BK_ROOT_ID = "1G3MDPYsDvanQHvxF-dr4XgwIYaLu_AEb"; // «نسخ احتياطية - موقع القسم»
 const BK_FALLBACK_NAME = "نسخ احتياطية - كود موقع القسم";
@@ -39,9 +39,9 @@ function backupCode() {
   return out;
 }
 
-/** يُشغَّل مرة واحدة: ينشئ تشغيلًا أسبوعيًا (كل سبت ٨–٩ صباحًا بتوقيت الكويت) ولا يكرره إن وُجد */
+/** يُشغَّل مرة واحدة: ينشئ تشغيلًا أسبوعيًا (كل سبت ٤–٥ فجرًا بتوقيت الكويت) ولا يكرره إن وُجد */
 function installBackupTrigger() {
   const has = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "backupCode");
-  if (!has) ScriptApp.newTrigger("backupCode").timeBased().onWeekDay(ScriptApp.WeekDay.SATURDAY).atHour(8).inTimezone("Asia/Kuwait").create();
+  if (!has) ScriptApp.newTrigger("backupCode").timeBased().onWeekDay(ScriptApp.WeekDay.SATURDAY).atHour(4).inTimezone("Asia/Kuwait").create();
   return has ? "التشغيل الأسبوعي موجود من قبل" : "تم إنشاء التشغيل الأسبوعي";
 }
