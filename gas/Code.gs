@@ -1293,7 +1293,7 @@ const SHEET_PERM = "الاستئذان";
 const PERM_TYPES = ["بداية الدوام", "أثناء الدوام", "نهاية الدوام"];
 const PERM_PENDING = "بانتظار الاعتماد", PERM_OK = "معتمد", PERM_NO = "مرفوض";
 const PERM_HEAD = ["المعرف", "المسلسل", "المعلم", "نوع الاستئذان", "القسم", "الوظيفة", "الرقم المدني", "سبب التصريح", "التاريخ", "من", "إلى",
-  "المعلم متفرغ / بديل", "اسم البديل", "توقيع المعلم", "وقت الإرسال", "الحالة", "توقيع رئيس الشعبة", "وقت الاعتماد", "ملاحظة رئيس الشعبة"];
+  "المعلم متفرغ / بديل", "اسم البديل", "توقيع المعلم", "وقت الإرسال", "الحالة", "توقيع رئيس الشعبة", "وقت الاعتماد", "ملاحظة رئيس الشعبة", "وقت التعديل", "وقت الحضور (الدوام المرن)"];
 function profSheet_() { return sheet_(SHEET_PROF, ["المعلم", "الوظيفة", "الرقم المدني", "القسم", "آخر تحديث"], true); }
 function permSheet_() { return sheet_(SHEET_PERM, PERM_HEAD, true); }
 function cleanProfile_(p) {
@@ -1324,7 +1324,7 @@ function saveProfile(code, p) { const me = who_(code), c = cleanProfile_(p); wit
 
 function permObj_(r, withImages) {
   const o = { id: r[0], serial: r[1], teacher: r[2], type: r[3], dept: r[4], job: r[5], civil: r[6], reason: r[7], date: r[8], from: r[9], to: r[10],
-    mode: r[11], substitute: r[12], sentAt: r[14], status: r[15], decidedAt: r[17], headNote: r[18], editedAt: r[19] || "" };
+    mode: r[11], substitute: r[12], sentAt: r[14], status: r[15], decidedAt: r[17], headNote: r[18], editedAt: r[19] || "", arrive: r[20] || "" };
   if (withImages) { o.teacherSig = r[13]; o.headSig = r[16]; }
   return o;
 }
@@ -1349,21 +1349,24 @@ function submitPermission(code, p) {
   const toEnd = p.to === "نهاية الدوام";
   tm(p.from);
   if (!toEnd && tm(p.to) <= tm(p.from)) throw new Error("وقت النهاية لازم يكون بعد وقت البداية.");
+  // الدوام المرن: الحضور بين ٦:٥٥ و٧:٤٠، ومدة الدوام ٦ ساعات و١٠ دقائق؛ يُطلب وقت الحضور عند «حتى نهاية الدوام»
+  const arrive = toEnd ? String(p.arrive || "") : "";
+  if (toEnd) { const a = tm(arrive || "x"); if (a < 6 * 60 + 55 || a > 7 * 60 + 40) throw new Error("وقت حضورك اليوم لازم يكون بين ٦:٥٥ و٧:٤٠ (الدوام المرن)."); }
   const mode = p.mode === "بديل" ? "بديل" : "متفرغ";
   const sub = mode === "بديل" ? String(p.substitute || "").trim().slice(0, 80) : "";
   if (mode === "بديل" && !sub) throw new Error("اكتب اسم المعلم البديل.");
   p.sig = String(p.sig || ""); if (p.sig && !validSig_(p.sig)) throw new Error("التوقيع غير صالح.");
   if (p.id) {
     const ed = withLock_(() => {
-      permDupCheck_(me.name, date, p.from, p.to, String(p.id));
-      permQuotaCheck_(me.name, date, p.from, p.to, String(p.id));
+      permDupCheck_(me.name, date, p.from, p.to, String(p.id), arrive);
+      permQuotaCheck_(me.name, date, p.from, p.to, String(p.id), arrive);
       const sh = permSheet_(), row = findRow_(sh, 1, String(p.id));
       if (row < 0) throw new Error("الاستئذان غير موجود.");
       const r = sh.getRange(row, 1, 1, PERM_HEAD.length).getDisplayValues()[0];
       if (r[2] !== me.name) throw new Error("ليس طلبك.");
       saveProfile_(me.name, prof);
       const now = nowText_();
-      writeRow_(sh, row, [r[0], r[1], r[2], type, prof.dept, prof.job, prof.civil, reason, date, p.from, p.to, mode, sub, p.sig || r[13], r[14], r[15], r[16], r[17], r[18], now]);
+      writeRow_(sh, row, [r[0], r[1], r[2], type, prof.dept, prof.job, prof.civil, reason, date, p.from, p.to, mode, sub, p.sig || r[13], r[14], r[15], r[16], r[17], r[18], now, arrive]);
       if (p.sig) saveMySig_(me.name, p.sig, now);
       return r[1];
     });
@@ -1374,13 +1377,13 @@ function submitPermission(code, p) {
   // المسلسل لكل معلم في كل شهر: «رقم الإذن في الشهر/الشهر» مثل ١/١١ = أول إذن للمعلم في شهر ١١ (قرار ٥/١١/٢٠٢٦)
   const id = newId_(), now = nowText_(), ym = date.slice(0, 7), mon = String(Number(date.slice(5, 7)));
   const serial = withLock_(() => {
-    permDupCheck_(me.name, date, p.from, p.to, "");
-    permQuotaCheck_(me.name, date, p.from, p.to, "");
+    permDupCheck_(me.name, date, p.from, p.to, "", arrive);
+    permQuotaCheck_(me.name, date, p.from, p.to, "", arrive);
     saveProfile_(me.name, prof);
     const rows = permRows_().filter(r => r[2] === me.name && r[8].slice(0, 7) === ym);
     const n = rows.reduce((mx, r) => Math.max(mx, Number(String(r[1]).split("/")[0]) || 0), 0) + 1;
     const s = n + "/" + mon;
-    appendText_(permSheet_(), [id, s, me.name, type, prof.dept, prof.job, prof.civil, reason, date, p.from, p.to, mode, sub, p.sig, now, PERM_PENDING, "", "", ""]);
+    appendText_(permSheet_(), [id, s, me.name, type, prof.dept, prof.job, prof.civil, reason, date, p.from, p.to, mode, sub, p.sig, now, PERM_PENDING, "", "", "", "", arrive]);
     if (p.sig) saveMySig_(me.name, p.sig, now);
     return s;
   });
@@ -1388,25 +1391,28 @@ function submitPermission(code, p) {
   return { id, serial };
 }
 /** يمنع تكرار الاستئذان: لا يُقبل طلب جديد للمعلم في اليوم نفسه إذا تداخل وقته مع طلب سابق غير مرفوض (قرار ٨/١١/٢٠٢٦) */
-function permDupCheck_(name, date, from, to, exceptId) {
-  const mins = t => { const m = String(t || "").match(/^(\d{2}):(\d{2})$/); return m ? +m[1] * 60 + +m[2] : 24 * 60; };
-  const a1 = mins(from), a2 = to === "نهاية الدوام" ? 24 * 60 : mins(to);
-  const d = permRows_().find(r => r[2] === name && r[8] === date && r[0] !== exceptId && r[15] !== PERM_NO &&
-    a1 < (r[10] === "نهاية الدوام" ? 24 * 60 : mins(r[10])) && mins(r[9]) < a2);
+function permDupCheck_(name, date, from, to, exceptId, arrive) {
+  const [a1, a2] = permSpan_(from, to, arrive);
+  const d = permRows_().find(r => { if (r[2] !== name || r[8] !== date || r[0] === exceptId || r[15] === PERM_NO) return false;
+    const [b1, b2] = permSpan_(r[9], r[10], r[20]); return a1 < b2 && b1 < a2; });
   if (d) throw new Error(`سبق أن قدّمت استئذانًا في هذا اليوم وهذا الوقت (رقم ${arNum_(d[1])}، من ${arNum_(d[9])} ${d[10] === "نهاية الدوام" ? "حتى نهاية الدوام" : "إلى " + arNum_(d[10])}، الحالة: ${d[15] || PERM_PENDING}). لا يمكن تكرار الاستئذان، ويمكنك تعديل الطلب السابق من «استئذاناتي».`);
 }
 /** حد الاستئذان الشهري لكل معلم (قرار ٨/١١/٢٠٢٦): ١٢ ساعة بحد أقصى ٤ أذونات في الشهر، ويجوز استنفاد الساعات بأقل من ٤.
- *  الدوام الرسمي ٧:٤٠ ص – ١:٥٠ م: المدة تُحسب داخله فقط، و«نهاية الدوام» = ١:٥٠ م. الطلبات المرفوضة لا تُحتسب. */
-const PERM_MAX_MONTH = 4, PERM_MAX_MIN = 12 * 60, PERM_DAY_START = 7 * 60 + 40, PERM_DAY_END = 13 * 60 + 50;
-function permMins_(from, to) {
-  const m = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : PERM_DAY_END; };
+ *  الدوام المرن: الحضور بين ٦:٥٥ و٧:٤٠ ومدة الدوام ٦ ساعات و١٠ دقائق (الانصراف بين ١:٠٥ و١:٥٠).
+ *  «حتى نهاية الدوام» ينتهي عند وقت حضور المعلم + ٦:١٠ (وإن لم يُسجَّل الحضور: ١:٥٠). المدة داخل ٦:٥٥–١:٥٠ فقط. المرفوض لا يُحتسب. */
+const PERM_MAX_MONTH = 4, PERM_MAX_MIN = 12 * 60, PERM_DAY_START = 6 * 60 + 55, PERM_DAY_END = 13 * 60 + 50, PERM_WORK = 6 * 60 + 10;
+function permSpan_(from, to, arrive) {
+  const m = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : NaN; };
   const c = n => Math.min(PERM_DAY_END, Math.max(PERM_DAY_START, n));
-  return Math.max(0, c(to === "نهاية الدوام" ? PERM_DAY_END : m(to)) - c(m(from)));
+  const end = to === "نهاية الدوام" ? (isNaN(m(arrive)) ? PERM_DAY_END : m(arrive) + PERM_WORK) : m(to);
+  const s = c(isNaN(m(from)) ? PERM_DAY_START : m(from)), e = c(isNaN(end) ? PERM_DAY_END : end);
+  return [s, Math.max(s, e)];
 }
+function permMins_(from, to, arrive) { const [s, e] = permSpan_(from, to, arrive); return e - s; }
 function permHm_(n) { const h = Math.floor(n / 60), mi = n % 60; return arNum_(h) + " ساعة" + (mi ? " و" + arNum_(mi) + " دقيقة" : ""); }
-function permQuotaCheck_(name, date, from, to, exceptId) {
+function permQuotaCheck_(name, date, from, to, exceptId, arrive) {
   const ym = String(date).slice(0, 7), mine = permRows_().filter(r => r[2] === name && r[8].slice(0, 7) === ym && r[0] !== exceptId && r[15] !== PERM_NO);
-  const used = mine.reduce((a, r) => a + permMins_(r[9], r[10]), 0), need = permMins_(from, to);
+  const used = mine.reduce((a, r) => a + permMins_(r[9], r[10], r[20]), 0), need = permMins_(from, to, arrive);
   if (mine.length >= PERM_MAX_MONTH) throw new Error(`استنفدت الحد الأعلى للاستئذان في هذا الشهر (${arNum_(PERM_MAX_MONTH)} أذونات).`);
   if (used + need > PERM_MAX_MIN) throw new Error(`مدة هذا الاستئذان (${permHm_(need)}) تتجاوز رصيدك المتبقي هذا الشهر (${permHm_(Math.max(0, PERM_MAX_MIN - used))} من ١٢ ساعة).`);
 }

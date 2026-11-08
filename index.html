@@ -891,6 +891,8 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
             <div><label class="f" for="pf-from">اعتبارًا من</label><input type="time" id="pf-from"></div>
             <div><label class="f" for="pf-to">حتى</label><div class="chips"><label class="chip"><input type="radio" name="pf-tomode" id="pf-totime" checked><span>وقت محدد</span></label><label class="chip"><input type="radio" name="pf-tomode" id="pf-toend"><span>حتى نهاية الدوام</span></label></div><input type="time" id="pf-to"></div>
           </div>
+          <div id="pf-arrbox" hidden><label class="f" for="pf-arrive">وقت حضورك اليوم (الدوام المرن ٦:٥٥ – ٧:٤٠)</label><input type="time" id="pf-arrive" min="06:55" max="07:40">
+            <div class="sub" id="pf-arrnote">نهاية دوامك = وقت حضورك + ٦ ساعات و١٠ دقائق.</div></div>
           <label class="f">الحصص وقت الاستئذان</label>
           <div class="chips"><label class="chip"><input type="radio" name="pf-mode" value="متفرغ" checked><span>المعلم متفرغ</span></label><label class="chip"><input type="radio" name="pf-mode" value="بديل"><span>بديل المعلم</span></label></div>
           <div id="pf-subbox" hidden><label class="f" for="pf-sub">اسم المعلم البديل</label><input type="text" id="pf-sub" maxlength="80"></div>
@@ -2593,6 +2595,7 @@ async function startPermEdit(p) {
   PRM_EDIT = p; prmTab("new"); await prmForm();
   const t = document.querySelector(`input[name="pf-type"][value="${p.type}"]`); if (t) t.checked = true;
   $("pf-reason").value = p.reason; $("pf-date").value = p.date; $("pf-date").oninput(); $("pf-from").value = p.from;
+  $("pf-arrive").value = p.arrive || "";
   if (p.to === END_DAY) { $("pf-toend").checked = true; } else { $("pf-totime").checked = true; $("pf-to").value = p.to; } pfToMode();
   const md = document.querySelector(`input[name="pf-mode"][value="${p.mode === "بديل" ? "بديل" : "متفرغ"}"]`); md.checked = true; $("pf-subbox").hidden = p.mode !== "بديل"; $("pf-sub").value = p.substitute || "";
   $("pf-send").textContent = "حفظ التعديل"; $("pf-msg").textContent = `تعديل الطلب رقم ${ar(p.serial)}: عدّل ما تريد ثم احفظ.`;
@@ -2609,17 +2612,23 @@ async function prmForm() {
   $("pf-prof").open = !p.civil;
   $("pf-prof-sum").textContent = p.civil ? "(محفوظة)" : "(أكملها مرة واحدة)";
 }
-const pfToMode = () => { const end = $("pf-toend").checked; $("pf-to").hidden = end; if (end) $("pf-to").value = ""; };
+const pfToMode = () => { const end = $("pf-toend").checked; $("pf-to").hidden = end; if (end) $("pf-to").value = ""; $("pf-arrbox").hidden = !end; pfArrNote(); };
+function pfArrNote() { const a = pfMin($("pf-arrive").value); $("pf-arrnote").textContent = isNaN(a) ? "نهاية دوامك = وقت حضورك + ٦ ساعات و١٠ دقائق." : "نهاية دوامك اليوم: " + ar(pfClock(a + 370)); }
+$("pf-arrive").oninput = pfArrNote;
 $("pf-toend").onchange = pfToMode; $("pf-totime").onchange = pfToMode;
 $("pf-date").oninput = () => { const d = isoDay($("pf-date").value); $("pf-day").textContent = d >= 0 ? "(" + DAYS[d] + ")" : ""; pfShowQuota(); };
 document.querySelectorAll('input[name="pf-mode"]').forEach(r => r.onchange = () => { $("pf-subbox").hidden = document.querySelector('input[name="pf-mode"]:checked').value !== "بديل"; });
-// رصيد الاستئذان الشهري: ١٢ ساعة بحد أقصى ٤ أذونات؛ الدوام الرسمي ٧:٤٠–١:٥٠ (المدة داخله فقط)؛ المرفوض لا يُحتسب
-function pfMins(from, to) { const mn = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : 830; }, c = n => Math.min(830, Math.max(460, n));
-  return Math.max(0, c(to === END_DAY ? 830 : mn(to)) - c(mn(from))); }
+// رصيد الاستئذان الشهري: ١٢ ساعة بحد أقصى ٤ أذونات؛ الدوام المرن: حضور ٦:٥٥–٧:٤٠ ومدة ٦:١٠، و«نهاية الدوام» = الحضور + ٦:١٠؛ المرفوض لا يُحتسب
+function pfMin(t) { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : NaN; }
+function pfClock(n) { const h = Math.floor(n / 60), m = n % 60; return (h > 12 ? h - 12 : h) + ":" + String(m).padStart(2, "0"); }
+function pfSpan(from, to, arrive) { const c = n => Math.min(830, Math.max(415, n));
+  const end = to === END_DAY ? (isNaN(pfMin(arrive)) ? 830 : pfMin(arrive) + 370) : pfMin(to);
+  const s = c(isNaN(pfMin(from)) ? 415 : pfMin(from)), e = c(isNaN(end) ? 830 : end); return [s, Math.max(s, e)]; }
+function pfMins(from, to, arrive) { const [s, e] = pfSpan(from, to, arrive); return e - s; }
 function pfHm(n) { const h = Math.floor(n / 60), mi = n % 60; return ar(h) + " ساعة" + (mi ? " و" + ar(mi) + " دقيقة" : ""); }
 function pfQuota(date, exceptId) {
   const ym = String(date || todayISO()).slice(0, 7), mine = (PRM || []).filter(q => q.teacher === ME.name && String(q.date).slice(0, 7) === ym && q.id !== exceptId && q.status !== "مرفوض");
-  return { count: mine.length, used: mine.reduce((a, q) => a + pfMins(q.from, q.to), 0) };
+  return { count: mine.length, used: mine.reduce((a, q) => a + pfMins(q.from, q.to, q.arrive), 0) };
 }
 async function pfShowQuota() {
   const el = $("pf-quota"); if (!el) return;
@@ -2631,7 +2640,8 @@ async function pfShowQuota() {
 function pfBody() {
   return { job: $("pf-job").value, civil: normNum($("pf-civil").value), dept: $("pf-dept").value,
     type: (document.querySelector('input[name="pf-type"]:checked') || {}).value, reason: $("pf-reason").value, date: $("pf-date").value,
-    from: $("pf-from").value, to: $("pf-toend").checked ? END_DAY : $("pf-to").value, mode: document.querySelector('input[name="pf-mode"]:checked').value, substitute: $("pf-sub").value, sig: "" };
+    from: $("pf-from").value, to: $("pf-toend").checked ? END_DAY : $("pf-to").value, mode: document.querySelector('input[name="pf-mode"]:checked').value, substitute: $("pf-sub").value, sig: "",
+    arrive: $("pf-toend").checked ? $("pf-arrive").value : "" };
 }
 // تنزيل النموذج PDF معبّأً دون إرساله أو تسجيله
 $("pf-pdf").onclick = () => {
@@ -2647,12 +2657,13 @@ $("prm-form").addEventListener("submit", async e => {
   if (!body.from || !body.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)، أو اختر «حتى نهاية الدوام»."; return; }
   // منع تكرار الاستئذان في اليوم نفسه والوقت نفسه (يتحقق الخادم أيضًا)
   if (!PRM) { try { PRM = await run("listPermissions", CODE); } catch (e) {} }
+  if (body.to === END_DAY) { const a = pfMin(body.arrive); if (isNaN(a) || a < 415 || a > 460) { m.textContent = "اكتب وقت حضورك اليوم (بين ٦:٥٥ و٧:٤٠) لحساب نهاية دوامك."; $("pf-arrive").focus(); return; } }
   const mn = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : 1440; };
-  const a1 = mn(body.from), a2 = body.to === END_DAY ? 1440 : mn(body.to);
-  const dup = (PRM || []).find(q => q.teacher === ME.name && q.date === body.date && q.status !== "مرفوض" && (!PRM_EDIT || q.id !== PRM_EDIT.id) &&
-    a1 < (q.to === END_DAY ? 1440 : mn(q.to)) && mn(q.from) < a2);
+  const [a1, a2] = pfSpan(body.from, body.to, body.arrive);
+  const dup = (PRM || []).find(q => { if (q.teacher !== ME.name || q.date !== body.date || q.status === "مرفوض" || (PRM_EDIT && q.id === PRM_EDIT.id)) return false;
+    const [b1, b2] = pfSpan(q.from, q.to, q.arrive); return a1 < b2 && b1 < a2; });
   // حد الشهر: ١٢ ساعة بحد أقصى ٤ أذونات (الخادم يتحقق أيضًا)
-  const qd = pfQuota(body.date, PRM_EDIT && PRM_EDIT.id), need = pfMins(body.from, body.to);
+  const qd = pfQuota(body.date, PRM_EDIT && PRM_EDIT.id), need = pfMins(body.from, body.to, body.arrive);
   if (!dup && qd.count >= 4) { m.textContent = "⚠️ استنفدت الحد الأعلى للاستئذان في هذا الشهر (٤ أذونات)."; return; }
   if (!dup && qd.used + need > 720) { m.textContent = `⚠️ مدة هذا الاستئذان (${pfHm(need)}) تتجاوز رصيدك المتبقي هذا الشهر (${pfHm(Math.max(0, 720 - qd.used))} من ١٢ ساعة).`; return; }
   if (dup) { m.innerHTML = `⚠️ سبق أن قدّمت استئذانًا في هذا اليوم وهذا الوقت (رقم ${ar(dup.serial)}، من ${ar(dup.from)} ${dup.to === END_DAY ? "حتى نهاية الدوام" : "إلى " + ar(dup.to)}، الحالة: ${esc(dup.status || "بانتظار الاعتماد")}). لا يمكن تكرار الاستئذان. <button class="linkbtn" type="button" id="pf-dup-open">عرض الطلب السابق</button>`;
