@@ -2628,6 +2628,14 @@ $("prm-form").addEventListener("submit", async e => {
   const m = $("pf-msg"), body = pfBody();
   if (!/^\d{12}$/.test(body.civil)) { $("pf-prof").open = true; m.textContent = "الرقم المدني يتكون من ١٢ رقمًا."; $("pf-civil").focus(); return; }
   if (!body.from || !body.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)، أو اختر «حتى نهاية الدوام»."; return; }
+  // منع تكرار الاستئذان في اليوم نفسه والوقت نفسه (يتحقق الخادم أيضًا)
+  if (!PRM) { try { PRM = await run("listPermissions", CODE); } catch (e) {} }
+  const mn = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : 1440; };
+  const a1 = mn(body.from), a2 = body.to === END_DAY ? 1440 : mn(body.to);
+  const dup = (PRM || []).find(q => q.teacher === ME.name && q.date === body.date && q.status !== "مرفوض" && (!PRM_EDIT || q.id !== PRM_EDIT.id) &&
+    a1 < (q.to === END_DAY ? 1440 : mn(q.to)) && mn(q.from) < a2);
+  if (dup) { m.innerHTML = `⚠️ سبق أن قدّمت استئذانًا في هذا اليوم وهذا الوقت (رقم ${ar(dup.serial)}، من ${ar(dup.from)} ${dup.to === END_DAY ? "حتى نهاية الدوام" : "إلى " + ar(dup.to)}، الحالة: ${esc(dup.status || "بانتظار الاعتماد")}). لا يمكن تكرار الاستئذان. <button class="linkbtn" type="button" id="pf-dup-open">عرض الطلب السابق</button>`;
+    $("pf-dup-open").onclick = () => openPerm(dup.id); return; }
   $("pf-send").disabled = true; m.textContent = "جارٍ الإرسال…";
   if (PRM_EDIT) {
     try {

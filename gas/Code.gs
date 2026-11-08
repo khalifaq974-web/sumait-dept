@@ -1355,6 +1355,7 @@ function submitPermission(code, p) {
   p.sig = String(p.sig || ""); if (p.sig && !validSig_(p.sig)) throw new Error("التوقيع غير صالح.");
   if (p.id) {
     const ed = withLock_(() => {
+      permDupCheck_(me.name, date, p.from, p.to, String(p.id));
       const sh = permSheet_(), row = findRow_(sh, 1, String(p.id));
       if (row < 0) throw new Error("الاستئذان غير موجود.");
       const r = sh.getRange(row, 1, 1, PERM_HEAD.length).getDisplayValues()[0];
@@ -1372,6 +1373,7 @@ function submitPermission(code, p) {
   // المسلسل لكل معلم في كل شهر: «رقم الإذن في الشهر/الشهر» مثل ١/١١ = أول إذن للمعلم في شهر ١١ (قرار ٥/١١/٢٠٢٦)
   const id = newId_(), now = nowText_(), ym = date.slice(0, 7), mon = String(Number(date.slice(5, 7)));
   const serial = withLock_(() => {
+    permDupCheck_(me.name, date, p.from, p.to, "");
     saveProfile_(me.name, prof);
     const rows = permRows_().filter(r => r[2] === me.name && r[8].slice(0, 7) === ym);
     const n = rows.reduce((mx, r) => Math.max(mx, Number(String(r[1]).split("/")[0]) || 0), 0) + 1;
@@ -1382,6 +1384,14 @@ function submitPermission(code, p) {
   });
   if (!p.deferMail) permMail_(me, { serial, type, date, from: p.from, to: p.to, reason, mode, sub }, null);
   return { id, serial };
+}
+/** يمنع تكرار الاستئذان: لا يُقبل طلب جديد للمعلم في اليوم نفسه إذا تداخل وقته مع طلب سابق غير مرفوض (قرار ٨/١١/٢٠٢٦) */
+function permDupCheck_(name, date, from, to, exceptId) {
+  const mins = t => { const m = String(t || "").match(/^(\d{2}):(\d{2})$/); return m ? +m[1] * 60 + +m[2] : 24 * 60; };
+  const a1 = mins(from), a2 = to === "نهاية الدوام" ? 24 * 60 : mins(to);
+  const d = permRows_().find(r => r[2] === name && r[8] === date && r[0] !== exceptId && r[15] !== PERM_NO &&
+    a1 < (r[10] === "نهاية الدوام" ? 24 * 60 : mins(r[10])) && mins(r[9]) < a2);
+  if (d) throw new Error(`سبق أن قدّمت استئذانًا في هذا اليوم وهذا الوقت (رقم ${arNum_(d[1])}، من ${arNum_(d[9])} ${d[10] === "نهاية الدوام" ? "حتى نهاية الدوام" : "إلى " + arNum_(d[10])}، الحالة: ${d[15] || PERM_PENDING}). لا يمكن تكرار الاستئذان، ويمكنك تعديل الطلب السابق من «استئذاناتي».`);
 }
 function permMail_(me, q, pdf) {
   const toEnd = q.to === "نهاية الدوام";
