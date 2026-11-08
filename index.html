@@ -3105,12 +3105,12 @@ function pdfReserveReport(r) {
     .concat(resManual(r).filter(m => tIn(m.teacher, d)).map(m => Object.assign({ man: true }, m))).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
   return { box: ("سجل الغياب والاحتياط " + (r.kind || "")).trim(), signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label + (d ? " · " + dName(d) : ""), "c b"),
     P.h("أولًا: عدّاد الغياب والاحتياط لكل معلم"),
-    P.grid(P.th(["المعلم", "أيام الغياب", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"]),
-      st.map(s => P.tr(["أ. " + s.t, ...[s.days, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => ({ t: ar(n), c: i === 3 && n > 0 ? "c late" : "c" })), Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—"]))),
+    P.grid(P.th(["المعلم", "أيام الغياب", "أعذار طارئة", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"]),
+      st.map(s => P.tr(["أ. " + s.t, ...[s.days, s.excuses, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => ({ t: ar(n), c: i === 4 && n > 0 ? "c late" : "c" })), Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—"]))),
     P.h("ثانيًا: تفاصيل حصص الاحتياط"),
     det.length ? P.grid(P.th(["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"]), det.map(c => c.man
       ? P.tr([fmtDate(c.date, true), { t: covPN(c) || "—", c: "c" }, { t: c.cls || "—", c: "c" }, manFor(c) + " (تكليف احتياط)", "أ. " + c.teacher])
-      : P.tr([fmtDate(c.date, true), { t: covPN(c), c: "c" }, { t: classLabel(c.classId), c: "c" }, "أ. " + c.absent,
+      : P.tr([fmtDate(c.date, true), { t: covPN(c), c: "c" }, { t: classLabel(c.classId), c: "c" }, "أ. " + c.absent + covExc(c),
       isCov(c) ? covName(c) : { t: "لم تُغطَّ", c: "late" }])), "dense") : P.p("لا توجد حصص احتياط في هذه الفترة.")] };
 }
 function pdfClassSheet(r) {
@@ -5317,6 +5317,8 @@ function resRange() {
 // حصة الاحتياط (R/RF) بلا فصل: تتبع قسم المعلم
 function covIn(c, d, who) { return !d || (/:/.test(c.classId) ? cIn(c.classId, d) : tIn(who, d)); }
 // تكليف «حصة احتياط» من المهام والتكاليف غير المربوط بغياب مسجّل: يُحسب احتياطًا أخذه المعلم في الإحصائية والسجل (طلبه ٢٩/١٠/٢٠٢٦)
+// تمييز حصة العذر الطارئ في تفاصيل الاحتياط
+function covExc(c) { const a = RES.absences.find(x => x.id === c.absenceId); return a && a.kind === ABS_EXCUSE ? " (عذر طارئ)" : ""; }
 function resManual(r) {
   const linked = new Set((RES.covers || []).map(c => c.taskId).filter(Boolean));
   return (RES.manual || []).filter(m => !linked.has(m.id) && m.date >= r.from && m.date <= r.to && TIMETABLE[m.teacher]);
@@ -5360,8 +5362,8 @@ function pdfResTeacher(r, t) {
   const { s, given, absRows } = resTeacherData(r, t), d = dF("res");
   return { box: ("سجل الغياب والاحتياط " + (r.kind || "")).trim(), signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label + (d ? " · " + dName(d) : ""), "c b"),
     P.info([["المعلم", "أ. " + t], ["أيام الغياب", ar(s.days)], ["أعذار طارئة", ar(s.excuses)], ["حصص غيابه", ar(s.lessons)], ["غُطّيت / لم تُغطَّ", `${ar(s.covered)} / ${ar(s.uncovered)}`], ["احتياط أخذه", ar(s.given)]], 3),
-    P.h("أولًا: حصص غيابه ومن دخل مكانه"),
-    absRows.length ? P.grid(P.th(["اليوم والتاريخ", "الحصة", "الفصل", "البديل"]), absRows.map(({ a, c }) => P.tr([fmtDate(a.date, true), { t: covPN(c) || "—", c: "c" }, { t: classLabel(c.classId), c: "c" },
+    P.h("أولًا: حصص غيابه وأعذاره الطارئة ومن دخل مكانه"),
+    absRows.length ? P.grid(P.th(["اليوم والتاريخ", "الحصة", "الفصل", "البديل"]), absRows.map(({ a, c }) => P.tr([fmtDate(a.date, true) + (a.kind === ABS_EXCUSE ? " (عذر طارئ)" : ""), { t: covPN(c) || "—", c: "c" }, { t: classLabel(c.classId), c: "c" },
       isCov(c) ? covName(c) : { t: c.status, c: c.status === COV_NONE ? "late" : "" }])), "dense") : P.p("لم يغب في هذه الفترة."),
     P.h("ثانيًا: حصص الاحتياط التي أخذها"),
     given.length ? P.grid(P.th(["اليوم والتاريخ", "الحصة", "الفصل", "بدلًا من"]), given.map(c => P.tr([fmtDate(c.date, true), { t: covPN(c) || "—", c: "c" }, { t: c.man ? (c.cls || "—") : classLabel(c.classId), c: "c" },
@@ -5373,8 +5375,8 @@ function buildResTeacherDoc(D, r, t) {
     h.table([[h.lab("المعلم", { w: 1700 }), cs("أ. " + t, { w: 3300, bold: true }), h.lab("أيام الغياب", { w: 1700 }), cs(ar(s.days), { w: 900, align: C }), h.lab("أعذار طارئة", { w: 1500 }), cs(ar(s.excuses), { w: 900, align: C })],
       [h.lab("حصص غيابه"), cs(ar(s.lessons), { align: C }), h.lab("غُطّيت / لم تُغطَّ"), cs(`${ar(s.covered)} / ${ar(s.uncovered)}`, { align: C }), h.lab("احتياط أخذه"), cs(ar(s.given), { align: C })]],
       [1700, 3300, 1700, 900, 1500, 900], h.softBorders("C9D6E3")),
-    h.heading("أولًا: حصص غيابه ومن دخل مكانه"),
-    absRows.length ? h.table([["اليوم والتاريخ", "الحصة", "الفصل", "البديل"].map(x => h.th(x)), ...absRows.map(({ a, c }) => [cs(fmtDate(a.date, true)), cs(covPN(c) || "—", { align: C }), cs(classLabel(c.classId), { align: C }),
+    h.heading("أولًا: حصص غيابه وأعذاره الطارئة ومن دخل مكانه"),
+    absRows.length ? h.table([["اليوم والتاريخ", "الحصة", "الفصل", "البديل"].map(x => h.th(x)), ...absRows.map(({ a, c }) => [cs(fmtDate(a.date, true) + (a.kind === ABS_EXCUSE ? " (عذر طارئ)" : "")), cs(covPN(c) || "—", { align: C }), cs(classLabel(c.classId), { align: C }),
       cs(isCov(c) ? covName(c) : c.status, { bold: !isCov(c), color: c.status === COV_NONE ? "B4382B" : undefined })])], [2800, 1500, 2000, 3700], h.softBorders("C9D6E3")) : h.para("لم يغب في هذه الفترة.", { size: 20 }),
     h.heading("ثانيًا: حصص الاحتياط التي أخذها"),
     given.length ? h.table([["اليوم والتاريخ", "الحصة", "الفصل", "بدلًا من"].map(x => h.th(x)), ...given.map(c => [cs(fmtDate(c.date, true)), cs(covPN(c) || "—", { align: C }), cs(c.man ? (c.cls || "—") : classLabel(c.classId), { align: C }),
@@ -5385,10 +5387,10 @@ function buildResTeacherDoc(D, r, t) {
 function renderResTeacher(r) {
   const t = resLogTeacher, box = $("res-log-body"), { s, abs, given } = resTeacherData(r, t), dd = dF("res");
   box.innerHTML = `<div class="row-actions" style="margin-top:10px"><button class="btn ghost sm" id="res-back">→ كل المعلمين</button><b>أ. ${esc(t)}</b></div>
-    <dl class="meta-grid" style="margin-top:10px"><div><dt>أيام الغياب</dt><dd>${ar(s.days)}</dd></div><div><dt>حصص غيابه</dt><dd>${ar(s.lessons)}</dd></div><div><dt>غُطّيت / لم تُغطَّ</dt><dd>${ar(s.covered)} / ${ar(s.uncovered)}</dd></div><div><dt>احتياط أخذه</dt><dd>${ar(s.given)}</dd></div></dl>
+    <dl class="meta-grid" style="margin-top:10px"><div><dt>أيام الغياب</dt><dd>${ar(s.days)}</dd></div><div><dt>أعذار طارئة</dt><dd>${ar(s.excuses)}</dd></div><div><dt>حصص غيابه</dt><dd>${ar(s.lessons)}</dd></div><div><dt>غُطّيت / لم تُغطَّ</dt><dd>${ar(s.covered)} / ${ar(s.uncovered)}</dd></div><div><dt>احتياط أخذه</dt><dd>${ar(s.given)}</dd></div></dl>
     <h3 class="list-title">من دخل مكانه</h3>${Object.keys(s.by).length ? `<div class="list">${Object.entries(s.by).sort((a, b) => b[1] - a[1]).map(([n, k]) => `<div class="li"><span>أ. ${esc(n)}</span><span class="pill ok">${ar(k)} ${k === 1 ? "حصة" : "حصص"}</span></div>`).join("")}</div>` : '<div class="empty">—</div>'}
-    <h3 class="list-title">أيام غيابه</h3>${abs.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>البديل</th></tr></thead><tbody>${abs.map(a => RES.covers.filter(c => c.absenceId === a.id && covIn(c, dd, a.teacher)).sort((x, y) => x.period - y.period).map(c =>
-      `<tr><td>${fmtDate(a.date, true)}</td><td>${covPN(c)}</td><td>${classLabel(c.classId)}</td><td>${isCov(c) ? esc(covName(c)) : `<span class="pill ${c.status === COV_NONE ? "late" : "none"}">${c.status}</span>`}</td></tr>`).join("")).join("")}</tbody></table></div>` : '<div class="empty">لم يغب في هذه الفترة.</div>'}
+    <h3 class="list-title">أيام غيابه وأعذاره الطارئة</h3>${abs.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>البديل</th></tr></thead><tbody>${abs.map(a => RES.covers.filter(c => c.absenceId === a.id && covIn(c, dd, a.teacher)).sort((x, y) => x.period - y.period).map(c =>
+      `<tr><td>${fmtDate(a.date, true)}${a.kind === ABS_EXCUSE ? ' <span class="pill exc">⚡ عذر طارئ</span>' : ""}</td><td>${covPN(c)}</td><td>${classLabel(c.classId)}</td><td>${isCov(c) ? esc(covName(c)) : `<span class="pill ${c.status === COV_NONE ? "late" : "none"}">${c.status}</span>`}</td></tr>`).join("")).join("")}</tbody></table></div>` : '<div class="empty">لم يغب في هذه الفترة.</div>'}
     <h3 class="list-title">حصص الاحتياط التي أخذها</h3>${given.length ? `<div class="tablebox"><table class="vis-table"><thead><tr><th>اليوم والتاريخ</th><th>الحصة</th><th>الفصل</th><th>بدلًا من</th></tr></thead><tbody>${given.map(c =>
       `<tr><td>${fmtDate(c.date, true)}</td><td>${covPN(c) || "—"}</td><td>${c.man ? esc(c.cls || "—") : classLabel(c.classId)}</td><td>${c.man ? esc(manFor(c)) + ' <span class="pill none">تكليف</span>' : "أ. " + esc(c.absent)}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">لم يأخذ احتياطًا في هذه الفترة.</div>'}`;
   $("res-back").onclick = () => { resLogTeacher = ""; renderResLog(); };
@@ -5457,16 +5459,16 @@ function buildDailyReserveDoc(D, date) {
 }
 function buildReserveReport(D, r) {
   const h = H(D), C = h.C, st = resStats(r);
-  const head = ["المعلم", "أيام الغياب", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"].map(t => h.th(t));
-  const rows = [head, ...st.map(s => [h.cell("أ. " + s.t, { size: 18 }), ...[s.days, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => h.cell(ar(n), { align: C, size: 19, bold: i === 3 && n > 0, color: i === 3 && n > 0 ? "B4382B" : undefined })),
+  const head = ["المعلم", "أيام الغياب", "أعذار طارئة", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"].map(t => h.th(t));
+  const rows = [head, ...st.map(s => [h.cell("أ. " + s.t, { size: 18 }), ...[s.days, s.excuses, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => h.cell(ar(n), { align: C, size: 19, bold: i === 4 && n > 0, color: i === 4 && n > 0 ? "B4382B" : undefined })),
     h.cell(Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—", { size: 16 })])];
   const det = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && c.status !== COV_PRESENT && covIn(c, dF("res"), c.absent))
     .concat(resManual(r).filter(m => tIn(m.teacher, dF("res"))).map(m => Object.assign({ man: true }, m))).sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
   const drows = [["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"].map(t => h.th(t)),
-    ...det.map(c => c.man ? [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(covPN(c) || "—", { align: C, size: 17 }), h.cell(c.cls || "—", { align: C, size: 17 }), h.cell(manFor(c) + " (تكليف احتياط)", { size: 17 }), h.cell("أ. " + c.teacher, { size: 17 })] : [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(covPN(c), { align: C, size: 17 }), h.cell(classLabel(c.classId), { align: C, size: 17 }), h.cell("أ. " + c.absent, { size: 17 }),
+    ...det.map(c => c.man ? [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(covPN(c) || "—", { align: C, size: 17 }), h.cell(c.cls || "—", { align: C, size: 17 }), h.cell(manFor(c) + " (تكليف احتياط)", { size: 17 }), h.cell("أ. " + c.teacher, { size: 17 })] : [h.cell(fmtDate(c.date, true), { size: 17 }), h.cell(covPN(c), { align: C, size: 17 }), h.cell(classLabel(c.classId), { align: C, size: 17 }), h.cell("أ. " + c.absent + covExc(c), { size: 17 }),
       h.cell(isCov(c) ? covName(c) : "لم تُغطَّ", { size: 17, bold: !isCov(c), color: isCov(c) ? undefined : "B4382B" })])];
   const kids = [...h.formHeader(("سجل الغياب والاحتياط " + (r.kind || "")).trim()), h.para(r.label + (dF("res") ? " · " + dName(dF("res")) : ""), { size: 22, bold: true, color: h.NAVY, align: C, after: 120 }),
-    h.heading("أولًا: عدّاد الغياب والاحتياط لكل معلم"), h.table(rows, [2600, 900, 950, 850, 950, 1000, 2750], h.softBorders("C9D6E3"))];
+    h.heading("أولًا: عدّاد الغياب والاحتياط لكل معلم"), h.table(rows, [2300, 850, 850, 900, 800, 850, 950, 2500], h.softBorders("C9D6E3"))];
   kids.push(h.heading("ثانيًا: تفاصيل حصص الاحتياط"), det.length ? h.table(drows, [2300, 1300, 1000, 2700, 2700], h.softBorders("C9D6E3")) : h.para("لا توجد حصص احتياط في هذه الفترة.", { size: 20 }));
   kids.push(h.para("", { after: 300 }), h.signRow([["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], 10000));
   return h.doc(kids);
