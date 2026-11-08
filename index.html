@@ -2625,7 +2625,8 @@ function pfSpan(from, to, arrive) { const c = n => Math.min(830, Math.max(415, n
   const end = to === END_DAY ? (isNaN(pfMin(arrive)) ? 830 : pfMin(arrive) + 370) : pfMin(to);
   const s = c(isNaN(pfMin(from)) ? 415 : pfMin(from)), e = c(isNaN(end) ? 830 : end); return [s, Math.max(s, e)]; }
 function pfMins(from, to, arrive) { const [s, e] = pfSpan(from, to, arrive); return e - s; }
-function pfHm(n) { const h = Math.floor(n / 60), mi = n % 60; return ar(h) + " ساعة" + (mi ? " و" + ar(mi) + " دقيقة" : ""); }
+function pfHm(n) { const h = Math.floor(n / 60), mi = n % 60, hu = h === 2 ? "ساعتان" : ar(h) + (h >= 3 && h <= 10 ? " ساعات" : " ساعة"), mu = mi === 2 ? "دقيقتان" : ar(mi) + (mi >= 3 && mi <= 10 ? " دقائق" : " دقيقة");
+  return h && mi ? hu + " و" + mu : h ? hu : mi ? mu : "٠ دقيقة"; }
 function pfQuota(date, exceptId) {
   const ym = String(date || todayISO()).slice(0, 7), mine = (PRM || []).filter(q => q.teacher === ME.name && String(q.date).slice(0, 7) === ym && q.id !== exceptId && q.status !== "مرفوض");
   return { count: mine.length, used: mine.reduce((a, q) => a + pfMins(q.from, q.to, q.arrive), 0) };

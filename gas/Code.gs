@@ -1409,7 +1409,8 @@ function permSpan_(from, to, arrive) {
   return [s, Math.max(s, e)];
 }
 function permMins_(from, to, arrive) { const [s, e] = permSpan_(from, to, arrive); return e - s; }
-function permHm_(n) { const h = Math.floor(n / 60), mi = n % 60; return arNum_(h) + " ساعة" + (mi ? " و" + arNum_(mi) + " دقيقة" : ""); }
+function permHm_(n) { const h = Math.floor(n / 60), mi = n % 60, hu = h === 2 ? "ساعتان" : arNum_(h) + (h >= 3 && h <= 10 ? " ساعات" : " ساعة"), mu = mi === 2 ? "دقيقتان" : arNum_(mi) + (mi >= 3 && mi <= 10 ? " دقائق" : " دقيقة");
+  return h && mi ? hu + " و" + mu : h ? hu : mi ? mu : "٠ دقيقة"; }
 function permQuotaCheck_(name, date, from, to, exceptId, arrive) {
   const ym = String(date).slice(0, 7), mine = permRows_().filter(r => r[2] === name && r[8].slice(0, 7) === ym && r[0] !== exceptId && r[15] !== PERM_NO);
   const used = mine.reduce((a, r) => a + permMins_(r[9], r[10], r[20]), 0), need = permMins_(from, to, arrive);
