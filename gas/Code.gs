@@ -1356,6 +1356,7 @@ function submitPermission(code, p) {
   if (p.id) {
     const ed = withLock_(() => {
       permDupCheck_(me.name, date, p.from, p.to, String(p.id));
+      permQuotaCheck_(me.name, date, p.from, p.to, String(p.id));
       const sh = permSheet_(), row = findRow_(sh, 1, String(p.id));
       if (row < 0) throw new Error("الاستئذان غير موجود.");
       const r = sh.getRange(row, 1, 1, PERM_HEAD.length).getDisplayValues()[0];
@@ -1374,6 +1375,7 @@ function submitPermission(code, p) {
   const id = newId_(), now = nowText_(), ym = date.slice(0, 7), mon = String(Number(date.slice(5, 7)));
   const serial = withLock_(() => {
     permDupCheck_(me.name, date, p.from, p.to, "");
+    permQuotaCheck_(me.name, date, p.from, p.to, "");
     saveProfile_(me.name, prof);
     const rows = permRows_().filter(r => r[2] === me.name && r[8].slice(0, 7) === ym);
     const n = rows.reduce((mx, r) => Math.max(mx, Number(String(r[1]).split("/")[0]) || 0), 0) + 1;
@@ -1392,6 +1394,20 @@ function permDupCheck_(name, date, from, to, exceptId) {
   const d = permRows_().find(r => r[2] === name && r[8] === date && r[0] !== exceptId && r[15] !== PERM_NO &&
     a1 < (r[10] === "نهاية الدوام" ? 24 * 60 : mins(r[10])) && mins(r[9]) < a2);
   if (d) throw new Error(`سبق أن قدّمت استئذانًا في هذا اليوم وهذا الوقت (رقم ${arNum_(d[1])}، من ${arNum_(d[9])} ${d[10] === "نهاية الدوام" ? "حتى نهاية الدوام" : "إلى " + arNum_(d[10])}، الحالة: ${d[15] || PERM_PENDING}). لا يمكن تكرار الاستئذان، ويمكنك تعديل الطلب السابق من «استئذاناتي».`);
+}
+/** حد الاستئذان الشهري لكل معلم (قرار ٨/١١/٢٠٢٦): ١٢ ساعة بحد أقصى ٤ أذونات في الشهر، ويجوز استنفاد الساعات بأقل من ٤.
+ *  «نهاية الدوام» = ١:٥٥ م (نهاية الحصة السابعة). الطلبات المرفوضة لا تُحتسب. */
+const PERM_MAX_MONTH = 4, PERM_MAX_MIN = 12 * 60, PERM_DAY_END = 13 * 60 + 55;
+function permMins_(from, to) {
+  const m = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : PERM_DAY_END; };
+  return Math.max(0, (to === "نهاية الدوام" ? PERM_DAY_END : m(to)) - m(from));
+}
+function permHm_(n) { const h = Math.floor(n / 60), mi = n % 60; return arNum_(h) + " ساعة" + (mi ? " و" + arNum_(mi) + " دقيقة" : ""); }
+function permQuotaCheck_(name, date, from, to, exceptId) {
+  const ym = String(date).slice(0, 7), mine = permRows_().filter(r => r[2] === name && r[8].slice(0, 7) === ym && r[0] !== exceptId && r[15] !== PERM_NO);
+  const used = mine.reduce((a, r) => a + permMins_(r[9], r[10]), 0), need = permMins_(from, to);
+  if (mine.length >= PERM_MAX_MONTH) throw new Error(`استنفدت الحد الأعلى للاستئذان في هذا الشهر (${arNum_(PERM_MAX_MONTH)} أذونات).`);
+  if (used + need > PERM_MAX_MIN) throw new Error(`مدة هذا الاستئذان (${permHm_(need)}) تتجاوز رصيدك المتبقي هذا الشهر (${permHm_(Math.max(0, PERM_MAX_MIN - used))} من ١٢ ساعة).`);
 }
 function permMail_(me, q, pdf) {
   const toEnd = q.to === "نهاية الدوام";

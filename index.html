@@ -896,6 +896,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <div id="pf-subbox" hidden><label class="f" for="pf-sub">اسم المعلم البديل</label><input type="text" id="pf-sub" maxlength="80"></div>
           <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="pf-send">إرسال الطلب إلى رئيس الشعبة</button><button class="btn ghost" type="button" id="pf-pdf">تنزيل PDF فقط (بدون إرسال)</button></div>
           <div class="sub" style="margin-top:6px">«تنزيل PDF فقط» يعطيك النموذج معبّأً لتطبعه، ولا يُرسَل لرئيس الشعبة ولا يُسجَّل في الموقع.</div>
+          <div class="sub" id="pf-quota" style="margin:6px 0"></div>
           <div class="saved" id="pf-msg"></div>
         </form>
       </section>
@@ -2566,6 +2567,7 @@ function renderMySwaps() {
 async function loadPerms(force) {
   if (PRM && !force) return PRM;
   try { PRM = await run("listPermissions", CODE); } catch (e) { ["prm-mine-msg", "prm-req-msg", "prm-lmsg"].forEach(id => $(id).textContent = cleanErr(e)); PRM = PRM || []; }
+  pfShowQuota();
   $("prmtab-req").textContent = "الطلبات الواردة";
   return PRM;
 }
@@ -2609,8 +2611,22 @@ async function prmForm() {
 }
 const pfToMode = () => { const end = $("pf-toend").checked; $("pf-to").hidden = end; if (end) $("pf-to").value = ""; };
 $("pf-toend").onchange = pfToMode; $("pf-totime").onchange = pfToMode;
-$("pf-date").oninput = () => { const d = isoDay($("pf-date").value); $("pf-day").textContent = d >= 0 ? "(" + DAYS[d] + ")" : ""; };
+$("pf-date").oninput = () => { const d = isoDay($("pf-date").value); $("pf-day").textContent = d >= 0 ? "(" + DAYS[d] + ")" : ""; pfShowQuota(); };
 document.querySelectorAll('input[name="pf-mode"]').forEach(r => r.onchange = () => { $("pf-subbox").hidden = document.querySelector('input[name="pf-mode"]:checked').value !== "بديل"; });
+// رصيد الاستئذان الشهري: ١٢ ساعة بحد أقصى ٤ أذونات؛ «نهاية الدوام» = ١:٥٥ م؛ المرفوض لا يُحتسب
+function pfMins(from, to) { const mn = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : 835; }; return Math.max(0, (to === END_DAY ? 835 : mn(to)) - mn(from)); }
+function pfHm(n) { const h = Math.floor(n / 60), mi = n % 60; return ar(h) + " ساعة" + (mi ? " و" + ar(mi) + " دقيقة" : ""); }
+function pfQuota(date, exceptId) {
+  const ym = String(date || todayISO()).slice(0, 7), mine = (PRM || []).filter(q => q.teacher === ME.name && String(q.date).slice(0, 7) === ym && q.id !== exceptId && q.status !== "مرفوض");
+  return { count: mine.length, used: mine.reduce((a, q) => a + pfMins(q.from, q.to), 0) };
+}
+async function pfShowQuota() {
+  const el = $("pf-quota"); if (!el) return;
+  if (!PRM) { try { PRM = await run("listPermissions", CODE); } catch (e) { return; } }
+  const q = pfQuota($("pf-date").value, PRM_EDIT && PRM_EDIT.id), left = Math.max(0, 720 - q.used);
+  el.innerHTML = `رصيدك هذا الشهر: <b>${pfHm(left)}</b> متبقية من ١٢ ساعة · <b>${ar(Math.max(0, 4 - q.count))}</b> من ٤ أذونات`;
+  el.style.color = left === 0 || q.count >= 4 ? "var(--bad, #b42318)" : "";
+}
 function pfBody() {
   return { job: $("pf-job").value, civil: normNum($("pf-civil").value), dept: $("pf-dept").value,
     type: (document.querySelector('input[name="pf-type"]:checked') || {}).value, reason: $("pf-reason").value, date: $("pf-date").value,
@@ -2634,6 +2650,10 @@ $("prm-form").addEventListener("submit", async e => {
   const a1 = mn(body.from), a2 = body.to === END_DAY ? 1440 : mn(body.to);
   const dup = (PRM || []).find(q => q.teacher === ME.name && q.date === body.date && q.status !== "مرفوض" && (!PRM_EDIT || q.id !== PRM_EDIT.id) &&
     a1 < (q.to === END_DAY ? 1440 : mn(q.to)) && mn(q.from) < a2);
+  // حد الشهر: ١٢ ساعة بحد أقصى ٤ أذونات (الخادم يتحقق أيضًا)
+  const qd = pfQuota(body.date, PRM_EDIT && PRM_EDIT.id), need = Math.max(0, a2 === 1440 ? 835 - a1 : a2 - a1);
+  if (!dup && qd.count >= 4) { m.textContent = "⚠️ استنفدت الحد الأعلى للاستئذان في هذا الشهر (٤ أذونات)."; return; }
+  if (!dup && qd.used + need > 720) { m.textContent = `⚠️ مدة هذا الاستئذان (${pfHm(need)}) تتجاوز رصيدك المتبقي هذا الشهر (${pfHm(Math.max(0, 720 - qd.used))} من ١٢ ساعة).`; return; }
   if (dup) { m.innerHTML = `⚠️ سبق أن قدّمت استئذانًا في هذا اليوم وهذا الوقت (رقم ${ar(dup.serial)}، من ${ar(dup.from)} ${dup.to === END_DAY ? "حتى نهاية الدوام" : "إلى " + ar(dup.to)}، الحالة: ${esc(dup.status || "بانتظار الاعتماد")}). لا يمكن تكرار الاستئذان. <button class="linkbtn" type="button" id="pf-dup-open">عرض الطلب السابق</button>`;
     $("pf-dup-open").onclick = () => openPerm(dup.id); return; }
   $("pf-send").disabled = true; m.textContent = "جارٍ الإرسال…";
