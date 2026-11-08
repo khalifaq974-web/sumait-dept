@@ -891,8 +891,7 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
             <div><label class="f" for="pf-from">اعتبارًا من</label><input type="time" id="pf-from"></div>
             <div><label class="f" for="pf-to">حتى</label><div class="chips"><label class="chip"><input type="radio" name="pf-tomode" id="pf-totime" checked><span>وقت محدد</span></label><label class="chip"><input type="radio" name="pf-tomode" id="pf-toend"><span>حتى نهاية الدوام</span></label></div><input type="time" id="pf-to"></div>
           </div>
-          <div id="pf-arrbox" hidden><label class="f" for="pf-arrive">وقت حضورك اليوم (الدوام المرن ٦:٥٥ – ٧:٤٠)</label><input type="time" id="pf-arrive" min="06:55" max="07:40">
-            <div class="sub" id="pf-arrnote">نهاية دوامك = وقت حضورك + ٦ ساعات و١٠ دقائق.</div></div>
+          <div class="sub" id="pf-dur" style="margin-top:6px"></div>
           <label class="f">الحصص وقت الاستئذان</label>
           <div class="chips"><label class="chip"><input type="radio" name="pf-mode" value="متفرغ" checked><span>المعلم متفرغ</span></label><label class="chip"><input type="radio" name="pf-mode" value="بديل"><span>بديل المعلم</span></label></div>
           <div id="pf-subbox" hidden><label class="f" for="pf-sub">اسم المعلم البديل</label><input type="text" id="pf-sub" maxlength="80"></div>
@@ -2468,8 +2467,8 @@ function minutesOf(t) { const m = String(t || "").match(/^(\d{1,2}):(\d{2})/); r
 function hm(t) { const m = String(t || "").match(/^(\d{1,2}):(\d{2})/); if (!m) return ["", ""]; let h = +m[1] % 12; if (h === 0) h = 12; return [ar(h), ar(m[2])]; }
 const END_DAY = "نهاية الدوام";
 function fmtClock(t) { if (t === END_DAY) return END_DAY; const [h, mi] = hm(t); return h ? `${h}:${mi}` : "—"; }
-function permMin(p) { return p.to === END_DAY ? null : Math.max(0, minutesOf(p.to) - minutesOf(p.from)); }
-function permDur(p) { const m = permMin(p); return m === null ? "حتى نهاية الدوام" : fmtDur(m); }
+function permMin(p) { return pfMins(p.from, p.to); } // «حتى نهاية الدوام» = ١:٥٠ م
+function permDur(p) { return fmtDur(permMin(p)); }
 function fmtDur(min) { const h = Math.floor(min / 60), m = min % 60; return h && m ? `${ar(h)} س ${ar(m)} د` : h ? `${ar(h)} ساعة` : `${ar(m)} دقيقة`; }
 
 function prmTab(which) {
@@ -2575,7 +2574,7 @@ async function loadPerms(force) {
 }
 function permRow(p) {
   return `<button type="button" class="li srep-li" data-prm="${esc(p.id)}"><span><b>${ME.isHead && p.teacher !== ME.name ? "أ. " + esc(p.teacher) + " · " : ""}${fmtDate(p.date, true)}</b> <span class="pill ${PERM_PILL[p.status] || "none"}">${esc(permStatus(p.status))}</span><br>
-    <span class="sub">${esc(p.type)} · من ${fmtClock(p.from)} إلى ${fmtClock(p.to)} · ${esc(p.reason)} · المسلسل ${ar(p.serial)}</span></span><span class="sub">عرض ←</span></button>`;
+    <span class="sub">${esc(p.type)} · من ${fmtClock(p.from)} إلى ${fmtClock(p.to)} · <b>المدة: ${permDur(p)}</b> · ${esc(p.reason)} · المسلسل ${ar(p.serial)}</span></span><span class="sub">عرض ←</span></button>`;
 }
 function renderPerms() {
   const L = PRM || [];
@@ -2595,7 +2594,6 @@ async function startPermEdit(p) {
   PRM_EDIT = p; prmTab("new"); await prmForm();
   const t = document.querySelector(`input[name="pf-type"][value="${p.type}"]`); if (t) t.checked = true;
   $("pf-reason").value = p.reason; $("pf-date").value = p.date; $("pf-date").oninput(); $("pf-from").value = p.from;
-  $("pf-arrive").value = p.arrive || "";
   if (p.to === END_DAY) { $("pf-toend").checked = true; } else { $("pf-totime").checked = true; $("pf-to").value = p.to; } pfToMode();
   const md = document.querySelector(`input[name="pf-mode"][value="${p.mode === "بديل" ? "بديل" : "متفرغ"}"]`); md.checked = true; $("pf-subbox").hidden = p.mode !== "بديل"; $("pf-sub").value = p.substitute || "";
   $("pf-send").textContent = "حفظ التعديل"; $("pf-msg").textContent = `تعديل الطلب رقم ${ar(p.serial)}: عدّل ما تريد ثم احفظ.`;
@@ -2612,17 +2610,19 @@ async function prmForm() {
   $("pf-prof").open = !p.civil;
   $("pf-prof-sum").textContent = p.civil ? "(محفوظة)" : "(أكملها مرة واحدة)";
 }
-const pfToMode = () => { const end = $("pf-toend").checked; $("pf-to").hidden = end; if (end) $("pf-to").value = ""; $("pf-arrbox").hidden = !end; pfArrNote(); };
-function pfArrNote() { const a = pfMin($("pf-arrive").value); $("pf-arrnote").textContent = isNaN(a) ? "نهاية دوامك = وقت حضورك + ٦ ساعات و١٠ دقائق." : "نهاية دوامك اليوم: " + ar(pfClock(a + 370)); }
-$("pf-arrive").oninput = pfArrNote;
+const pfToMode = () => { const end = $("pf-toend").checked; $("pf-to").hidden = end; if (end) $("pf-to").value = ""; pfDurNote(); };
+// مدة الإذن الحالية (حتى نهاية الدوام = ١:٥٠ م)
+function pfDurNote() { const f = $("pf-from").value, t = $("pf-toend").checked ? END_DAY : $("pf-to").value;
+  $("pf-dur").innerHTML = f && t ? `مدة هذا الاستئذان: <b>${pfHm(pfMins(f, t))}</b>` : ""; }
+$("pf-from").addEventListener("input", pfDurNote); $("pf-to").addEventListener("input", pfDurNote);
 $("pf-toend").onchange = pfToMode; $("pf-totime").onchange = pfToMode;
 $("pf-date").oninput = () => { const d = isoDay($("pf-date").value); $("pf-day").textContent = d >= 0 ? "(" + DAYS[d] + ")" : ""; pfShowQuota(); };
 document.querySelectorAll('input[name="pf-mode"]').forEach(r => r.onchange = () => { $("pf-subbox").hidden = document.querySelector('input[name="pf-mode"]:checked').value !== "بديل"; });
-// رصيد الاستئذان الشهري: ١٢ ساعة بحد أقصى ٤ أذونات؛ الدوام المرن: حضور ٦:٥٥–٧:٤٠ ومدة ٦:١٠، و«نهاية الدوام» = الحضور + ٦:١٠؛ المرفوض لا يُحتسب
+// رصيد الاستئذان الشهري: ١٢ ساعة بحد أقصى ٤ أذونات؛ المدة داخل ٦:٥٥–١:٥٠ (الدوام المرن)، و«حتى نهاية الدوام» = ١:٥٠؛ المرفوض لا يُحتسب
 function pfMin(t) { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : NaN; }
 function pfClock(n) { const h = Math.floor(n / 60), m = n % 60; return (h > 12 ? h - 12 : h) + ":" + String(m).padStart(2, "0"); }
 function pfSpan(from, to, arrive) { const c = n => Math.min(830, Math.max(415, n));
-  const end = to === END_DAY ? (isNaN(pfMin(arrive)) ? 830 : pfMin(arrive) + 370) : pfMin(to);
+  const end = to === END_DAY ? 830 : pfMin(to);
   const s = c(isNaN(pfMin(from)) ? 415 : pfMin(from)), e = c(isNaN(end) ? 830 : end); return [s, Math.max(s, e)]; }
 function pfMins(from, to, arrive) { const [s, e] = pfSpan(from, to, arrive); return e - s; }
 function pfHm(n) { const h = Math.floor(n / 60), mi = n % 60, hu = h === 2 ? "ساعتان" : ar(h) + (h >= 3 && h <= 10 ? " ساعات" : " ساعة"), mu = mi === 2 ? "دقيقتان" : ar(mi) + (mi >= 3 && mi <= 10 ? " دقائق" : " دقيقة");
@@ -2642,7 +2642,7 @@ function pfBody() {
   return { job: $("pf-job").value, civil: normNum($("pf-civil").value), dept: $("pf-dept").value,
     type: (document.querySelector('input[name="pf-type"]:checked') || {}).value, reason: $("pf-reason").value, date: $("pf-date").value,
     from: $("pf-from").value, to: $("pf-toend").checked ? END_DAY : $("pf-to").value, mode: document.querySelector('input[name="pf-mode"]:checked').value, substitute: $("pf-sub").value, sig: "",
-    arrive: $("pf-toend").checked ? $("pf-arrive").value : "" };
+    arrive: $("pf-toend").checked ? "07:40" : "" }; // لا يُطلب وقت الحضور (البصمة)؛ «نهاية الدوام» تُحسب حتى ١:٥٠
 }
 // تنزيل النموذج PDF معبّأً دون إرساله أو تسجيله
 $("pf-pdf").onclick = () => {
@@ -2658,7 +2658,6 @@ $("prm-form").addEventListener("submit", async e => {
   if (!body.from || !body.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)، أو اختر «حتى نهاية الدوام»."; return; }
   // منع تكرار الاستئذان في اليوم نفسه والوقت نفسه (يتحقق الخادم أيضًا)
   if (!PRM) { try { PRM = await run("listPermissions", CODE); } catch (e) {} }
-  if (body.to === END_DAY) { const a = pfMin(body.arrive); if (isNaN(a) || a < 415 || a > 460) { m.textContent = "اكتب وقت حضورك اليوم (بين ٦:٥٥ و٧:٤٠) لحساب نهاية دوامك."; $("pf-arrive").focus(); return; } }
   const mn = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : 1440; };
   const [a1, a2] = pfSpan(body.from, body.to, body.arrive);
   const dup = (PRM || []).find(q => { if (q.teacher !== ME.name || q.date !== body.date || q.status === "مرفوض" || (PRM_EDIT && q.id === PRM_EDIT.id)) return false;
@@ -2715,7 +2714,7 @@ async function openPerm(id, note) {
     <dl class="meta-grid" style="margin-top:10px">
       <div><dt>الاسم</dt><dd>أ. ${esc(p.teacher)}</dd></div><div><dt>القسم</dt><dd>${esc(p.dept)}</dd></div>
       <div><dt>الوظيفة</dt><dd>${esc(p.job)}</dd></div><div><dt>الرقم المدني</dt><dd>${ar(p.civil)}</dd></div>
-      <div><dt>اليوم والتاريخ</dt><dd>${fmtDate(p.date, true)}</dd></div><div><dt>المدة</dt><dd>من ${fh}:${fm} ${p.to === END_DAY ? "حتى نهاية الدوام" : `حتى ${th}:${tm} (${permDur(p)})`}</dd></div>
+      <div><dt>اليوم والتاريخ</dt><dd>${fmtDate(p.date, true)}</dd></div><div><dt>المدة</dt><dd>من ${fh}:${fm} ${p.to === END_DAY ? "حتى نهاية الدوام" : `حتى ${th}:${tm}`} (${permDur(p)})</dd></div>
       <div class="wide"><dt>سبب التصريح</dt><dd>${esc(p.reason)}</dd></div>
       <div class="wide"><dt>الحصص</dt><dd>${p.mode === "بديل" ? "بديل المعلم: أ. " + esc(p.substitute) : "المعلم متفرغ"}</dd></div>
     </dl>
@@ -2766,7 +2765,7 @@ function permRange() {
 function permStats(r) {
   const list = (PRM || []).filter(p => p.status !== "مرفوض" && p.date >= r.from && p.date <= r.to && tIn(p.teacher, dF("prm"))).sort((a, b) => a.date.localeCompare(b.date) || a.from.localeCompare(b.from));
   const by = {};
-  list.forEach(p => { const s = by[p.teacher] || (by[p.teacher] = { t: p.teacher, n: 0, min: 0, end: 0 }); s.n++; const m = permMin(p); if (m === null) s.end++; else s.min += m; });
+  list.forEach(p => { const s = by[p.teacher] || (by[p.teacher] = { t: p.teacher, n: 0, min: 0, end: 0 }); s.n++; if (p.to === END_DAY) s.end++; s.min += permMin(p); });
   const order = TEACHERS.map(([t]) => t);
   return { list, sum: Object.values(by).sort((a, b) => order.indexOf(a.t) - order.indexOf(b.t)) };
 }
@@ -2811,7 +2810,7 @@ function buildPermissionDoc(D, p) {
     h.table([[h.cell([h.para("اعتبارًا من:", { size: 26, bold: true, color: NAVY, after: 0 })], { w: 1700 }), h.cell([timeTable(fh, fm)], { w: 2300 }),
       h.cell([h.para("حتى:", { size: 26, bold: true, color: NAVY, align: C, after: 0 })], { w: 1000 }),
       h.cell([p.to === END_DAY ? h.para("■ نهاية الدوام", { size: 26, bold: true, align: C, after: 0 }) : timeTable(th, tm)], { w: 2300 }),
-      h.cell([h.para(p.to === END_DAY ? "" : `(${permDur(p)})`, { size: 24, align: C, after: 0 })], { w: 2700 })]], [1700, 2300, 1000, 2300, 2700], h.noBorders),
+      h.cell([h.para(`(${permDur(p)})`, { size: 24, align: C, after: 0 })], { w: 2700 })]], [1700, 2300, 1000, 2300, 2700], h.noBorders),
     h.para([h.run(`${box(p.mode !== "بديل")}  المعلم متفرغ`, { size: 26, bold: true }), h.run(`          ${box(p.mode === "بديل")}  بديل المعلم: ${p.mode === "بديل" ? "أ. " + p.substitute : "........................................"}`, { size: 26, bold: true })], { before: 120, after: 160 }),
     h.table([[h.cell([h.para("توقيع المعلم", { size: 24, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.teacherSig), h.para("أ. " + p.teacher, { size: 22, align: C, after: 0 })], { w: 3300 }),
       h.cell([h.para("توقيع رئيس الشعبة", { size: 24, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.headSig), h.para(HEAD_SIGN, { size: 22, align: C, after: 0 })], { w: 3400 }),
@@ -3175,7 +3174,7 @@ function pdfPermission(p) {
     P.p(PERM_TYPES.map(t => `${bx(p.type === t)} ${t}`).join("        "), "c b"),
     `<p><b>السيد المحترم / مدير معهد عبدالرحمن السميط الديني الثانوي بنين</b>      بعد التحية،</p>`,
     P.info([["لقد تم التصريح للسيد", "أ. " + p.teacher], ["القسم", p.dept], ["سبب التصريح", p.reason], ["الوظيفة", p.job], ["الرقم المدني", ar(p.civil)], ["بالاستئذان يوم", (DAYS[isoDay(p.date)] || "") + " · الموافق " + fmtDate(p.date)]]),
-    `<table class="plain" style="margin:6px 0"><tr><td class="b" style="color:#1E3A5F;width:12%">اعتبارًا من:</td><td style="width:22%">${tt(fh, fm)}</td><td class="b c" style="color:#1E3A5F;width:8%">حتى:</td><td style="width:22%">${p.to === END_DAY ? "<b>■ نهاية الدوام</b>" : tt(th, tm)}</td><td class="c">${p.to === END_DAY ? "" : "(" + permDur(p) + ")"}</td></tr></table>`,
+    `<table class="plain" style="margin:6px 0"><tr><td class="b" style="color:#1E3A5F;width:12%">اعتبارًا من:</td><td style="width:22%">${tt(fh, fm)}</td><td class="b c" style="color:#1E3A5F;width:8%">حتى:</td><td style="width:22%">${p.to === END_DAY ? "<b>■ نهاية الدوام</b>" : tt(th, tm)}</td><td class="c">(${permDur(p)})</td></tr></table>`,
     `<p class="b">${bx(p.mode !== "بديل")}  المعلم متفرغ          ${bx(p.mode === "بديل")}  بديل المعلم: ${p.mode === "بديل" ? "أ. " + PE(p.substitute) : "........................"}</p>`,
     `<div class="sg" style="grid-template-columns:1fr 1fr 1fr">${sig("توقيع المعلم", "أ. " + p.teacher, p.teacherSig)}${sig("توقيع رئيس الشعبة", HEAD_SIGN, p.headSig)}${sig("توقيع المدير المساعد", "", "")}</div>`,
     `<div class="rule"></div><p class="b">□  تأخر عن الموعد لمدة: ........ ساعة</p><p class="b">□  لم يعد حتى نهاية الدوام.</p>`,
