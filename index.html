@@ -896,9 +896,9 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           <label class="f">الحصص وقت الاستئذان</label>
           <div class="chips"><label class="chip"><input type="radio" name="pf-mode" value="متفرغ" checked><span>المعلم متفرغ</span></label><label class="chip"><input type="radio" name="pf-mode" value="بديل"><span>بديل المعلم</span></label></div>
           <div id="pf-subbox" hidden><label class="f" for="pf-sub">اسم المعلم البديل</label><input type="text" id="pf-sub" maxlength="80"></div>
+          <div class="sub" id="pf-quota" style="margin:12px 0 0;padding:8px 12px;border:1px solid var(--line, #dde3ea);border-radius:10px;line-height:1.9"></div>
           <div class="row-actions" style="margin-top:14px"><button class="btn" type="submit" id="pf-send">إرسال الطلب إلى رئيس الشعبة</button><button class="btn ghost" type="button" id="pf-pdf">تنزيل PDF فقط (بدون إرسال)</button></div>
           <div class="sub" style="margin-top:6px">«تنزيل PDF فقط» يعطيك النموذج معبّأً لتطبعه، ولا يُرسَل لرئيس الشعبة ولا يُسجَّل في الموقع.</div>
-          <div class="sub" id="pf-quota" style="margin:6px 0"></div>
           <div class="saved" id="pf-msg"></div>
         </form>
       </section>
@@ -2635,7 +2635,7 @@ async function pfShowQuota() {
   const el = $("pf-quota"); if (!el) return;
   if (!PRM) { try { PRM = await run("listPermissions", CODE); } catch (e) { return; } }
   const q = pfQuota($("pf-date").value, PRM_EDIT && PRM_EDIT.id), left = Math.max(0, 720 - q.used);
-  el.innerHTML = `رصيدك هذا الشهر: <b>${pfHm(left)}</b> متبقية من ١٢ ساعة · <b>${ar(Math.max(0, 4 - q.count))}</b> من ٤ أذونات`;
+  el.innerHTML = `<b>رصيدك هذا الشهر</b><br>الساعات المتبقية: <b>${pfHm(left)}</b> من ١٢ ساعة<br>الأذونات المتبقية: <b>${ar(Math.max(0, 4 - q.count))}</b> من ٤`;
   el.style.color = left === 0 || q.count >= 4 ? "var(--bad, #b42318)" : "";
 }
 function pfBody() {
