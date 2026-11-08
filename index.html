@@ -2613,8 +2613,9 @@ const pfToMode = () => { const end = $("pf-toend").checked; $("pf-to").hidden = 
 $("pf-toend").onchange = pfToMode; $("pf-totime").onchange = pfToMode;
 $("pf-date").oninput = () => { const d = isoDay($("pf-date").value); $("pf-day").textContent = d >= 0 ? "(" + DAYS[d] + ")" : ""; pfShowQuota(); };
 document.querySelectorAll('input[name="pf-mode"]').forEach(r => r.onchange = () => { $("pf-subbox").hidden = document.querySelector('input[name="pf-mode"]:checked').value !== "بديل"; });
-// رصيد الاستئذان الشهري: ١٢ ساعة بحد أقصى ٤ أذونات؛ «نهاية الدوام» = ١:٥٥ م؛ المرفوض لا يُحتسب
-function pfMins(from, to) { const mn = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : 835; }; return Math.max(0, (to === END_DAY ? 835 : mn(to)) - mn(from)); }
+// رصيد الاستئذان الشهري: ١٢ ساعة بحد أقصى ٤ أذونات؛ الدوام الرسمي ٧:٤٠–١:٥٠ (المدة داخله فقط)؛ المرفوض لا يُحتسب
+function pfMins(from, to) { const mn = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : 830; }, c = n => Math.min(830, Math.max(460, n));
+  return Math.max(0, c(to === END_DAY ? 830 : mn(to)) - c(mn(from))); }
 function pfHm(n) { const h = Math.floor(n / 60), mi = n % 60; return ar(h) + " ساعة" + (mi ? " و" + ar(mi) + " دقيقة" : ""); }
 function pfQuota(date, exceptId) {
   const ym = String(date || todayISO()).slice(0, 7), mine = (PRM || []).filter(q => q.teacher === ME.name && String(q.date).slice(0, 7) === ym && q.id !== exceptId && q.status !== "مرفوض");
@@ -2651,7 +2652,7 @@ $("prm-form").addEventListener("submit", async e => {
   const dup = (PRM || []).find(q => q.teacher === ME.name && q.date === body.date && q.status !== "مرفوض" && (!PRM_EDIT || q.id !== PRM_EDIT.id) &&
     a1 < (q.to === END_DAY ? 1440 : mn(q.to)) && mn(q.from) < a2);
   // حد الشهر: ١٢ ساعة بحد أقصى ٤ أذونات (الخادم يتحقق أيضًا)
-  const qd = pfQuota(body.date, PRM_EDIT && PRM_EDIT.id), need = Math.max(0, a2 === 1440 ? 835 - a1 : a2 - a1);
+  const qd = pfQuota(body.date, PRM_EDIT && PRM_EDIT.id), need = pfMins(body.from, body.to);
   if (!dup && qd.count >= 4) { m.textContent = "⚠️ استنفدت الحد الأعلى للاستئذان في هذا الشهر (٤ أذونات)."; return; }
   if (!dup && qd.used + need > 720) { m.textContent = `⚠️ مدة هذا الاستئذان (${pfHm(need)}) تتجاوز رصيدك المتبقي هذا الشهر (${pfHm(Math.max(0, 720 - qd.used))} من ١٢ ساعة).`; return; }
   if (dup) { m.innerHTML = `⚠️ سبق أن قدّمت استئذانًا في هذا اليوم وهذا الوقت (رقم ${ar(dup.serial)}، من ${ar(dup.from)} ${dup.to === END_DAY ? "حتى نهاية الدوام" : "إلى " + ar(dup.to)}، الحالة: ${esc(dup.status || "بانتظار الاعتماد")}). لا يمكن تكرار الاستئذان. <button class="linkbtn" type="button" id="pf-dup-open">عرض الطلب السابق</button>`;

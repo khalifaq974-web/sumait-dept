@@ -1396,11 +1396,12 @@ function permDupCheck_(name, date, from, to, exceptId) {
   if (d) throw new Error(`سبق أن قدّمت استئذانًا في هذا اليوم وهذا الوقت (رقم ${arNum_(d[1])}، من ${arNum_(d[9])} ${d[10] === "نهاية الدوام" ? "حتى نهاية الدوام" : "إلى " + arNum_(d[10])}، الحالة: ${d[15] || PERM_PENDING}). لا يمكن تكرار الاستئذان، ويمكنك تعديل الطلب السابق من «استئذاناتي».`);
 }
 /** حد الاستئذان الشهري لكل معلم (قرار ٨/١١/٢٠٢٦): ١٢ ساعة بحد أقصى ٤ أذونات في الشهر، ويجوز استنفاد الساعات بأقل من ٤.
- *  «نهاية الدوام» = ١:٥٥ م (نهاية الحصة السابعة). الطلبات المرفوضة لا تُحتسب. */
-const PERM_MAX_MONTH = 4, PERM_MAX_MIN = 12 * 60, PERM_DAY_END = 13 * 60 + 55;
+ *  الدوام الرسمي ٧:٤٠ ص – ١:٥٠ م: المدة تُحسب داخله فقط، و«نهاية الدوام» = ١:٥٠ م. الطلبات المرفوضة لا تُحتسب. */
+const PERM_MAX_MONTH = 4, PERM_MAX_MIN = 12 * 60, PERM_DAY_START = 7 * 60 + 40, PERM_DAY_END = 13 * 60 + 50;
 function permMins_(from, to) {
   const m = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : PERM_DAY_END; };
-  return Math.max(0, (to === "نهاية الدوام" ? PERM_DAY_END : m(to)) - m(from));
+  const c = n => Math.min(PERM_DAY_END, Math.max(PERM_DAY_START, n));
+  return Math.max(0, c(to === "نهاية الدوام" ? PERM_DAY_END : m(to)) - c(m(from)));
 }
 function permHm_(n) { const h = Math.floor(n / 60), mi = n % 60; return arNum_(h) + " ساعة" + (mi ? " و" + arNum_(mi) + " دقيقة" : ""); }
 function permQuotaCheck_(name, date, from, to, exceptId) {
