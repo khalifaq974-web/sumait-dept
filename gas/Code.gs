@@ -1397,7 +1397,7 @@ function permDupCheck_(name, date, from, to, exceptId, arrive) {
     const [b1, b2] = permSpan_(r[9], r[10], r[20]); return a1 < b2 && b1 < a2; });
   if (d) throw new Error(`سبق أن قدّمت استئذانًا في هذا اليوم وهذا الوقت (رقم ${arNum_(d[1])}، من ${arNum_(d[9])} ${d[10] === "نهاية الدوام" ? "حتى نهاية الدوام" : "إلى " + arNum_(d[10])}، الحالة: ${d[15] || PERM_PENDING}). لا يمكن تكرار الاستئذان، ويمكنك تعديل الطلب السابق من «استئذاناتي».`);
 }
-/** حد الاستئذان الشهري لكل معلم (قرار ٨/١١/٢٠٢٦): ١٢ ساعة بحد أقصى ٤ أذونات في الشهر، ويجوز استنفاد الساعات بأقل من ٤.
+/** حد الاستئذان الشهري لكل معلم: ٤ أذونات في الشهر فقط (قرار ٩/١١/٢٠٢٦: لا تُحسب الساعات بسبب الدوام المرن).
  *  المدة داخل ٦:٥٥–١:٥٠ (الدوام المرن)، و«حتى نهاية الدوام» = ١:٥٠ (لا يُطلب وقت الحضور؛ البصمة تكفي). المرفوض لا يُحتسب. */
 const PERM_MAX_MONTH = 4, PERM_MAX_MIN = 12 * 60, PERM_DAY_START = 6 * 60 + 55, PERM_DAY_END = 13 * 60 + 50, PERM_WORK = 6 * 60 + 10;
 function permSpan_(from, to, arrive) {
@@ -1414,7 +1414,7 @@ function permQuotaCheck_(name, date, from, to, exceptId, arrive) {
   const ym = String(date).slice(0, 7), mine = permRows_().filter(r => r[2] === name && r[8].slice(0, 7) === ym && r[0] !== exceptId && r[15] !== PERM_NO);
   const used = mine.reduce((a, r) => a + permMins_(r[9], r[10], r[20]), 0), need = permMins_(from, to, arrive);
   if (mine.length >= PERM_MAX_MONTH) throw new Error(`استنفدت الحد الأعلى للاستئذان في هذا الشهر (${arNum_(PERM_MAX_MONTH)} أذونات).`);
-  if (used + need > PERM_MAX_MIN) throw new Error(`مدة هذا الاستئذان (${permHm_(need)}) تتجاوز رصيدك المتبقي هذا الشهر (${permHm_(Math.max(0, PERM_MAX_MIN - used))} من ١٢ ساعة).`);
+  // قرار ٩/١١: لا تُحسب ساعات الاستئذان (الدوام المرن)، العدد فقط
 }
 function permMail_(me, q, pdf) {
   const toEnd = q.to === "نهاية الدوام";
