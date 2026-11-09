@@ -3160,7 +3160,7 @@ function pdfSwapForm(x) {
     <div class="swt"><span>نموذج تبديل حصة</span></div>`,
     row(x.teacher, x.cls, x.period, x.date, x.retPeriod, x.retDate),
     row(x.other, x.retCls, x.retPeriod, x.retDate, x.period, x.date),
-    `<div class="swg"><div>المدير المساعد<br>أ/ عبداللطيف صالح العطوان</div><div>مدير المعهد<br>د/ حامد غازي العتيبي</div></div>`] };
+    `<div class="swg"><div>المدير المساعد<br>&nbsp;</div><div>مدير المعهد<br>د/ حامد غازي العتيبي</div></div>`] };
 }
 function pdfPermission(p) {
   const [fh, fm] = hm(p.from), [th, tm] = hm(p.to), bx = c => c ? "■" : "□";
