@@ -2815,8 +2815,8 @@ function buildPermissionDoc(D, p) {
       h.cell([p.to === END_DAY ? h.para("■ نهاية الدوام", { size: 26, bold: true, align: C, after: 0 }) : timeTable(th, tm)], { w: 2300 }),
       h.cell([h.para(`(${permDur(p)})`, { size: 24, align: C, after: 0 })], { w: 2700 })]], [1700, 2300, 1000, 2300, 2700], h.noBorders),
     h.para([h.run(`${box(p.mode !== "بديل")}  المعلم متفرغ`, { size: 26, bold: true }), h.run(`          ${box(p.mode === "بديل")}  بديل المعلم: ${p.mode === "بديل" ? "أ. " + p.substitute : "........................................"}`, { size: 26, bold: true })], { before: 120, after: 160 }),
-    h.table([[h.cell([h.para("توقيع المعلم", { size: 24, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.teacherSig), h.para("أ. " + p.teacher, { size: 22, align: C, after: 0 })], { w: 3300 }),
-      h.cell([h.para("توقيع رئيس الشعبة", { size: 24, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.headSig), h.para(HEAD_SIGN, { size: 22, align: C, after: 0 })], { w: 3400 }),
+    h.table([[h.cell([h.para("توقيع المعلم", { size: 24, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.teacherSig)], { w: 3300 }),
+      h.cell([h.para("توقيع رئيس الشعبة", { size: 24, bold: true, color: NAVY, align: C, after: 0 }), sigImg(p.headSig)], { w: 3400 }),
       h.cell([h.para("توقيع المدير المساعد", { size: 24, bold: true, color: NAVY, align: C, after: 0 }), h.para("", { after: 0, line: 900 })], { w: 3300 })]], [3300, 3400, 3300], h.noBorders),
     h.para("", { after: 80, line: 120, rule: true }),
     h.para(`□  تأخر عن الموعد لمدة: ........ ساعة`, { size: 26, bold: true, before: 80, after: 80 }),
@@ -3168,7 +3168,7 @@ function pdfSwapForm(x) {
 function pdfPermission(p) {
   const [fh, fm] = hm(p.from), [th, tm] = hm(p.to), bx = c => c ? "■" : "□";
   const tt = (h, m) => `<span class="tbx"><i>ساعة</i>${h || "&nbsp;"}</span><span class="tbx"><i>دقيقة</i>${m || "&nbsp;"}</span>`;
-  const sig = (r, n, img) => `<div><b>${r}</b>${img ? `<img src="${img}">` : `<div class="sp"></div>`}<div class="n" style="font-size:12px">${PE(n)}</div></div>`;
+  const sig = (r, n, img) => `<div><b>${r}</b>${img ? `<img src="${img}">` : `<div class="sp"></div>`}${n ? `<div class="n" style="font-size:12px">${PE(n)}</div>` : ""}</div>`; // بلا أسماء تحت توقيعي المعلم ورئيس الشعبة (طلب ٩/١١)
   // خط أكبر وأوضح لورقة الاستئذان (طلب رئيس الشعبة ٢٩/١٠/٢٠٢٦)
   const css = `<style>.pp .bd{font-size:17.5px;line-height:1.9}.pp table.info td{font-size:17px;padding:7px 10px}.pp table.plain td{font-size:17px;padding:5px 4px}
     .pp .tbx{min-width:72px;font-size:17px}.pp table.plain td{white-space:nowrap}.pp .tbx i{font-size:13px}.pp .sg{font-size:16px}.pp .sg .sp{height:46px}.pp .sg .n{font-size:14.5px!important}</style>`;
@@ -3179,7 +3179,7 @@ function pdfPermission(p) {
     P.info([["لقد تم التصريح للسيد", "أ. " + p.teacher], ["القسم", p.dept], ["سبب التصريح", p.reason], ["الوظيفة", p.job], ["الرقم المدني", ar(p.civil)], ["بالاستئذان يوم", (DAYS[isoDay(p.date)] || "") + " · الموافق " + fmtDate(p.date)]]),
     `<table class="plain" style="margin:6px 0"><tr><td class="b" style="color:#1E3A5F;width:12%">اعتبارًا من:</td><td style="width:22%">${tt(fh, fm)}</td><td class="b c" style="color:#1E3A5F;width:8%">حتى:</td><td style="width:22%">${p.to === END_DAY ? "<b>■ نهاية الدوام</b>" : tt(th, tm)}</td><td class="c">(${permDur(p)})</td></tr></table>`,
     `<p class="b">${bx(p.mode !== "بديل")}  المعلم متفرغ          ${bx(p.mode === "بديل")}  بديل المعلم: ${p.mode === "بديل" ? "أ. " + PE(p.substitute) : "........................"}</p>`,
-    `<div class="sg" style="grid-template-columns:1fr 1fr 1fr">${sig("توقيع المعلم", "أ. " + p.teacher, p.teacherSig)}${sig("توقيع رئيس الشعبة", HEAD_SIGN, p.headSig)}${sig("توقيع المدير المساعد", "", "")}</div>`,
+    `<div class="sg" style="grid-template-columns:1fr 1fr 1fr">${sig("توقيع المعلم", "", p.teacherSig)}${sig("توقيع رئيس الشعبة", "", p.headSig)}${sig("توقيع المدير المساعد", "", "")}</div>`,
     `<div class="rule"></div><p class="b">□  تأخر عن الموعد لمدة: ........ ساعة</p><p class="b">□  لم يعد حتى نهاية الدوام.</p>`,
     `<table class="plain"><tr><td class="b" style="width:22%">تضاف مدة التأخير</td><td class="b" style="width:10%">وقدرها</td><td style="width:24%">${tt("", "")}</td><td class="b">إلى مدد التأخير الشهرية.</td></tr></table>`] };
 }
