@@ -1347,7 +1347,9 @@ function submitPermission(code, p) {
   const date = String(p.date || ""); const day = dayOf_(date); if (day > 4) throw new Error("التاريخ ليس يوم دوام.");
   const tm = t => { const m = String(t || "").match(/^(\d{2}):(\d{2})$/); if (!m) throw new Error("اكتب وقت الاستئذان (من وإلى)."); return +m[1] * 60 + +m[2]; };
   const toEnd = p.to === "نهاية الدوام";
-  tm(p.from);
+  // الوقت داخل الدوام (٦:٥٥ ص – ١:٥٠ م)؛ يمنع اختيار «مساءً» بالخطأ (مثل ٩:٣٥ م بدل ٩:٣٥ ص)
+  const inDay = t => tm(t) >= 6 * 60 + 55 && tm(t) <= 13 * 60 + 50;
+  if (!inDay(p.from) || (!toEnd && !inDay(p.to))) throw new Error("وقت الاستئذان لازم يكون داخل الدوام (من ٦:٥٥ صباحًا إلى ١:٥٠ ظهرًا). تأكد أنك اخترت «ص» لا «م».");
   if (!toEnd && tm(p.to) <= tm(p.from)) throw new Error("وقت النهاية لازم يكون بعد وقت البداية.");
   const arrive = ""; // قرار ٨/١١: لا يُطلب وقت الحضور (البصمة)؛ «حتى نهاية الدوام» تُحسب حتى ١:٥٠
   const mode = p.mode === "بديل" ? "بديل" : "متفرغ";

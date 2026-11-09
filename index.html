@@ -2656,6 +2656,9 @@ $("prm-form").addEventListener("submit", async e => {
   const m = $("pf-msg"), body = pfBody();
   if (!/^\d{12}$/.test(body.civil)) { $("pf-prof").open = true; m.textContent = "الرقم المدني يتكون من ١٢ رقمًا."; $("pf-civil").focus(); return; }
   if (!body.from || !body.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)، أو اختر «حتى نهاية الدوام»."; return; }
+  { const inDay = t => { const x = pfMin(t); return x >= 415 && x <= 830; };
+    if (!inDay(body.from) || (body.to !== END_DAY && !inDay(body.to))) { m.textContent = "⚠️ وقت الاستئذان لازم يكون داخل الدوام (من ٦:٥٥ صباحًا إلى ١:٥٠ ظهرًا). تأكد أنك اخترت «ص» لا «م»."; return; }
+    if (body.to !== END_DAY && pfMin(body.to) <= pfMin(body.from)) { m.textContent = "⚠️ وقت النهاية لازم يكون بعد وقت البداية."; return; } }
   // منع تكرار الاستئذان في اليوم نفسه والوقت نفسه (يتحقق الخادم أيضًا)
   if (!PRM) { try { PRM = await run("listPermissions", CODE); } catch (e) {} }
   const mn = t => { const x = String(t || "").match(/^(\d{2}):(\d{2})$/); return x ? +x[1] * 60 + +x[2] : 1440; };
@@ -2848,7 +2851,7 @@ function loadScript(src) { return new Promise((res, rej) => { const s = document
 function pdfLibs() { if (!PDF_READY) PDF_READY = Promise.all(PDF_LIB_URLS.map(loadScript)).catch(e => { PDF_READY = null; throw e; }); return PDF_READY; }
 
 const PDF_CSS = `
-.pp{width:794px;height:1123px;padding:30px;background:#fff;box-sizing:border-box;font-family:Arial,Tahoma,"Segoe UI",sans-serif;color:#0F1A24;direction:rtl}
+.pp{width:794px;height:1123px;padding:30px;background:#fff;box-sizing:border-box;-webkit-text-size-adjust:none;text-size-adjust:none;font-family:Arial,Tahoma,"Segoe UI",sans-serif;color:#0F1A24;direction:rtl}
 .pp.land{width:1123px;height:794px}
 .pp *{box-sizing:border-box}
 .pp .fr{border:4px double #1E3A5F;height:100%;padding:16px 26px 12px;display:flex;flex-direction:column}
