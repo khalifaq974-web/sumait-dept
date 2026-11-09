@@ -3171,7 +3171,7 @@ function pdfPermission(p) {
   const sig = (r, n, img) => `<div><b>${r}</b>${img ? `<img src="${img}">` : `<div class="sp"></div>`}${n ? `<div class="n" style="font-size:12px">${PE(n)}</div>` : ""}</div>`; // بلا أسماء تحت توقيعي المعلم ورئيس الشعبة (طلب ٩/١١)
   // خط أكبر وأوضح لورقة الاستئذان (طلب رئيس الشعبة ٢٩/١٠/٢٠٢٦)
   const css = `<style>.pp .bd{font-size:17.5px;line-height:1.9}.pp table.info td{font-size:17px;padding:7px 10px}.pp table.plain td{font-size:17px;padding:5px 4px}
-    .pp .tbx{min-width:72px;font-size:17px}.pp table.plain td{white-space:nowrap}.pp .tbx i{font-size:13px}.pp .sg{font-size:16px}.pp .sg .sp{height:46px}.pp .sg .n{font-size:14.5px!important}</style>`;
+    .pp .tbx{min-width:72px;font-size:17px}.pp table.plain td{white-space:nowrap}.pp .tbx i{font-size:13px}.pp .sg{font-size:16px}.pp .sg .sp{height:72px}.pp .sg .n{font-size:14.5px!important}</style>`;
   return { box: "إذن خروج", noDept: true, signs: [["مدير المعهد", PRINCIPAL]], blocks: [css,
     `<table class="plain"><tr><td class="b" style="color:#1E3A5F">المسلسل: ${p.serial ? ar(p.serial) : "........"}</td><td class="c b" style="color:#1E3A5F">إخطار بمدة الاستئذان المصرح بها</td><td class="b" style="color:#1E3A5F;text-align:left">نموذج رقم (٥م)</td></tr></table>`,
     P.p(PERM_TYPES.map(t => `${bx(p.type === t)} ${t}`).join("        "), "c b"),
