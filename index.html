@@ -1141,6 +1141,8 @@ for (const [n, ids] of TEACHERS) DEPT_OF[n] = [...new Set(ids.map(a => a.split("
 
 const AR = "٠١٢٣٤٥٦٧٨٩";
 function ar(n) { return String(n).replace(/\d/g, d => AR[d]); }
+/** أرقام إنجليزية (للإشعارات بطلب رئيس الشعبة) */
+function en(n) { return String(n).replace(/[٠-٩]/g, d => d.charCodeAt(0) - 1632).replace(/[۰-۹]/g, d => d.charCodeAt(0) - 1776); }
 
 // "hd:11-1" ← { dept, grade, num, label: "١١/١" }
 function classInfo(id) {
@@ -3477,8 +3479,8 @@ function renderLamps() {
   if (!ACT || !ME || !ME.isHead) return;
   const n = {}; let total = 0;
   ACT.items.forEach(a => { a.unread = itemUnread(a); if (a.unread) { n[a.sec] = (n[a.sec] || 0) + 1; total++; } });
-  LAMP_SECS.forEach(s => { const el = $("lamp-" + s); if (!el) return; const c = n[s] || 0; el.hidden = !c; el.textContent = c ? ar(c > 99 ? "99+" : c) : ""; $("nav-" + s).title = c ? `${c} تحديث جديد من المعلمين` : ""; });
-  $("bell-n").hidden = !total; $("bell-n").textContent = ar(total > 99 ? "99+" : total);
+  LAMP_SECS.forEach(s => { const el = $("lamp-" + s); if (!el) return; const c = n[s] || 0; el.hidden = !c; el.textContent = c ? en(c > 99 ? "99+" : c) : ""; $("nav-" + s).title = c ? `${c} تحديث جديد من المعلمين` : ""; });
+  $("bell-n").hidden = !total; $("bell-n").textContent = en(total > 99 ? "99+" : total);
   if ($("act-allread")) $("act-allread").hidden = !total;
 }
 async function loadAct(render) {
@@ -3533,7 +3535,7 @@ function renderAct() {
   let h = "", last = "";
   ACT.items.forEach((a, i) => { const day = a.at.slice(0, 10); if (day !== last) { h += `<div class="vis-group">${fmtDate(day, true)}</div>`; last = day; }
     h += `<button type="button" class="act-item${a.unread ? " unread" : ""}" data-i="${i}"><b>أ. ${esc(a.teacher)}${a.demo ? ' <span class="pill none">تجريبي</span>' : ""}</b><span class="when">${actWhen(a.at)}</span><span class="what">${esc(a.text)} <span class="sub">· ${esc(SEC_NAMES_AR[a.sec] || "")} ←</span></span></button>`; });
-  box.innerHTML = h;
+  box.innerHTML = en(h);
   box.querySelectorAll("[data-i]").forEach(b => b.onclick = () => openActItem(ACT.items[+b.dataset.i]));
 }
 $("bell").onclick = async () => {
