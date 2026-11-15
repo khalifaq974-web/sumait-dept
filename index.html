@@ -5071,7 +5071,7 @@ function isCov(c) { return c.status === COV_DONE || c.status === COV_SWAP || !!c
 // تبديل الحصة مع معلم من خارج القسم (طلبه ٣/١١/٢٠٢٦): حصة الغائب تنتقل إلى وقت آخر (c.at)، ويدخلها البديل في ذلك الوقت
 const covP = c => c.at || c.period;
 function covPN(c) { return c.at ? PERIOD_NAMES[c.at] + " (بدل " + PERIOD_NAMES[c.period] + ")" : PERIOD_NAMES[c.period]; }
-function covName(c) { return c.taskSub ? "أ. " + c.taskSub + " (تكليف)" : (c.status === COV_SWAP ? "تبديل: " : "") + "أ. " + c.substitute; }
+function covName(c) { return c.taskSub ? "أ. " + c.taskSub + " (تكليف)" : c.status === COV_SWAP ? "رُحّلت بالتبديل مع أ. " + c.substitute + " (لا تُحسب غيابًا)" : "أ. " + c.substitute; }
 /** ربط الحصص «لم تُغطَّ» في سجل الغياب بتكليف «حصة احتياط» من المهام: نفس اليوم والحصة، ويُرجَّح بالفصل أو «بدل من» */
 function linkManualCovers(R) {
   const man = (R.manual || []).slice(), used = {};
@@ -5351,7 +5351,8 @@ function resStats(r) {
   const d = dF("res");
   const covs = RES.covers.filter(c => c.date >= r.from && c.date <= r.to && covIn(c, d, c.absent)), abs = RES.absences.filter(a => a.date >= r.from && a.date <= r.to && tIn(a.teacher, d));
   return Object.keys(TIMETABLE).filter(t => tIn(t, d)).map(t => {
-    const mine = covs.filter(c => c.absent === t && c.status !== COV_PRESENT);
+    // الحصة المرحّلة بالتبديل لا تُحسب غيابًا؛ يُحسب فقط ما سُجّل غيابًا (دخلها بديل أو لم تُغطَّ) — طلبه ١٥/١١/٢٠٢٦
+    const mine = covs.filter(c => c.absent === t && c.status !== COV_PRESENT && c.status !== COV_SWAP);
     const by = {}; mine.filter(isCov).forEach(c => { const n = c.taskSub || c.substitute; by[n] = (by[n] || 0) + 1; });
     return { t, days: new Set(abs.filter(a => a.teacher === t && a.kind !== ABS_EXCUSE).map(a => a.date)).size, excuses: abs.filter(a => a.teacher === t && a.kind === ABS_EXCUSE).length, lessons: mine.length,
       covered: mine.filter(isCov).length, uncovered: mine.filter(c => c.status === COV_NONE && !c.taskSub).length,
