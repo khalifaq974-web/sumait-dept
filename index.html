@@ -5078,6 +5078,11 @@ function linkManualCovers(R) {
   const digits = x => String(x || "").replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[^0-9/]/g, "");
   const score = (c, m) => (m.forName && m.forName.indexOf(c.absent.split(" ")[0]) !== -1 ? 2 : 0) + (m.cls && c.classId && digits(m.cls).indexOf(c.classId.split(":")[1].replace("-", "/")) !== -1 ? 1 : 0);
   (R.covers || []).forEach(c => { delete c.taskSub; delete c.taskId; });
+  // حصة الغائب التي لها تبديل معتمد في «طلب تبديل حصة» تُرحَّل ولا تُحسب من حصص غيابه (طلبه ١٥/١١/٢٠٢٦)
+  (R.covers || []).filter(c => c.status === COV_NONE).forEach(c => {
+    const x = (R.swaps || []).find(x => x.status === SWP_ACTIVE && ((x.date === c.date && +x.period === +c.period && x.teacher === c.absent) || (x.retDate === c.date && +x.retPeriod === +c.period && x.other === c.absent)));
+    if (x) { c.status = COV_SWAP; c.substitute = x.teacher === c.absent ? x.other : x.teacher; c.moved = true; }
+  });
   (R.covers || []).filter(c => c.status === COV_NONE).forEach(c => {
     const cand = man.filter(m => !used[m.id] && m.date === c.date && m.period === c.period).sort((a, b) => score(c, b) - score(c, a));
     if (cand.length) { used[cand[0].id] = 1; c.taskSub = cand[0].teacher; c.taskId = cand[0].id; }
