@@ -2645,10 +2645,15 @@ function pfBody() {
     arrive: $("pf-toend").checked ? "07:40" : "" }; // لا يُطلب وقت الحضور (البصمة)؛ «نهاية الدوام» تُحسب حتى ١:٥٠
 }
 // تنزيل النموذج PDF معبّأً دون إرساله أو تسجيله
-$("pf-pdf").onclick = () => {
+$("pf-pdf").onclick = async () => {
   const m = $("pf-msg"), b = pfBody();
   if (!b.from || !b.to) { m.textContent = "اكتب وقت الاستئذان (من وإلى)، أو اختر «حتى نهاية الدوام»."; return; }
-  const p = Object.assign({}, b, { serial: "", teacher: ME.name, job: b.job.trim(), dept: b.dept.trim(), reason: b.reason.trim(), substitute: b.substitute.trim(), teacherSig: "", headSig: "" });
+  // المسلسل يُكتب في الورقة حتى لو نُزّلت قبل الإرسال: رقم الطلب القادم لهذا المعلم في شهر التاريخ (طلب ١٨/١١/٢٠٢٦)
+  if (!PRM) { try { PRM = await run("listPermissions", CODE); } catch (e) {} }
+  const ym = String(b.date || "").slice(0, 7), mon = +ym.slice(5, 7);
+  const nx = PRM_EDIT ? PRM_EDIT.serial : ((PRM || []).filter(q => q.teacher === ME.name && String(q.date).slice(0, 7) === ym)
+    .reduce((mx, q) => Math.max(mx, Number(String(q.serial).split("/")[0]) || 0), 0) + 1) + "/" + mon;
+  const p = Object.assign({}, b, { serial: mon ? nx : "", teacher: ME.name, job: b.job.trim(), dept: b.dept.trim(), reason: b.reason.trim(), substitute: b.substitute.trim(), teacherSig: "", headSig: "" });
   deliverPdf(() => pdfPermission(p), `طلب استئذان ${b.date} - ${ME.name}.pdf`, m);
 };
 $("prm-form").addEventListener("submit", async e => {
