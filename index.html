@@ -4736,6 +4736,7 @@ const DEMO_CLASSES = { "تجريبي ١": ["hd:11-1", "qr:12-1"], "تجريبي 
 function dayName(iso) { const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? DAYS[new Date(+m[1], +m[2] - 1, +m[3]).getDay()] : ""; }
 
 let VIS = null, visSub = "new", visTeacherFilter = "";
+const VIS_ALL = "__all__"; // خيار «جميع الزيارات» في سجل الزيارات
 
 function visTab(which) {
   visSub = which;
@@ -4879,9 +4880,9 @@ async function loadVisits(which, force) {
       <div class="seg" role="group" aria-label="القسم">${[["", "الكل"], ["hd", "الحديث الشريف"], ["qr", "القرآن الكريم"]].map(([k, t]) => `<button type="button" data-d="${k}" aria-pressed="${visDept === k}">${t}</button>`).join("")}</div>
       <div class="sub" style="margin-top:6px">مرتبة من الأحوج للزيارة: من لم يُزر، ثم الأقدم زيارة.</div>
       <div class="card vis-pick"><label class="f" for="vis-pick-t">الزيارات حسب المعلم</label>
-        <div class="row-actions"><select id="vis-pick-t"><option value="">— اختر المعلم —</option>${real.filter(n => VIS.some(v => v.teacher === n)).map(n => `<option value="${esc(n)}">أ. ${esc(n)} (${ar(VIS.filter(v => v.teacher === n).length)})</option>`).join("")}</select>
+        <div class="row-actions"><select id="vis-pick-t"><option value="">— اختر المعلم —</option>${realVis.length ? `<option value="${VIS_ALL}">★ جميع الزيارات (${ar(realVis.length)})</option>` : ""}${real.filter(n => VIS.some(v => v.teacher === n)).map(n => `<option value="${esc(n)}">أ. ${esc(n)} (${ar(VIS.filter(v => v.teacher === n).length)})</option>`).join("")}</select>
         <button class="btn sm" type="button" id="vis-pick-go">عرض زياراته</button></div>
-        <div class="sub">تظهر زيارات المعلم كلها، ومنها تطبعها جميعًا في ملف PDF واحد.</div></div>
+        <div class="sub">تظهر زيارات المعلم كلها، ومنها تطبعها جميعًا في ملف PDF واحد. واختر «جميع الزيارات» لعرض زيارات كل المعلمين وطباعتها مرة واحدة.</div></div>
       <div class="row-actions" style="margin-top:8px"><button class="btn ghost sm" type="button" id="vis-logpdf">سجل الزيارات الصفية PDF${visDept ? " (" + dName(visDept) + ")" : ""}</button></div><div class="saved" id="vis-lmsg"></div>
       ${visDept !== "qr" ? group("قسم الحديث الشريف", hd, "hd") : ""}${visDept !== "hd" ? group("قسم القرآن الكريم", qr, "qr") : ""}${!visDept ? group("الحسابات التجريبية", names.filter(n => DEMO_CLASSES[n])) : ""}`;
     box.querySelectorAll(".seg button").forEach(b => b.onclick = () => { visDept = b.dataset.d; loadVisits("log"); });
@@ -4890,6 +4891,18 @@ async function loadVisits(which, force) {
     $("vis-pick-t").onchange = () => $("vis-pick-go").click();
     box.querySelectorAll(".vt-card").forEach(c => c.onclick = () => { visTeacherFilter = c.dataset.t; loadVisits("log"); window.scrollTo({ top: $("sec-vis").offsetTop - 10 }); });
     return;
+  } else if (visTeacherFilter === VIS_ALL) {
+    // جميع الزيارات (طلب ٢٢/١١/٢٠٢٦): كل زيارات المعلمين في قائمة واحدة، وطباعتها كلها في ملف PDF واحد بنفس تقرير كل زيارة
+    const tOrd = n => { const i = TEACHERS.findIndex(t => t[0] === n); return i < 0 ? 999 : i; };
+    const vs = VIS.filter(v => !v.demo && cIn(v.classId, visDept)), tn = new Set(vs.map(v => v.teacher)).size;
+    $("vis-log-head").innerHTML = `<button class="btn ghost sm" type="button" id="vis-back-sum">→ كل المعلمين</button>`;
+    $("vis-back-sum").onclick = () => { visTeacherFilter = ""; loadVisits("log"); };
+    box.innerHTML = `<div class="card vt-head"><div><h2>جميع الزيارات${visDept ? " · قسم " + dName(visDept) : ""}</h2><div class="sub">زيارات كل المعلمين، والطباعة مرتبة حسب المعلم ثم التاريخ.</div></div>
+        <div class="vt-head-stats"><span><b>${ar(vs.length)}</b> ${vs.length === 1 ? "زيارة" : "زيارات"}</span><span><b>${ar(tn)}</b> ${tn === 1 ? "معلم" : "معلمين"}</span></div>
+        <div class="row-actions">${vs.length ? `<button class="btn sm" type="button" id="vis-all-pdf">طباعة جميع الزيارات PDF (${ar(vs.length)})</button>` : ""}</div><div class="saved" id="vis-all-msg"></div></div>
+      ${vs.length ? `<div class="vv-list">${vs.map(visLi).join("")}</div>` : '<div class="empty">لا توجد زيارات مسجلة.</div>'}`;
+    if ($("vis-all-pdf")) $("vis-all-pdf").onclick = () => printTeacherVisits(visDept ? "جميع الزيارات - قسم " + dName(visDept) : "جميع الزيارات", vs, $("vis-all-msg"),
+      (a, b) => tOrd(a.teacher) - tOrd(b.teacher) || (a.date || "").localeCompare(b.date || "") || (+a.number || 0) - (+b.number || 0), true);
   } else {
     const n = visTeacherFilter, vs = VIS.filter(v => v.teacher === n), lv = visLevel(vs);
     const subj = [...new Set(teacherClasses(n).map(c => c.split(":")[0]))].map(d => SUBJECTS[d]).join(" · ");
@@ -4905,20 +4918,20 @@ async function loadVisits(which, force) {
   box.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openVisit(b.dataset.open));
 }
 // كل زيارات معلم في ملف PDF واحد: كل زيارة بتقريرها الكامل في صفحتها، من الأقدم إلى الأحدث
-async function printTeacherVisits(n, vs, msg) {
+async function printTeacherVisits(n, vs, msg, sortFn, isAll) {
   const btn = $("vis-all-pdf"); if (btn) btn.disabled = true;
   try {
     msg.textContent = "جارٍ تجهيز الزيارات…";
-    const list = vs.slice().sort((a, b) => (a.date || "").localeCompare(b.date || "") || (+a.number || 0) - (+b.number || 0));
+    const list = vs.slice().sort(sortFn || ((a, b) => (a.date || "").localeCompare(b.date || "") || (+a.number || 0) - (+b.number || 0)));
     const full = await Promise.all(list.map(v => run("getVisit", CODE, v.id)));
     const blobs = [];
     for (let i = 0; i < full.length; i++) { msg.textContent = `جارٍ إنشاء ملف PDF… (${ar(i + 1)} من ${ar(full.length)})`; blobs.push(await buildPdf(pdfVisit(full[i]))); }
     const { PDFDocument } = window.PDFLib, pdf = await PDFDocument.create();
     for (const b of blobs) { const src = await PDFDocument.load(await b.arrayBuffer()); (await pdf.copyPages(src, src.getPageIndices())).forEach(pg => pdf.addPage(pg)); }
-    pdf.setTitle("زيارات أ. " + n);
+    pdf.setTitle(isAll ? n : "زيارات أ. " + n);
     const out = new Blob([await pdf.save()], { type: "application/pdf" });
     out._pages = blobs.flatMap(b => b._pages || []);
-    await deliver(out, `الزيارات الصفية - أ. ${n}.pdf`, msg);
+    await deliver(out, isAll ? `الزيارات الصفية - ${n}.pdf` : `الزيارات الصفية - أ. ${n}.pdf`, msg);
   } catch (e) { msg.textContent = "لم يتم إنشاء ملف PDF: " + cleanErr(e); }
   finally { if (btn) btn.disabled = false; }
 }
@@ -4942,7 +4955,7 @@ function visLi(v) {
   return `<button class="vv-card" data-open="${v.id}">
     <div class="vv-date"><span>${dayName(v.date) || ""}</span><b>${m ? ar(+m[3]) : ""}</b><span>${m ? ar(+m[2]) + "/" + ar(m[1]) : ""}</span></div>
     <div class="vv-main"><b>الزيارة رقم ${ar(v.number)}${v.visitType ? " · " + esc(v.visitType) : ""}</b>
-      <span class="sub">${ME.isHead && !visTeacherFilter ? "أ. " + esc(v.teacher) + " · " : ""}${classFull(v.classId)}${v.period ? " · الحصة " + ar(v.period) : ""}</span>
+      <span class="sub">${ME.isHead && (!visTeacherFilter || visTeacherFilter === VIS_ALL) ? "أ. " + esc(v.teacher) + " · " : ""}${classFull(v.classId)}${v.period ? " · الحصة " + ar(v.period) : ""}</span>
       ${v.topic ? `<span class="vv-topic">${esc(v.topic)}</span>` : ""}
       <span class="vv-dist">${["ممتاز", "جيد جدًا", "جيد", "ضعيف"].filter(k => cnt[k]).map(k => `<i class="l${VIS_SCORE[k]}">${k} ${ar(cnt[k])}</i>`).join("")}</span></div>
     <div class="vv-side">${lv ? `<span class="pill ${lv[1]}">${lv[0]}</span>` : ""}${pill}</div></button>`;
