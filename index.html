@@ -487,8 +487,10 @@ table.grades tfoot td { font-weight: 700; color: var(--accent); background: var(
           </select>
           <button class="btn ghost" id="refresh-btn">تحديث البيانات</button>
           <button class="btn" id="export-btn">تصدير تقرير وورد</button><button class="btn ghost" id="export-pdf" type="button">تصدير PDF</button>
+          <button class="btn ghost wa-btn" id="curr-wa-btn" type="button">📲 رسالة للقروب: تحديث المنهج</button>
         </div>
         <div class="saved" id="export-msg"></div>
+        <div id="curr-wa" hidden></div>
         <div class="tablebox">
           <table>
             <thead><tr><th>الفصل</th><th>المعلم</th><th>آخر ما أنجزه المعلم</th><th>المقرر هذا الأسبوع</th><th>الحالة</th><th>ملاحظة المعلم</th><th>آخر تحديث</th></tr></thead>
@@ -1917,6 +1919,21 @@ $("refresh-btn").onclick = async () => {
   try { ALL = await run("headData", CODE); renderHead(); $("export-msg").textContent = "تم تحديث البيانات."; }
   catch (e) { $("export-msg").textContent = cleanErr(e); }
   finally { b.disabled = false; }
+};
+// رسالة واتساب للقروب (مثل المحاضر): تطلب من المعلمين تحديث ما قطع من المنهج، وتذكر الفصول المتأخرة أو غير المحدَّثة — طلب ٢٢/١١/٢٠٢٦
+$("curr-wa-btn").onclick = () => {
+  const box = $("curr-wa");
+  if (!box.hidden) { box.hidden = true; return; }
+  const dept = $("filter-subject").value, rows = headRows().filter(r => !isDemoT(r.teacher));
+  const need = rows.filter(r => r.st.kind === "late" || r.st.kind === "none");
+  const who = dept ? "قسم " + SUBJECTS[dept] : "قسمي الحديث الشريف والقرآن الكريم";
+  const lst = need.length ? `\nالفصول التي تحتاج تحديثًا:\n${need.map(r => `- ${r.label} · أ. ${shortName(r.teacher)} (${r.st.text})`).join("\n")}\n` : "";
+  const grp = `السلام عليكم ورحمة الله وبركاته\nالإخوة الأفاضل معلمي ${who}، حفظكم الله\n\nيُرجى من الجميع الدخول على موقع القسم، ركن «ما قطع من المنهج»، وتحديث آخر درس تم إنجازه في كل فصل من فصولكم.\n${lst}\nرابط الركن (يفتحه مباشرة):\n${SITE_LINK}#curr\n\nشاكرين تعاونكم\nرئيس الشعبة\n${HEAD_SIGN}`;
+  const names = [...new Set(rows.map(r => r.teacher))];
+  const mine = n => need.filter(r => r.teacher === n);
+  box.hidden = false;
+  waPanel(box, names, n => waMsg(n, `📚 يرجى تحديث ما قطع من المنهج في فصولك${mine(n).length ? ":\n" + mine(n).map(r => `- ${r.label} (${r.st.text})`).join("\n") : "."}`, "curr"),
+    n => mine(n).length ? `<span class="pill late">${ar(mine(n).length)} ${mine(n).length === 1 ? "فصل يحتاج تحديثًا" : "فصول تحتاج تحديثًا"}</span>` : '<span class="pill ok">محدَّث</span>', grp);
 };
 $("export-pdf").onclick = () => {
   const rows = headRows().filter(r => !filterStatus || r.st.kind === filterStatus), dept = $("filter-subject").value;
