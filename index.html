@@ -2894,7 +2894,7 @@ const PDF_CSS = `
 .pp table.grid td.c{text-align:center}.pp table.grid td.b{font-weight:700}.pp table.grid td.f{background:#EEF3F8;font-weight:700;text-align:center}
 .pp table.grid tr:nth-child(even) td{background-color:#FAFCFD}
 .pp table.grid td.f{background:#EEF3F8}
-.pp table.dense td{padding:1px 5px;font-size:13px}.pp table.vis td{padding:5px 6px;font-size:14px}.pp table.vis th{white-space:nowrap;padding:5px 3px}
+.pp table.dense td{padding:1px 5px;font-size:13px}.pp table.grid.big td{padding:5px 7px;font-size:16.5px}.pp table.grid.big th{font-size:16px;padding:6px 5px}.pp table.info.big td{font-size:16.5px;padding:5px 9px}.pp table.vis td{padding:5px 6px;font-size:14px}.pp table.vis th{white-space:nowrap;padding:5px 3px}
 .pp table.plain td{border:none;padding:2px 4px}
 .pp .late{color:#B4382B;font-weight:700}.pp .ok{color:#2F7D4F;font-weight:700}.pp .ahead{color:#6B4FB5;font-weight:700}.pp .none{color:#7D8892}
 .pp .sg{display:grid;text-align:center;font-size:15px;margin-top:8px}
@@ -3130,12 +3130,12 @@ function pdfReserveReport(r) {
   return { box: ("سجل الغياب والاحتياط " + (r.kind || "")).trim(), signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label + (d ? " · " + dName(d) : ""), "c b"),
     P.h("أولًا: عدّاد الغياب والاحتياط لكل معلم"),
     P.grid(P.th(["المعلم", "أيام الغياب", "أعذار طارئة", "حصص غيابه", "غُطّيت", "لم تُغطَّ", "احتياط أخذه", "من دخل مكانه"]),
-      st.map(s => P.tr(["أ. " + s.t, ...[s.days, s.excuses, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => ({ t: ar(n), c: i === 4 && n > 0 ? "c late" : "c" })), Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—"]))),
+      st.map(s => P.tr(["أ. " + s.t, ...[s.days, s.excuses, s.lessons, s.covered, s.uncovered, s.given].map((n, i) => ({ t: ar(n), c: i === 4 && n > 0 ? "c late" : "c" })), Object.entries(s.by).map(([n, k]) => `${n} (${ar(k)})`).join("، ") || "—"])), "big"),
     P.h("ثانيًا: تفاصيل حصص الاحتياط"),
     det.length ? P.grid(P.th(["التاريخ", "الحصة", "الفصل", "المعلم الغائب", "المعلم البديل"]), det.map(c => c.man
       ? P.tr([fmtDate(c.date, true), { t: covPN(c) || "—", c: "c" }, { t: c.cls || "—", c: "c" }, manFor(c) + " (تكليف احتياط)", "أ. " + c.teacher])
       : P.tr([fmtDate(c.date, true), { t: covPN(c), c: "c" }, { t: classLabel(c.classId), c: "c" }, "أ. " + c.absent + covExc(c),
-      isCov(c) ? covName(c) : { t: "لم تُغطَّ", c: "late" }])), "dense") : P.p("لا توجد حصص احتياط في هذه الفترة.")] };
+      isCov(c) ? covName(c) : { t: "لم تُغطَّ", c: "late" }])), "big") : P.p("لا توجد حصص احتياط في هذه الفترة.")] };
 }
 function pdfClassSheet(r) {
   const ci = classInfo(r.cls);
@@ -5425,13 +5425,13 @@ function resTeacherData(r, t) {
 function pdfResTeacher(r, t) {
   const { s, given, absRows } = resTeacherData(r, t), d = dF("res");
   return { box: ("سجل الغياب والاحتياط " + (r.kind || "")).trim(), signs: [["رئيس الشعبة", HEAD_SIGN], ["مدير المعهد", PRINCIPAL]], blocks: [P.p(r.label + (d ? " · " + dName(d) : ""), "c b"),
-    P.info([["المعلم", "أ. " + t], ["أيام الغياب", ar(s.days)], ["أعذار طارئة", ar(s.excuses)], ["حصص غيابه", ar(s.lessons)], ["غُطّيت / لم تُغطَّ", `${ar(s.covered)} / ${ar(s.uncovered)}`], ["احتياط أخذه", ar(s.given)]], 3),
+    P.info([["المعلم", "أ. " + t], ["أيام الغياب", ar(s.days)], ["أعذار طارئة", ar(s.excuses)], ["حصص غيابه", ar(s.lessons)], ["غُطّيت / لم تُغطَّ", `${ar(s.covered)} / ${ar(s.uncovered)}`], ["احتياط أخذه", ar(s.given)]], 3).replace('class="info"', 'class="info big"'),
     P.h("أولًا: حصص غيابه وأعذاره الطارئة ومن دخل مكانه"),
     absRows.length ? P.grid(P.th(["اليوم والتاريخ", "الحصة", "الفصل", "البديل"]), absRows.map(({ a, c }) => P.tr([fmtDate(a.date, true) + (a.kind === ABS_EXCUSE ? " (عذر طارئ)" : ""), { t: covPN(c) || "—", c: "c" }, { t: classLabel(c.classId), c: "c" },
-      isCov(c) ? covName(c) : { t: c.status, c: c.status === COV_NONE ? "late" : "" }])), "dense") : P.p("لم يغب في هذه الفترة."),
+      isCov(c) ? covName(c) : { t: c.status, c: c.status === COV_NONE ? "late" : "" }])), "big") : P.p("لم يغب في هذه الفترة."),
     P.h("ثانيًا: حصص الاحتياط التي أخذها"),
     given.length ? P.grid(P.th(["اليوم والتاريخ", "الحصة", "الفصل", "بدلًا من"]), given.map(c => P.tr([fmtDate(c.date, true), { t: covPN(c) || "—", c: "c" }, { t: c.man ? (c.cls || "—") : classLabel(c.classId), c: "c" },
-      c.man ? manFor(c) + " (تكليف احتياط)" : "أ. " + c.absent])), "dense") : P.p("لم يأخذ احتياطًا في هذه الفترة.")] };
+      c.man ? manFor(c) + " (تكليف احتياط)" : "أ. " + c.absent])), "big") : P.p("لم يأخذ احتياطًا في هذه الفترة.")] };
 }
 function buildResTeacherDoc(D, r, t) {
   const h = H(D), C = h.C, { s, given, absRows } = resTeacherData(r, t), cs = (x, o = {}) => h.cell(x, Object.assign({ size: 18 }, o));
