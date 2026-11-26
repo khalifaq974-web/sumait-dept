@@ -3011,6 +3011,26 @@ async function buildPdf(spec) {
   const lastFill = lc ? (lc.getBoundingClientRect().bottom - bb.top) / bb.height : 0;
   if (pass < ZOOMS.length && pages.length === 2 && lastFill < 0.45) zoom = ZOOMS[pass]; else break;
   }
+  // لا تبقى التواقيع وحدها في الصفحة الأخيرة (طلب ٢٦/١١/٢٠٢٦): تُنقل معها آخر صفوف الجدول السابق أو آخر فقرة
+  if (pages.length > 1) {
+    const lastBd = pages[pages.length - 1].querySelector(".bd"), prevBd = pages[pages.length - 2].querySelector(".bd");
+    const kids = [...lastBd.children].filter(e => e.tagName !== "STYLE");
+    if (kids.length === 1 && kids[0].classList.contains("sg")) {
+      const sg = kids[0], pl = prevBd.lastElementChild;
+      if (pl && pl.tagName === "TABLE" && pl.tBodies[0] && pl.tBodies[0].rows.length > 2 && ![...pl.tBodies[0].rows].some(r => [...r.cells].some(c => c.rowSpan > 1))) {
+        const t = pl.cloneNode(true); t.tBodies[0].innerHTML = ""; lastBd.insertBefore(t, sg);
+        for (let k = 0; k < 4 && pl.tBodies[0].rows.length > 2; k++) {
+          const r = pl.tBodies[0].rows[pl.tBodies[0].rows.length - 1];
+          t.tBodies[0].insertBefore(r, t.tBodies[0].firstChild);
+          if (over(lastBd)) { pl.tBodies[0].appendChild(r); break; }
+        }
+        if (!t.tBodies[0].rows.length) t.remove();
+      } else if (pl && prevBd.children.length > 1) {
+        lastBd.insertBefore(pl, sg);
+        if (over(lastBd)) prevBd.appendChild(pl);
+      }
+    }
+  }
   try {
     const { PDFDocument } = window.PDFLib, pdf = await PDFDocument.create();
     const shots = [];
