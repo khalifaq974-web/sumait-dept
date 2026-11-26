@@ -2819,7 +2819,7 @@ function buildPermissionDoc(D, p) {
   const h = H(D), C = h.C, R = h.R, NAVY = h.NAVY, box = c => c ? "■" : "□";
   const [fh, fm] = hm(p.from), [th, tm] = hm(p.to);
   const sigImg = (data, label) => data ? new D.Paragraph({ alignment: C, children: [h.img(b64ToBytes(data), 130, 48, "png")] }) : h.para("", { after: 0, line: 700 });
-  const timeTable = (hh, mm) => h.table([[h.th("ساعة", { w: 900 }), h.th("دقيقة", { w: 900 })], [h.cell(hh, { align: C, size: 26, bold: true }), h.cell(mm, { align: C, size: 26, bold: true })]], [900, 900], h.softBorders("C9D6E3"));
+  const timeTable = (hh, mm) => h.table([[h.th("دقيقة", { w: 900 }), h.th("ساعة", { w: 900 })], [h.cell(mm, { align: C, size: 26, bold: true }), h.cell(hh, { align: C, size: 26, bold: true })]], [900, 900], h.softBorders("C9D6E3"));
   const kids = [...h.formHeader("إذن خروج", 10000, false, true),
     h.table([[h.cell([h.para(`المسلسل: ${ar(p.serial)}`, { size: 25, bold: true, color: NAVY, after: 0 })], { w: 3300 }),
       h.cell([h.para("إخطار بمدة الاستئذان المصرح بها", { size: 26, bold: true, color: NAVY, align: C, after: 0 })], { w: 3400 }),
@@ -3210,7 +3210,7 @@ function pdfSwapForm(x) {
 }
 function pdfPermission(p) {
   const [fh, fm] = hm(p.from), [th, tm] = hm(p.to), bx = c => c ? "■" : "□";
-  const tt = (h, m) => `<span class="tbx"><i>ساعة</i>${h || "&nbsp;"}</span><span class="tbx"><i>دقيقة</i>${m || "&nbsp;"}</span>`;
+  const tt = (h, m) => `<span class="tbx"><i>دقيقة</i>${m || "&nbsp;"}</span><span class="tbx"><i>ساعة</i>${h || "&nbsp;"}</span>`; // الدقيقة يمين والساعة يسار مثل الساعة الرقمية (طلب ٢٦/١١/٢٠٢٦)
   const sig = (r, n, img) => `<div><b>${r}</b>${img ? `<img src="${img}">` : `<div class="sp"></div>`}${n ? `<div class="n" style="font-size:12px">${PE(n)}</div>` : ""}</div>`; // بلا أسماء تحت توقيعي المعلم ورئيس الشعبة (طلب ٩/١١)
   // خط أكبر وأوضح لورقة الاستئذان (طلب رئيس الشعبة ٢٩/١٠/٢٠٢٦)
   const css = `<style>.pp .bd{font-size:17.5px;line-height:1.9}.pp table.info td{font-size:17px;padding:7px 10px}.pp table.plain td{font-size:17px;padding:5px 4px}
