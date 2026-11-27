@@ -3038,7 +3038,7 @@ async function buildPdf(spec) {
     const shots = [];
     const W = spec.landscape ? 841.89 : 595.28, Hh = spec.landscape ? 595.28 : 841.89;
     for (const pg of pages) {
-      const url = await window.htmlToImage.toJpeg(pg, { pixelRatio: 2, quality: 0.9, skipFonts: true, backgroundColor: "#ffffff" });
+      const url = await window.htmlToImage.toJpeg(pg, { pixelRatio: 3, quality: 0.95, skipFonts: true, backgroundColor: "#ffffff" }); // دقة أعلى للطباعة على A4 (طلب ٢٧/١١/٢٠٢٦)
       shots.push(url);
       const img = await pdf.embedJpg(url);
       const page = pdf.addPage([W, Hh]); page.drawImage(img, { x: 0, y: 0, width: W, height: Hh });
