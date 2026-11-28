@@ -975,7 +975,7 @@ const LOGO_MARK_B64 = "iVBORw0KGgoAAAANSUhEUgAAANwAAAD0CAMAAADHe7joAAABIFBMVEXc5
 /*CORE*/
 const START = [2026, 8, 13]; // الأحد ١٣ سبتمبر ٢٠٢٦ = بداية الأسبوع الأول في خطة التوجيه (الشهر يبدأ من ٠)
 const WEEKS = 11;
-const WEEK_NAMES = ["", "الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر", "الحادي عشر"];
+const WEEK_NAMES = ["", "الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر", "الحادي عشر", "الثاني عشر", "الثالث عشر", "الرابع عشر", "الخامس عشر", "السادس عشر", "السابع عشر", "الثامن عشر"];
 const SUBJECTS = { hd: "الحديث الشريف", qr: "القرآن الكريم" };
 const GRADE_NAMES = { 9: "التاسع", 10: "العاشر", 11: "الحادي عشر", 12: "الثاني عشر" };
 
@@ -1374,7 +1374,13 @@ function classFull(id) { try { const c = classInfo(id); return `${c.label} · ${
 (function header() {
   const b = $("weekbox").querySelector("b");
   if (WEEK < 1) b.textContent = "لم يبدأ الفصل";
-  else if (WEEK > WEEKS) b.textContent = "انتهت أسابيع الخطة";
+  else if (WEEK > WEEKS) {
+    // بعد أسابيع التدريس: يظهر رقم الأسبوع الفعلي مع «فترة الاختبارات» (طلب ٢٨/١١/٢٠٢٦)
+    const st = new Date(START[0], START[1], START[2]), d = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
+    const w = Math.floor((d - st) / 86400000 / 7) + 1;
+    b.textContent = WEEK_NAMES[w] ? `الأسبوع ${WEEK_NAMES[w]}` : "فترة الاختبارات";
+    const r = document.createElement("span"); r.textContent = WEEK_NAMES[w] ? `${weekRange(w)} · فترة الاختبارات` : ""; b.after(r);
+  }
   else { b.textContent = `الأسبوع ${WEEK_NAMES[WEEK]}`; const r = document.createElement("span"); r.textContent = weekRange(WEEK); b.after(r); }
 })();
 
